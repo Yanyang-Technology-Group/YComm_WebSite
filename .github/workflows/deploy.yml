@@ -46,11 +46,12 @@ jobs:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_SSH_USER: ${{ secrets.SERVER_SSH_USER }}
           SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           echo "$SERVER_SSH_KEY" > /tmp/deploy-key
           chmod 600 /tmp/deploy-key
-          SSH="ssh -i /tmp/deploy-key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30"
+          SSH="ssh -i /tmp/deploy-key -p ${SERVER_PORT:-22} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30"
           docker save ycomm-web:"$VERSION" | gzip | $SSH "$SERVER_SSH_USER@$SERVER_HOST" 'gunzip | docker load'
 
       - name: Run container
@@ -58,6 +59,7 @@ jobs:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_SSH_USER: ${{ secrets.SERVER_SSH_USER }}
           SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_HOST: ${{ secrets.DB_HOST }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
@@ -70,7 +72,7 @@ jobs:
         run: |
           echo "$SERVER_SSH_KEY" > /tmp/deploy-key
           chmod 600 /tmp/deploy-key
-          SSH="ssh -i /tmp/deploy-key -o StrictHostKeyChecking=accept-new"
+          SSH="ssh -i /tmp/deploy-key -p ${SERVER_PORT:-22} -o StrictHostKeyChecking=accept-new"
           DATABASE_URL="postgres://ycomm:${DB_PASSWORD}@${DB_HOST}:5432/ycomm"
           $SSH "$SERVER_SSH_USER@$SERVER_HOST" "docker rm -f ycomm >/dev/null 2>&1 || true; docker run -d --name ycomm --restart unless-stopped --network coolify -p 127.0.0.1:3000:3000 \
             -e NODE_ENV=production \
@@ -90,10 +92,11 @@ jobs:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_SSH_USER: ${{ secrets.SERVER_SSH_USER }}
           SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
         run: |
           echo "$SERVER_SSH_KEY" > /tmp/deploy-key
           chmod 600 /tmp/deploy-key
-          SSH="ssh -i /tmp/deploy-key -o StrictHostKeyChecking=accept-new"
+          SSH="ssh -i /tmp/deploy-key -p ${SERVER_PORT:-22} -o StrictHostKeyChecking=accept-new"
           timeout 300 bash -c 'for i in $(seq 1 60); do
             state=$($SSH "$SERVER_SSH_USER@$SERVER_HOST" "docker inspect --format '{{.State.Health.Status}}' ycomm 2>/dev/null || echo starting")
             echo "[$i] health=$state"
