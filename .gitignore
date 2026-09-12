@@ -39,3 +39,5 @@ Thumbs.db
 .genkey.mjs
 .verify.mjs
 .redir-app.txt
+.spdx-lic/
+.agpl-full.txt

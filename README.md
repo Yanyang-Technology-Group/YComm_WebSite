@@ -19,10 +19,15 @@
 | P2 | 权限判定链（状态门→策略门→权限点）+ 统一审核队列 + 管理后台 | ✅ |
 | P3 | 论坛：版块 / 主题 / 回帖 / 点赞 / 编辑历史 / 新成员审核 / 搜索 | ✅ |
 | P4 | 下载区：资源状态机 / 外链白名单门禁 / 两级审核 / 举报 / 每日配额 | ✅ |
-| P5 | 开源就绪：README / NOTICE / 备份脚本 / license 门禁 / DCO | ✅* |
+| P5 | 开源就绪：LICENSE(AGPL-3.0 全文) / NOTICE / 备份脚本 / license 门禁 / DCO / 自动发布 | ✅ |
 
-*P5 中唯一待办：把 `LICENSE` 头部换成 AGPL-3.0 全文（见 LICENSE 内 P5 清单，网络可达时从
-https://www.gnu.org/licenses/agpl-3.0.txt 粘贴即可）。
+## 自动化流水线（GitHub Actions）
+
+- **Release**：push 到 master 自动跑 构建→测试→许可门禁 → 构建 GHCR 镜像 → 打
+  `vYYYY.MM.DD.<提交数>` 标签 → 发布 GitHub Release（与 Yanyang_WebSite 同版本格式）。
+- **Deploy to Server**：配置好仓库 Secrets 后，push 自动在 runner 构建镜像并 ssh
+  `docker save|load` 推送到服务器运行（服务器不抓 GitHub/不拉 Docker Hub，
+  规避国内网络两处不稳定）；详见 `docs/CLOUDFLARE.md` 与 CI 文件。
 
 ## 快速开始（生产，Docker + Postgres）
 
