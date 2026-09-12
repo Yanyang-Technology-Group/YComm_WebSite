@@ -38,3 +38,4 @@ Thumbs.db
 .appuuid*.txt
 .genkey.mjs
 .verify.mjs
+.redir-app.txt
