@@ -70,6 +70,35 @@ DNS 侧：这两个子域只要在 Cloudflare 上保持**代理（橙色云）**
 > 403/连接无效时先看请求是否经过了 edge 规则/ingress 兜底；`TRUST_PROXY_HEADERS=true`
 > 已保证限流与封禁取到真实 IP，不受重定向影响。
 
+## 方案 C：全部交给 Coolify 托管（重定向应用 + Traefik）
+
+仓库已内置 `docker/redirect/Dockerfile` + `nginx.conf`，可以直接在 Coolify 里
+建一个「静态应用」作为重定向器：
+
+1. **Coolify → New Resource → Application (Dockerfile)**：
+   - Source：GitHub `Yanyang-Technology-Group/YComm_WebSite`，Branch `master`
+   - Build Pack：`Dockerfile`，Dockerfile location：`/docker/redirect/Dockerfile`
+   - Ports exposes：`80`
+2. **设置域名**（API 不支持该字段，需在界面做）：应用 → **Domains** 填
+   `c.yanyn.cn,comm.yanyn.cn` → Save → Redeploy
+3. **cloudflared ingress**：让这两个 hostname 指向 Coolify 的 Traefik（80 端口，
+   由 Traefik 按 Host 路由到重定向应用）；canonical 仍指向应用端口：
+
+   ```yaml
+   ingress:
+     - hostname: c.yanyn.cn
+       service: http://localhost:80
+     - hostname: comm.yanyn.cn
+       service: http://localhost:80
+     - hostname: community.yanyn.cn
+       service: http://127.0.0.1:3000   # 或 http://localhost:80（全部走 Traefik）
+     - service: http_status:404
+   ```
+
+   好处：重定向逻辑随仓库版本化、由 Coolify 管理重启/回滚，不依赖 Cloudflare 规则。
+   前提：服务器 80 端口对隧道可达（Traefik 监听 80/443）。
+4. 验证与方案 B 相同。
+
 ## 验证
 
 ```bash
