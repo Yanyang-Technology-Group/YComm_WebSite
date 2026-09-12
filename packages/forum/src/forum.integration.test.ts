@@ -191,7 +191,7 @@ describe('posts', () => {
   it('edit keeps a revision and a window; expired edits are refused', async () => {
     const boardId = await seedBoard();
     const author = await seedUser('author', { postCount: 10 });
-    const { topic } = await createTopic(handle.db, {
+    await createTopic(handle.db, {
       boardId,
       authorId: author,
       authorPostCount: 10,
@@ -200,10 +200,8 @@ describe('posts', () => {
       contentMd: 'original',
     });
 
-    const edited = await editPost(handle.db, topic.id, author, 'updated');
-    void edited;
-    // NOTE: the opening post of a topic is a `posts` row (position 1), so it has
-    // an id — but createTopic returns the topic row, not the post. Fetch it.
+    // The opening post of a topic is a `posts` row (position 1). Fetch it — the
+    // topic row itself is NOT a post and cannot be edited.
     const [op] = await handle.db.select().from(schema.posts).where(eq(schema.posts.position, 1));
     if (!op) throw new Error('no op post');
 

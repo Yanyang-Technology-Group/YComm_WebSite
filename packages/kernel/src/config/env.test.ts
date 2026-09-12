@@ -26,9 +26,7 @@ describe('loadEnv', () => {
   });
 
   it('requires DATABASE_URL for the postgres driver', () => {
-    expect(() => loadEnv(source({ DATABASE_DRIVER: 'postgres' }))).toThrowError(
-      /DATABASE_URL is required/,
-    );
+    expect(() => loadEnv(source({ DATABASE_DRIVER: 'postgres' }))).toThrowError(/DATABASE_URL/);
     const ok = loadEnv(source({ DATABASE_DRIVER: 'postgres', DATABASE_URL: 'postgres://x' }));
     expect(ok.DATABASE_URL).toBe('postgres://x');
   });

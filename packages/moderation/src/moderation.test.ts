@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { eq } from 'drizzle-orm';
@@ -32,7 +33,7 @@ describe('unified moderation queue', () => {
       },
     });
 
-    await enqueueForReview(handle.db, { targetType: 'fake_target', targetId: 't1', reason: 'manual' });
+    await enqueueForReview(handle.db, { targetType: 'fake_target', targetId: randomUUID(), reason: 'manual' });
 
     const pending = await listQueued(handle.db, {});
     expect(pending).toHaveLength(1);
@@ -57,7 +58,7 @@ describe('unified moderation queue', () => {
       approve: async () => undefined,
       reject: async () => undefined,
     });
-    await enqueueForReview(handle.db, { targetType: 'fake_target', targetId: 't2', reason: 'new_user_review' });
+    await enqueueForReview(handle.db, { targetType: 'fake_target', targetId: randomUUID(), reason: 'new_user_review' });
     const pending = await listQueued(handle.db, {});
     const item = pending[0];
     if (!item) throw new Error('expected item');
@@ -67,7 +68,7 @@ describe('unified moderation queue', () => {
   });
 
   it('fails loudly when no decider is registered', async () => {
-    await enqueueForReview(handle.db, { targetType: 'no_decider', targetId: 't3', reason: 'manual' });
+    await enqueueForReview(handle.db, { targetType: 'no_decider', targetId: randomUUID(), reason: 'manual' });
     const pending = await listQueued(handle.db, {});
     const item = pending[0];
     if (!item) throw new Error('expected item');

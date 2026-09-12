@@ -1,4 +1,4 @@
-import { and, desc, eq, exists, isNull, like, or, sql } from 'drizzle-orm';
+import { and, desc, eq, exists, ilike, isNull, or, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import { MODERATION } from '@ycomm/config';
@@ -223,7 +223,7 @@ export async function searchTopics(
         eq(schema.topics.status, 'published'),
         isNull(schema.topics.deleted_at),
         or(
-          like(schema.topics.title, likeQuery),
+          ilike(schema.topics.title, likeQuery),
           exists(
             db
               .select({ one: sql`1` })
@@ -232,7 +232,7 @@ export async function searchTopics(
                 and(
                   eq(schema.posts.topic_id, schema.topics.id),
                   eq(schema.posts.position, 1),
-                  like(schema.posts.content_md, likeQuery),
+                  ilike(schema.posts.content_md, likeQuery),
                 ),
               ),
           ),

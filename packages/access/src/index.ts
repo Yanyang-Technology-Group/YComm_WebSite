@@ -78,7 +78,7 @@ async function viewError(
     return errors.loginRequired();
   }
 
-  if (resource.policy.visibility === 'invite') {
+  if (resource.policy.requireInvite) {
     const staffOverride = subject.role === 'admin' || subject.role === 'owner';
     if (!staffOverride) {
       const grants = await db

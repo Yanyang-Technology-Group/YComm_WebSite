@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { eq } from 'drizzle-orm';
@@ -18,9 +18,15 @@ import {
 } from './index';
 
 let handle: DatabaseHandle;
+/** 真实成员用户（download_logs.user_id / download_reports.reporter_id 外键需要）。 */
+let memberId = '';
+
+beforeEach(async () => {
+  memberId = await seedUser('fetch-member', 'member');
+});
 
 function subject(overrides: Partial<AccessSubject> = {}): AccessSubject {
-  return { id: 'member-1', role: 'member', level: 2, state: 'active', mutedUntil: null, banReason: null, ...overrides };
+  return { id: memberId, role: 'member', level: 2, state: 'active', mutedUntil: null, banReason: null, ...overrides };
 }
 
 beforeAll(async () => {
@@ -226,7 +232,7 @@ describe('gated fetch', () => {
     dayStart.setHours(0, 0, 0, 0);
     const rows = Array.from({ length: 50 }, () => ({
       resource_id: resource.id,
-      user_id: 'member-1',
+      user_id: memberId,
       created_at: new Date(dayStart.getTime() + 1000),
     }));
     await handle.db.insert(schema.downloadLogs).values(rows);
@@ -306,7 +312,7 @@ describe('dead-link reports', () => {
     await addLink(handle.db, { resourceId: resource.id, sourceType: 'external', url: 'https://pan.baidu.com/s/z' });
 
     for (let index = 0; index < 3; index++) {
-      await reportDeadLinkByResource(handle.db, { resourceId: resource.id, reporterId: 'member-1' });
+      await reportDeadLinkByResource(handle.db, { resourceId: resource.id, reporterId: memberId });
     }
 
     const links = await handle.db.select().from(schema.downloadLinks).where(eq(schema.downloadLinks.resource_id, resource.id));

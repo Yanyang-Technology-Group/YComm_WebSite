@@ -1,4 +1,5 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createInMemoryDb, schema, type DatabaseHandle } from '@ycomm/db';
@@ -15,10 +16,26 @@ import {
 } from './index';
 
 let handle: DatabaseHandle;
+/** 真实存在的用户（access_grants/user FK 需要），每个用例前创建。 */
+let subjectId = '';
+
+beforeEach(async () => {
+  const [row] = await handle.db
+    .insert(schema.users)
+    .values({
+      username: 'u1',
+      email: 'u1@example.com',
+      password_hash: 'x',
+      state: 'active',
+      display_name: 'u1',
+    })
+    .returning({ id: schema.users.id });
+  subjectId = row?.id ?? '';
+});
 
 function subject(overrides: Partial<AccessSubject> = {}): AccessSubject {
   return {
-    id: 'u1',
+    id: subjectId,
     role: 'member',
     level: 1,
     state: 'active',
@@ -28,10 +45,10 @@ function subject(overrides: Partial<AccessSubject> = {}): AccessSubject {
   };
 }
 
-const PUBLIC_RESOURCE = { type: 'board' as const, id: 'b1', policy: { visibility: 'public' as const, minLevel: 0, requireInvite: false } };
-const LOGIN_RESOURCE = { type: 'board' as const, id: 'b2', policy: { visibility: 'login' as const, minLevel: 0, requireInvite: false } };
-const LEVEL_RESOURCE = { type: 'download_resource' as const, id: 'r1', policy: { visibility: 'login' as const, minLevel: 2, requireInvite: false } };
-const INVITE_RESOURCE = { type: 'download_resource' as const, id: 'r2', policy: { visibility: 'login' as const, minLevel: 0, requireInvite: true } };
+const PUBLIC_RESOURCE = { type: 'board' as const, id: randomUUID(), policy: { visibility: 'public' as const, minLevel: 0, requireInvite: false } };
+const LOGIN_RESOURCE = { type: 'board' as const, id: randomUUID(), policy: { visibility: 'login' as const, minLevel: 0, requireInvite: false } };
+const LEVEL_RESOURCE = { type: 'download_resource' as const, id: randomUUID(), policy: { visibility: 'login' as const, minLevel: 2, requireInvite: false } };
+const INVITE_RESOURCE = { type: 'download_resource' as const, id: randomUUID(), policy: { visibility: 'login' as const, minLevel: 0, requireInvite: true } };
 
 beforeAll(async () => {
   const migrationsFolder = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'db', 'migrations');
@@ -43,15 +60,16 @@ afterEach(async () => {
   for (const table of [schema.accessGrants, schema.users]) {
     await handle.db.delete(table);
   }
+  subjectId = '';
 });
 
 describe('① account state gate', () => {
   it('blocks banned and unverified, allows guests and active users', () => {
     expect(() => assertSubjectCanAct(subject({ state: 'banned', banReason: 'spam' }))).toThrow(
-      errors.accountBanned('spam').messageKey,
+      errors.accountBanned('spam').message,
     );
     expect(() => assertSubjectCanAct(subject({ state: 'unverified' }))).toThrow(
-      errors.accountUnverified().messageKey,
+      errors.accountUnverified().message,
     );
     expect(() => assertSubjectCanAct(null)).not.toThrow();
     expect(() => assertSubjectCanAct(subject())).not.toThrow();
@@ -82,9 +100,9 @@ describe('② resource policy gate', () => {
     });
 
     await grantAccess(handle.db, {
-      userId: 'u1',
+      userId: subjectId,
       resourceType: 'download_resource',
-      resourceId: 'r2',
+      resourceId: INVITE_RESOURCE.id,
       via: 'invite_code',
     });
     await expect(assertCanViewResource(handle.db, subject(), INVITE_RESOURCE)).resolves.toBeUndefined();
@@ -98,12 +116,10 @@ describe('② resource policy gate', () => {
 
 describe('③ permission gate', () => {
   it('members may not delete others’ posts; owners may', () => {
-    expect(() => assertPermission(subject(), PERMISSION.FORUM_POST_DELETE_ANY)).toThrow(
-      errors.forbidden().messageKey,
-    );
+    expect(() => assertPermission(subject(), PERMISSION.FORUM_POST_DELETE_ANY)).toThrow('权限不足');
     expect(() => assertPermission(subject({ role: 'owner' }), PERMISSION.FORUM_POST_DELETE_ANY)).not.toThrow();
     expect(() => assertPermission(null, PERMISSION.FORUM_TOPIC_CREATE)).toThrow(
-      errors.loginRequired().code,
+      errors.loginRequired().message,
     );
   });
 });

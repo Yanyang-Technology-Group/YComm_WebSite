@@ -326,7 +326,7 @@ describe('account gates', () => {
       .returning();
     if (!banned) throw new Error('no user');
     expect(() => assertAccountCanAct(banned as UserRecord)).toThrow(
-      errors.accountBanned(null).messageKey,
+      errors.accountBanned(null).message,
     );
 
     const [unverified] = await handle.db
@@ -341,7 +341,7 @@ describe('account gates', () => {
       .returning();
     if (!unverified) throw new Error('no user');
     expect(() => assertAccountCanAct(unverified as UserRecord)).toThrow(
-      errors.accountUnverified().messageKey,
+      errors.accountUnverified().message,
     );
     expect(() => assertAccountCanAct(unverified as UserRecord, { requireVerified: false })).not.toThrow();
   });

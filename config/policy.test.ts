@@ -10,8 +10,8 @@ describe('computeLevel', () => {
   it('requires all thresholds simultaneously', () => {
     // 5 posts but no likes and too young
     expect(computeLevel({ postCount: 5, likeReceivedCount: 0, accountAgeDays: 3 })).toBe(0);
-    // Likes alone don't count
-    expect(computeLevel({ postCount: 5, likeReceivedCount: 50, accountAgeDays: 3 })).toBe(0);
+    // Likes alone don't count: 50 likes but only 1 post
+    expect(computeLevel({ postCount: 1, likeReceivedCount: 50, accountAgeDays: 3 })).toBe(0);
     // All three met
     expect(computeLevel({ postCount: 5, likeReceivedCount: 1, accountAgeDays: 3 })).toBe(1);
   });
