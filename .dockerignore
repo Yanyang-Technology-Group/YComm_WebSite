@@ -10,7 +10,8 @@ uploads
 *.log
 Dockerfile
 docker-compose.yml
-docker/entrypoint.sh
+# 注意：不要忽略 docker/entrypoint.sh —— 镜像的 ENTRYPOINT 就是它，
+# 排除了会导致容器启动时报 "stat /app/docker/entrypoint.sh: no such file"。
 README.md
 docs
 .env
