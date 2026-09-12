@@ -7,8 +7,13 @@
 #
 # AGPL note: the source tree is intentionally left in the image, which also
 # satisfies the "corresponding source" obligation for network users.
+#
+# Base image comes from a China-reachable Docker Hub mirror (DaoCloud syncs the
+# official library) because many self-hosted CN servers cannot pull
+# docker.io/library/node fast enough. Swap back to node:22-bookworm-slim if
+# your network has direct Hub access.
 
-FROM node:22-bookworm-slim
+FROM docker.m.daocloud.io/library/node:22-bookworm-slim
 
 WORKDIR /app
 
