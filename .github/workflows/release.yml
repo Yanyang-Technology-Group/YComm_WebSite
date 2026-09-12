@@ -1,0 +1,150 @@
+name: Release
+
+# 版本编号格式（与 Yanyang_WebSite 保持一致）：
+#   vYYYY.MM.DD.commits
+# 其中 commits = 发布时点仓库的提交总数（git rev-list --count HEAD）
+# 例如：v2026.09.12.257
+#
+# 触发方式：
+#   1. push 到 main → 自动计算版本号并发布（tag + GHCR 镜像 + GitHub Release）
+#   2. 手动运行（workflow_dispatch）→ 用输入框强制指定版本，不填则自动计算
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '强制版本号（如 v2026.09.12.257），留空则自动计算'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit & integration tests
+        run: npm run test
+
+      - name: AGPL license gate
+        run: npm run licenses
+
+  release:
+    name: Version, image & release
+    needs: verify
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ---- 版本号：vYYYY.MM.DD.commits --------------------------------
+      - name: Resolve version
+        id: resolve
+        env:
+          FORCED_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$FORCED_VERSION" ]; then
+            VERSION="$FORCED_VERSION"
+          else
+            COUNT=$(git rev-list --count HEAD)
+            VERSION="v$(date +%Y.%m.%d).${COUNT}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/ycomm-web:${{ steps.resolve.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/ycomm-web:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ---- 打标签：保证 Release 与镜像版本一致 -------------------------
+      - name: Create git tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          if ! git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag "$VERSION"
+            git push origin "refs/tags/$VERSION"
+            echo "tag $VERSION created"
+          else
+            echo "tag $VERSION already exists, skipping"
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/ycomm-web
+        run: |
+          BODY=$(cat <<'EOF'
+          ## YComm ${{ steps.resolve.outputs.version }}
+
+          版本号：vYYYY.MM.DD.<提交数>（与 Yanyang_WebSite 同格式）。
+
+          ### 镜像（ghcr.io）
+          - `${{ env.IMAGE }}:${{ env.VERSION }}`
+          - `${{ env.IMAGE }}:latest`
+
+          **Coolify 部署**：构建包选 `Docker Registry Image`，
+          镜像地址填 `${{ env.IMAGE }}:${{ env.VERSION }}`，免源码构建直接运行。
+          EOF
+          )
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release edit "$VERSION" --notes "$BODY" --latest
+          else
+            gh release create "$VERSION" --title "YComm $VERSION" --notes "$BODY" --latest
+          fi
