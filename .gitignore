@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+# npm cache is kept inside the repo so installs work under a restricted sandbox
+.npm-cache/
+
+# build output
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# local data (PGlite dev database, uploads)
+.data/
+uploads/
+
+# env & local overrides
+.env
+.env.local
+.env.*.local
+
+# logs & coverage
+*.log
+npm-debug.log*
+coverage/
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

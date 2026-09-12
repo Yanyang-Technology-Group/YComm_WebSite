@@ -1,0 +1,42 @@
+{
+  "name": "ycomm",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "description": "YComm - a self-hosted community platform with forum and download area",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "config",
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @ycomm/web",
+    "build": "npm run build --workspace @ycomm/web",
+    "start": "npm run start --workspace @ycomm/web",
+    "db:generate": "npm run db:generate --workspace @ycomm/db",
+    "db:migrate": "npm run db:migrate --workspace @ycomm/db",
+    "db:seed": "npm run db:seed --workspace @ycomm/db",
+    "owner:create": "npm run owner:create --workspace @ycomm/db",
+    "owner:recover": "npm run owner:recover --workspace @ycomm/db",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "licenses": "node scripts/check-licenses.mjs",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run licenses"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0"
+  }
+}

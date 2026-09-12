@@ -1,0 +1,17 @@
+node_modules
+.next
+.npm-cache
+.data
+.coverage
+coverage
+uploads
+.git
+.github
+*.log
+Dockerfile
+docker-compose.yml
+docker/entrypoint.sh
+README.md
+docs
+.env
+.env.*

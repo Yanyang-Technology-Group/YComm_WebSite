@@ -1,0 +1,134 @@
+/* 全局样式与主题变量。
+ *
+ * 主题通过 <html data-theme="..."> 切换（用户本地选择，仅对自己生效）。
+ * 默认：蔚蓝(azure) | 可选：粉(pink)、清新绿(mint)、浅色(light)、深色(dark)
+ */
+:root,
+[data-theme='azure'] {
+  --bg: #f3f7fc;
+  --surface: #ffffff;
+  --text: #1c2536;
+  --muted: #64748b;
+  --border: #dbe7f5;
+  --accent: #1d6fd1;
+  --accent-soft: #e3f0fd;
+  --header-bg: #123a66;
+  --header-text: #f0f6ff;
+  color-scheme: light;
+}
+
+[data-theme='pink'] {
+  --bg: #fdf4f7;
+  --surface: #ffffff;
+  --text: #3d2330;
+  --muted: #8a6b78;
+  --border: #f4dce6;
+  --accent: #d4558a;
+  --accent-soft: #fdeaf3;
+  --header-bg: #7c2d56;
+  --header-text: #fdf0f6;
+  color-scheme: light;
+}
+
+[data-theme='mint'] {
+  --bg: #f0faf5;
+  --surface: #ffffff;
+  --text: #1c3b30;
+  --muted: #5d8173;
+  --border: #d3ecdf;
+  --accent: #14996b;
+  --accent-soft: #ddf5e9;
+  --header-bg: #0e5c43;
+  --header-text: #eff9f4;
+  color-scheme: light;
+}
+
+[data-theme='light'] {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --text: #1f1f1f;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #2563eb;
+  --accent-soft: #eff4ff;
+  --header-bg: #1f2937;
+  --header-text: #f9fafb;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #10141c;
+  --surface: #161b26;
+  --text: #e5e9f0;
+  --muted: #8b94a5;
+  --border: #262e3d;
+  --accent: #5ea2ef;
+  --accent-soft: #1c2a3d;
+  --header-bg: #0a0e15;
+  --header-text: #eef2f9;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text);
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  border-radius: 8px;
+}
+
+input,
+textarea,
+select {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+button {
+  border: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 深色模式下浏览器自动填表配色修正 */
+[data-theme='dark'] input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--text);
+}

@@ -1,0 +1,20 @@
+YComm
+Copyright (C) 2026 YComm contributors
+Licensed under the GNU Affero General Public License v3.0 or later.
+
+Third-party attributions
+========================
+
+This product includes data and software distributed under their own licenses:
+
+- Data tables from caniuse-lite — CC-BY-4.0
+  (https://github.com/browserslist/caniuse-lite) — attribution: the data is
+  derived from caniuse.com; see the package source for the full terms.
+- Data tables from spdx-exceptions and spdx-ranges — CC-BY-3.0
+  (https://spdx.org) — attribution: SPDX license list data, Copyright
+  Linux Foundation.
+
+All other bundled dependencies are distributed under permissive licenses
+(MIT / ISC / Apache-2.0 / BSD / MPL / LGPL / GPL-3.0 / AGPL-3.0 family);
+the complete list is enforced by `npm run licenses`
+(scripts/check-licenses.mjs) on every CI run.

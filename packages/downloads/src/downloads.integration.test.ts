@@ -1,0 +1,321 @@
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import { eq } from 'drizzle-orm';
+import { createInMemoryDb, schema, type DatabaseHandle } from '@ycomm/db';
+import { hashPassword } from '@ycomm/identity';
+import { errors } from '@ycomm/kernel';
+import type { AccessSubject } from '@ycomm/access';
+import {
+  addLink,
+  authorizedFetch,
+  createResource,
+  getResource,
+  listPublishedResources,
+  registerDownloadDeciders,
+  reportDeadLinkByResource,
+  updateResourceMetadata,
+} from './index';
+
+let handle: DatabaseHandle;
+
+function subject(overrides: Partial<AccessSubject> = {}): AccessSubject {
+  return { id: 'member-1', role: 'member', level: 2, state: 'active', mutedUntil: null, banReason: null, ...overrides };
+}
+
+beforeAll(async () => {
+  const migrationsFolder = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'db', 'migrations');
+  handle = await createInMemoryDb({ migrationsFolder });
+  await handle.runMigrations();
+  registerDownloadDeciders();
+});
+
+afterEach(async () => {
+  for (const table of [
+    schema.downloadReports,
+    schema.downloadLogs,
+    schema.downloadLinks,
+    schema.downloadResources,
+    schema.downloadCategories,
+    schema.moderationItems,
+    schema.users,
+  ]) {
+    await handle.db.delete(table);
+  }
+});
+
+async function seedUser(username: string, role: 'member' | 'admin' | 'owner'): Promise<string> {
+  const [row] = await handle.db
+    .insert(schema.users)
+    .values({
+      username,
+      email: `${username}@example.com`,
+      password_hash: await hashPassword('password-1'),
+      role,
+      state: 'active',
+      display_name: username,
+    })
+    .returning({ id: schema.users.id });
+  if (!row) throw new Error('no user');
+  return row.id;
+}
+
+async function seedCategory(): Promise<string> {
+  const [row] = await handle.db
+    .insert(schema.downloadCategories)
+    .values({ slug: 'tools', name: '工具', access_policy: { visibility: 'login', minLevel: 0, requireInvite: false } })
+    .returning({ id: schema.downloadCategories.id });
+  if (!row) throw new Error('no category');
+  return row.id;
+}
+
+describe('resource state machine', () => {
+  it('admin uploads need review; owner uploads publish directly', async () => {
+    const categoryId = await seedCategory();
+    const admin = await seedUser('admin-a', 'admin');
+    const owner = await seedUser('owner-a', 'owner');
+
+    const adminResource = await createResource(handle.db, {
+      categoryId,
+      authorId: admin,
+      authorRole: 'admin',
+      title: '管理员上传',
+      sourceType: 'external',
+    });
+    expect(adminResource.status).toBe('pending_review');
+
+    const items = await handle.db
+      .select()
+      .from(schema.moderationItems)
+      .where(eq(schema.moderationItems.reason, 'admin_upload_review'));
+    expect(items).toHaveLength(1);
+
+    const ownerResource = await createResource(handle.db, {
+      categoryId,
+      authorId: owner,
+      authorRole: 'owner',
+      title: '站长直发',
+      sourceType: 'external',
+    });
+    expect(ownerResource.status).toBe('published');
+  });
+
+  it('metadata edits do not re-open review; link changes on published admin resources do', async () => {
+    const categoryId = await seedCategory();
+    const admin = await seedUser('admin-a', 'admin');
+    const owner = await seedUser('owner-a', 'owner');
+
+    const published = await createResource(handle.db, {
+      categoryId,
+      authorId: owner,
+      authorRole: 'owner',
+      title: '已发布',
+      sourceType: 'external',
+    });
+    await addLink(handle.db, {
+      resourceId: published.id,
+      sourceType: 'external',
+      url: 'https://pan.baidu.com/s/abc',
+    });
+    // Owner-published stays published when links change (no higher authority).
+    expect((await getResource(handle.db, published.id))?.status).toBe('published');
+
+    // Admin-authored, owner-approved resource goes back to review on link change.
+    const adminResource = await createResource(handle.db, {
+      categoryId,
+      authorId: admin,
+      authorRole: 'admin',
+      title: '管理员资源',
+      sourceType: 'external',
+    });
+    await handle.db
+      .update(schema.downloadResources)
+      .set({ status: 'published', published_at: new Date() })
+      .where(eq(schema.downloadResources.id, adminResource.id));
+
+    const afterMeta = await updateResourceMetadata(handle.db, adminResource.id, { summary: '只改文案' });
+    expect(afterMeta.status).toBe('published');
+
+    await addLink(handle.db, {
+      resourceId: adminResource.id,
+      sourceType: 'external',
+      url: 'https://pan.baidu.com/s/def',
+    });
+    expect((await getResource(handle.db, adminResource.id))?.status).toBe('pending_review');
+  });
+
+  it('external links are host allow-listed', async () => {
+    const categoryId = await seedCategory();
+    const owner = await seedUser('owner-a', 'owner');
+    const resource = await createResource(handle.db, {
+      categoryId,
+      authorId: owner,
+      authorRole: 'owner',
+      title: '外链测试',
+      sourceType: 'external',
+    });
+    await expect(
+      addLink(handle.db, { resourceId: resource.id, sourceType: 'external', url: 'https://evil.example.com/file' }),
+    ).rejects.toMatchObject({ code: errors.validation().code });
+    await expect(
+      addLink(handle.db, { resourceId: resource.id, sourceType: 'external', url: 'https://pan.baidu.com/s/xyz' }),
+    ).resolves.toBeTruthy();
+  });
+});
+
+describe('gated fetch', () => {
+  it('external fetch returns the URL only through the gate and logs a download', async () => {
+    const categoryId = await seedCategory();
+    const owner = await seedUser('owner-a', 'owner');
+    const resource = await createResource(handle.db, {
+      categoryId,
+      authorId: owner,
+      authorRole: 'owner',
+      title: '可下载资源',
+      sourceType: 'external',
+    });
+    await addLink(handle.db, {
+      resourceId: resource.id,
+      sourceType: 'external',
+      url: 'https://pan.baidu.com/s/xyz',
+      extractCode: '1234',
+    });
+
+    const outcome = await authorizedFetch(handle.db, subject(), resource.id, { ip: '203.0.113.9' });
+    expect(outcome).toMatchObject({ kind: 'external', url: 'https://pan.baidu.com/s/xyz', extractCode: '1234' });
+
+    const logs = await handle.db
+      .select()
+      .from(schema.downloadLogs)
+      .where(eq(schema.downloadLogs.resource_id, resource.id));
+    expect(logs).toHaveLength(1);
+
+    const [row] = await handle.db.select().from(schema.downloadResources).where(eq(schema.downloadResources.id, resource.id));
+    expect(row?.download_count).toBe(1);
+  });
+
+  it('refuses unpublished resources with RESOURCE_NOT_PUBLISHED', async () => {
+    const categoryId = await seedCategory();
+    const admin = await seedUser('admin-a', 'admin');
+    const resource = await createResource(handle.db, {
+      categoryId,
+      authorId: admin,
+      authorRole: 'admin',
+      title: '未审核',
+      sourceType: 'external',
+    });
+    await expect(authorizedFetch(handle.db, subject(), resource.id, { ip: '203.0.113.9' })).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_PUBLISHED',
+    });
+  });
+
+  it('enforces the daily quota from the log table', async () => {
+    const categoryId = await seedCategory();
+    const owner = await seedUser('owner-a', 'owner');
+    const resource = await createResource(handle.db, {
+      categoryId,
+      authorId: owner,
+      authorRole: 'owner',
+      title: '限量资源',
+      sourceType: 'external',
+    });
+    await addLink(handle.db, { resourceId: resource.id, sourceType: 'external', url: 'https://pan.baidu.com/s/q' });
+
+    // Drain the daily budget (50) with synthetic log rows.
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const rows = Array.from({ length: 50 }, () => ({
+      resource_id: resource.id,
+      user_id: 'member-1',
+      created_at: new Date(dayStart.getTime() + 1000),
+    }));
+    await handle.db.insert(schema.downloadLogs).values(rows);
+
+    await expect(authorizedFetch(handle.db, subject(), resource.id, { ip: '203.0.113.9' })).rejects.toMatchObject({
+      code: errors.rateLimited().code,
+    });
+  });
+
+  it('published resources are only listed when visible', async () => {
+    const categoryId = await seedCategory();
+    const owner = await seedUser('owner-a', 'owner');
+    await createResource(handle.db, {
+      categoryId,
+      authorId: owner,
+      authorRole: 'owner',
+      title: '列表可见',
+      sourceType: 'external',
+    });
+    const { resources, total } = await listPublishedResources(handle.db, subject(), { categoryId });
+    expect(total).toBe(1);
+    expect(resources[0]?.title).toBe('列表可见');
+  });
+});
+
+describe('guests', () => {
+  it('guests may download PUBLIC resources and are rebuffed elsewhere', async () => {
+    const categoryId = await seedCategory();
+    const owner = await seedUser('owner-a', 'owner');
+
+    const publicResource = await createResource(handle.db, {
+      categoryId,
+      authorId: owner,
+      authorRole: 'owner',
+      title: '公开资源',
+      sourceType: 'external',
+      policy: { visibility: 'public', minLevel: 0, requireInvite: false },
+    });
+    await addLink(handle.db, {
+      resourceId: publicResource.id,
+      sourceType: 'external',
+      url: 'https://pan.baidu.com/s/guest1',
+    });
+
+    const outcome = await authorizedFetch(handle.db, null, publicResource.id, { ip: '203.0.113.7' });
+    expect(outcome.kind).toBe('external');
+  });
+
+  it('guests are blocked from login-required resources', async () => {
+    const categoryId = await seedCategory();
+    const owner = await seedUser('owner-a', 'owner');
+    const privateResource = await createResource(handle.db, {
+      categoryId,
+      authorId: owner,
+      authorRole: 'owner',
+      title: '仅会员',
+      sourceType: 'external',
+    });
+    await addLink(handle.db, { resourceId: privateResource.id, sourceType: 'external', url: 'https://pan.baidu.com/s/pvt' });
+    await expect(authorizedFetch(handle.db, null, privateResource.id, { ip: '203.0.113.7' })).rejects.toMatchObject({
+      code: errors.loginRequired().code,
+    });
+  });
+});
+
+describe('dead-link reports', () => {
+  it('flags a link for review after the threshold', async () => {
+    const categoryId = await seedCategory();
+    const owner = await seedUser('owner-a', 'owner');
+    const resource = await createResource(handle.db, {
+      categoryId,
+      authorId: owner,
+      authorRole: 'owner',
+      title: '失效链接测试',
+      sourceType: 'external',
+    });
+    await addLink(handle.db, { resourceId: resource.id, sourceType: 'external', url: 'https://pan.baidu.com/s/z' });
+
+    for (let index = 0; index < 3; index++) {
+      await reportDeadLinkByResource(handle.db, { resourceId: resource.id, reporterId: 'member-1' });
+    }
+
+    const links = await handle.db.select().from(schema.downloadLinks).where(eq(schema.downloadLinks.resource_id, resource.id));
+    expect(links[0]?.status).toBe('under_review');
+
+    const items = await handle.db
+      .select()
+      .from(schema.moderationItems)
+      .where(eq(schema.moderationItems.reason, 'dead_link_review'));
+    expect(items.length).toBeGreaterThanOrEqual(1);
+  });
+});

@@ -1,0 +1,24 @@
+{
+  "name": "@ycomm/identity",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.2.1",
+    "@ycomm/config": "*",
+    "@ycomm/db": "*",
+    "@ycomm/jobs": "*",
+    "@ycomm/kernel": "*",
+    "@ycomm/notify": "*"
+  }
+}

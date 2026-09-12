@@ -1,0 +1,25 @@
+{
+  "name": "@ycomm/notify",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@ycomm/config": "*",
+    "@ycomm/db": "*",
+    "@ycomm/kernel": "*",
+    "nodemailer": "^10.0.8"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.1"
+  }
+}

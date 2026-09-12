@@ -1,0 +1,16 @@
+# 统一换行符：仓库内一律 LF；文本文件按平台转换，脚本与容器文件保持 LF。
+* text=auto
+
+# 必须在容器/命令行中保持 LF 的文件
+*.sh   text eol=lf
+Dockerfile text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.css  text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.sql  text eol=lf

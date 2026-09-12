@@ -1,0 +1,255 @@
+/**
+ * Machine-readable error codes shared by the API layer and the UI.
+ *
+ * The API responds with `{ ok: false, error: { code, messageKey, meta } }`; the UI
+ * switches on `code` and renders `messageKey`, so these strings are part of the
+ * public contract and must stay stable.
+ */
+export const ErrorCodes = {
+  VALIDATION_FAILED: 'VALIDATION_FAILED',
+  UNAUTHENTICATED: 'UNAUTHENTICATED',
+  FORBIDDEN: 'FORBIDDEN',
+  NOT_FOUND: 'NOT_FOUND',
+  CONFLICT: 'CONFLICT',
+  RATE_LIMITED: 'RATE_LIMITED',
+  PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+  UNSUPPORTED_MEDIA_TYPE: 'UNSUPPORTED_MEDIA_TYPE',
+
+  // account state gate (step 1 of the access decision chain)
+  ACCOUNT_UNVERIFIED: 'ACCOUNT_UNVERIFIED',
+  ACCOUNT_MUTED: 'ACCOUNT_MUTED',
+  ACCOUNT_BANNED: 'ACCOUNT_BANNED',
+
+  // bootstrap & registration gates
+  NOT_INITIALIZED: 'NOT_INITIALIZED',
+  REGISTRATION_CLOSED: 'REGISTRATION_CLOSED',
+
+  // resource policy gate (step 2)
+  ACCESS_LOGIN_REQUIRED: 'ACCESS_LOGIN_REQUIRED',
+  ACCESS_LEVEL_TOO_LOW: 'ACCESS_LEVEL_TOO_LOW',
+  ACCESS_INVITE_REQUIRED: 'ACCESS_INVITE_REQUIRED',
+
+  // resource lifecycle
+  RESOURCE_NOT_PUBLISHED: 'RESOURCE_NOT_PUBLISHED',
+  RESOURCE_LINK_UNAVAILABLE: 'RESOURCE_LINK_UNAVAILABLE',
+
+  INTERNAL: 'INTERNAL',
+} as const;
+
+export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
+
+export interface AppErrorOptions {
+  code: ErrorCode | string;
+  /** HTTP status the API layer should respond with. Defaults to 500. */
+  httpStatus?: number;
+  /** i18n key resolved by the UI. Defaults to the code itself. */
+  messageKey?: string;
+  /** Developer-facing message. Never sent to clients unless `expose` is true. */
+  message?: string;
+  /**
+   * Structured details handed to the client as-is — this is how a policy denial
+   * explains itself, e.g. `{ requiredLevel: 2 }` or `{ requireInvite: true }`.
+   */
+  meta?: Record<string, unknown>;
+  /** Set true only when `message` is safe to display to end users. */
+  expose?: boolean;
+  cause?: unknown;
+}
+
+/**
+ * The single error type used across every layer.
+ *
+ * Anything that is not an `AppError` reaching the API boundary is treated as an
+ * internal failure: logged with a trace id, reported to the client as a bare 500.
+ */
+export class AppError extends Error {
+  readonly code: string;
+  readonly httpStatus: number;
+  readonly messageKey: string;
+  readonly meta: Record<string, unknown>;
+  readonly expose: boolean;
+  override readonly cause: unknown;
+
+  constructor(options: AppErrorOptions) {
+    super(options.message ?? options.code);
+    this.name = 'AppError';
+    this.code = options.code;
+    this.httpStatus = options.httpStatus ?? 500;
+    this.messageKey = options.messageKey ?? options.code;
+    this.meta = options.meta ?? {};
+    this.expose = options.expose ?? false;
+    this.cause = options.cause;
+  }
+
+  /** True for 4xx — these are expected outcomes, not incidents, and are not alerted on. */
+  get isClientError(): boolean {
+    return this.httpStatus >= 400 && this.httpStatus < 500;
+  }
+
+  toJSON(): { code: string; messageKey: string; meta: Record<string, unknown> } {
+    return { code: this.code, messageKey: this.messageKey, meta: this.meta };
+  }
+}
+
+export function isAppError(value: unknown): value is AppError {
+  return value instanceof AppError;
+}
+
+/** Normalize anything thrown into an `AppError` without leaking internals. */
+export function toAppError(value: unknown): AppError {
+  if (isAppError(value)) return value;
+
+  // Zod-style validation errors carry an `issues` array; keep the paths, drop the values.
+  if (typeof value === 'object' && value !== null && 'issues' in value) {
+    const issues = (value as { issues?: readonly { path?: readonly PropertyKey[]; message?: string }[] })
+      .issues;
+    if (Array.isArray(issues)) {
+      return new AppError({
+        code: ErrorCodes.VALIDATION_FAILED,
+        httpStatus: 400,
+        message: 'Request validation failed',
+        meta: {
+          issues: issues.map((issue) => ({
+            path: (issue.path ?? []).map(String).join('.'),
+            message: issue.message ?? 'invalid',
+          })),
+        },
+      });
+    }
+  }
+
+  return new AppError({
+    code: ErrorCodes.INTERNAL,
+    message: value instanceof Error ? value.message : String(value),
+    cause: value,
+  });
+}
+
+/**
+ * Error factories for the common cases. Callers add `meta` where the client needs
+ * to explain the outcome (especially policy denials).
+ */
+export const errors = {
+  validation: (meta?: Record<string, unknown>) =>
+    new AppError({
+      code: ErrorCodes.VALIDATION_FAILED,
+      httpStatus: 400,
+      message: 'Request validation failed',
+      expose: true,
+      ...(meta ? { meta } : {}),
+    }),
+
+  unauthenticated: (message = 'Authentication required') =>
+    new AppError({
+      code: ErrorCodes.UNAUTHENTICATED,
+      httpStatus: 401,
+      message,
+      expose: true,
+    }),
+
+  forbidden: (message = 'Not allowed', meta?: Record<string, unknown>) =>
+    new AppError({
+      code: ErrorCodes.FORBIDDEN,
+      httpStatus: 403,
+      message,
+      expose: true,
+      ...(meta ? { meta } : {}),
+    }),
+
+  notFound: (message = 'Not found') =>
+    new AppError({ code: ErrorCodes.NOT_FOUND, httpStatus: 404, message, expose: true }),
+
+  conflict: (message = 'Conflict', meta?: Record<string, unknown>) =>
+    new AppError({
+      code: ErrorCodes.CONFLICT,
+      httpStatus: 409,
+      message,
+      expose: true,
+      ...(meta ? { meta } : {}),
+    }),
+
+  rateLimited: (meta?: Record<string, unknown>) =>
+    new AppError({
+      code: ErrorCodes.RATE_LIMITED,
+      httpStatus: 429,
+      message: 'Too many requests',
+      expose: true,
+      ...(meta ? { meta } : {}),
+    }),
+
+  // ---- access decision chain ------------------------------------------
+
+  loginRequired: () =>
+    new AppError({
+      code: ErrorCodes.ACCESS_LOGIN_REQUIRED,
+      httpStatus: 401,
+      message: 'Sign in to continue',
+      expose: true,
+    }),
+
+  /** `meta.requiredLevel` lets the UI say "需要 Lv2" instead of a bare 403. */
+  levelTooLow: (requiredLevel: number, currentLevel: number) =>
+    new AppError({
+      code: ErrorCodes.ACCESS_LEVEL_TOO_LOW,
+      httpStatus: 403,
+      message: `Requires level ${requiredLevel} or higher`,
+      expose: true,
+      meta: { requiredLevel, currentLevel },
+    }),
+
+  /** `meta.requireInvite` lets the UI offer the "redeem invite code" flow. */
+  inviteRequired: () =>
+    new AppError({
+      code: ErrorCodes.ACCESS_INVITE_REQUIRED,
+      httpStatus: 403,
+      message: 'An invite code is required for this resource',
+      expose: true,
+      meta: { requireInvite: true },
+    }),
+
+  accountUnverified: () =>
+    new AppError({
+      code: ErrorCodes.ACCOUNT_UNVERIFIED,
+      httpStatus: 403,
+      message: 'Verify your email address first',
+      expose: true,
+    }),
+
+  accountMuted: (until: Date | null) =>
+    new AppError({
+      code: ErrorCodes.ACCOUNT_MUTED,
+      httpStatus: 403,
+      message: 'Your account is muted',
+      expose: true,
+      meta: { until: until ? until.toISOString() : null },
+    }),
+
+  accountBanned: (reason: string | null) =>
+    new AppError({
+      code: ErrorCodes.ACCOUNT_BANNED,
+      httpStatus: 403,
+      message: 'Your account is suspended',
+      expose: true,
+      meta: { reason },
+    }),
+
+  /** The site has no owner yet — run the owner bootstrap CLI first. */
+  siteNotInitialized: () =>
+    new AppError({
+      code: ErrorCodes.NOT_INITIALIZED,
+      httpStatus: 409,
+      message: 'The site has not been initialized yet',
+      expose: true,
+    }),
+
+  registrationClosed: () =>
+    new AppError({
+      code: ErrorCodes.REGISTRATION_CLOSED,
+      httpStatus: 403,
+      message: 'Registration is currently closed',
+      expose: true,
+    }),
+
+  internal: (cause?: unknown, message = 'Internal server error') =>
+    new AppError({ code: ErrorCodes.INTERNAL, message, cause }),
+} as const;

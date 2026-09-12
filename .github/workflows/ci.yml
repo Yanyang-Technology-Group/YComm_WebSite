@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint (incl. import boundaries)
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: AGPL license gate
+        run: npm run licenses
+
+      - name: DCO sign-off check
+        # Every commit must be signed off (Developer Certificate of Origin):
+        #   git commit -s
+        run: |
+          if [ -n "${{ github.event.pull_request.head.sha }}" ]; then
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            RANGE="HEAD~1..HEAD"
+          fi
+          UNSIGNED=$(git log --format='%H %s' "$RANGE" 2>/dev/null | \
+            while read -r sha rest; do
+              if ! git log -1 --format=%B "$sha" | grep -q "Signed-off-by:"; then
+                echo "$sha"
+              fi
+            done)
+          if [ -n "$UNSIGNED" ]; then
+            echo "Commits missing Signed-off-by (run: git commit -s):"
+            echo "$UNSIGNED"
+            exit 1
+          fi
+          echo "DCO OK"

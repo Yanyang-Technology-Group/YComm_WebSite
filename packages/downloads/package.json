@@ -1,0 +1,23 @@
+{
+  "name": "@ycomm/downloads",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@ycomm/access": "*",
+    "@ycomm/config": "*",
+    "@ycomm/db": "*",
+    "@ycomm/kernel": "*",
+    "@ycomm/moderation": "*"
+  }
+}

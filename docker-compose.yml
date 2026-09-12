@@ -1,0 +1,67 @@
+# Production deployment template: app + Postgres on one host.
+#
+#   Copy .env.example to .env, fill at least DB_PASSWORD and SESSION_SECRET, then:
+#     docker compose up -d --build
+#
+# The app binds to 127.0.0.1 only. Expose it to the public internet through a
+# Cloudflare Tunnel (cloudflared) or your reverse proxy of choice — never by
+# opening the port to 0.0.0.0.
+#
+# Cloudflare note: the free tunnel caps request bodies at 100MB, which is why
+# the server keeps local uploads well below that and big files go to external
+# hosts (see config/downloads.ts).
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ycomm
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_DB: ycomm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ycomm -d ycomm']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_DRIVER: postgres
+      DATABASE_URL: postgres://ycomm:${DB_PASSWORD:?}@db:5432/ycomm
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      SITE_NAME: ${SITE_NAME:-YComm}
+      SITE_TAGLINE: ${SITE_TAGLINE:-}
+      SITE_DESCRIPTION: ${SITE_DESCRIPTION:-}
+      SITE_SOURCE_URL: ${SITE_SOURCE_URL:-}
+      SITE_ICP: ${SITE_ICP:-}
+      # Outbound mail (optional). Without it, emails are logged, not sent.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      MAIL_FROM: ${MAIL_FROM:-}
+      # OAuth (optional adapters — hidden in the UI when unset).
+      OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
+      OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/app/uploads
+    ports:
+      - '127.0.0.1:${PORT:-3000}:3000'
+
+volumes:
+  pgdata:
+  uploads:

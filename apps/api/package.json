@@ -1,0 +1,29 @@
+{
+  "name": "@ycomm/api",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@ycomm/access": "*",
+    "@ycomm/audit": "*",
+    "@ycomm/config": "*",
+    "@ycomm/db": "*",
+    "@ycomm/downloads": "*",
+    "@ycomm/forum": "*",
+    "@ycomm/identity": "*",
+    "@ycomm/kernel": "*",
+    "@ycomm/moderation": "*",
+    "hono": "^4.13.7",
+    "zod": "^4.0.0"
+  }
+}
