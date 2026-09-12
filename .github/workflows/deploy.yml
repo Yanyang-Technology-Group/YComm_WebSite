@@ -78,6 +78,14 @@ jobs:
             echo "::error::SERVER_SSH_KEY 无法被 OpenSSH 解析：不是 BEGIN OPENSSH PRIVATE KEY 格式（若是 Node 生成的 PKCS#8 需先转换）"
             exit 3
           }
+          KEYFP=$(ssh-keygen -lf /tmp/deploy-key | awk '{print $2}')
+          echo "::notice::deploy key fingerprint: $KEYFP"
+          # 认证预检：先单独验证能登进去，失败时把指纹/端口/用户写进注解，便于定位
+          if ! ssh -i /tmp/deploy-key -p ${SERVER_PORT:-22} -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 \
+            "$SERVER_SSH_USER@$SERVER_HOST" 'echo AUTH_OK'; then
+            echo "::error::SSH 认证失败 — 端口 ${SERVER_PORT:-22} / 用户 $SERVER_SSH_USER / 指纹 $KEYFP（检查服务器 authorized_keys 是否含该公钥、防火墙是否放行 runner IP）"
+            exit 4
+          fi
           SSH="ssh -i /tmp/deploy-key -p ${SERVER_PORT:-22} -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30"
           docker save ycomm-web:"$VERSION" | gzip | $SSH "$SERVER_SSH_USER@$SERVER_HOST" 'gunzip | docker load'
 
