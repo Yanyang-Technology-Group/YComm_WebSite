@@ -167,6 +167,134 @@ export interface AdminResource {
 }
 
 /** 违禁词管理：管理员维护，含违禁词的内容在发布时被拦截。 */
+export interface InviteCodeItem {
+  id: string;
+  name: string | null;
+  code: string;
+  usedCount: number;
+  maxUses: number | null;
+  createdAt: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+}
+
+/** 注册码管理：管理员创建（名称 + 注册码 ≤10 位）、查看列表、删除。 */
+export function InviteCodesPanel() {
+  const router = useRouter();
+  const [items, setItems] = useState<InviteCodeItem[]>([]);
+  const [name, setName] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState<string | false>(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = await apiFetch<{ inviteCodes: InviteCodeItem[] }>('/api/admin/invites');
+        setItems(data.inviteCodes);
+      } catch {
+        setItems([]);
+      }
+    })();
+  }, []);
+
+  async function create() {
+    setBusy('create');
+    setMessage(null);
+    try {
+      await apiFetch('/api/admin/invites', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, code: code || undefined }),
+      });
+      setMessage(`注册码已创建${code ? '' : '（自动生成）'}`);
+      setName('');
+      setCode('');
+      const data = await apiFetch<{ inviteCodes: InviteCodeItem[] }>('/api/admin/invites');
+      setItems(data.inviteCodes);
+      router.refresh();
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : '创建失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(id: string) {
+    setBusy(id);
+    setMessage(null);
+    try {
+      await apiFetch(`/api/admin/invites/${id}`, { method: 'DELETE' });
+      setItems((previous) => previous.filter((entry) => entry.id !== id));
+      router.refresh();
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : '删除失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={row}>
+      <h3 style={{ margin: 0 }}>注册码</h3>
+      <p style={{ margin: '0.25rem 0', color: 'var(--muted)', fontSize: '0.85rem' }}>
+        注册码 2-10 位（字母/数字/_-），留空自动生成；可用于注册或解锁受限内容。
+      </p>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <input
+          placeholder="名称（如：技术群 2025 年 9 月）"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          maxLength={60}
+          style={{ padding: '0.4rem', flex: '1 1 200px' }}
+        />
+        <input
+          placeholder="注册码（≤10 位，可留空）"
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+          maxLength={10}
+          style={{ padding: '0.4rem', flex: '0 1 160px' }}
+        />
+        <button type="button" onClick={() => void create()} disabled={busy !== false}>
+          {busy === false ? '创建' : '处理中…'}
+        </button>
+      </div>
+      {message && <p style={{ color: message.includes('失败') ? '#dc2626' : 'var(--accent)', margin: '0.4rem 0' }}>{message}</p>}
+      {items.length > 0 && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem', fontSize: '0.9rem' }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>名称</th>
+              <th style={thStyle}>注册码</th>
+              <th style={thStyle}>已用</th>
+              <th style={thStyle}>创建时间</th>
+              <th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((entry) => (
+              <tr key={entry.id}>
+                <td style={tdStyle}>{entry.name ?? '—'}</td>
+                <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{entry.code}</td>
+                <td style={tdStyle}>{entry.usedCount}</td>
+                <td style={tdStyle}>{new Date(entry.createdAt).toLocaleString('zh-CN')}</td>
+                <td style={tdStyle}>
+                  <button type="button" onClick={() => void remove(entry.id)} disabled={busy === entry.id} style={{ color: '#dc2626' }}>
+                    删除
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+const thStyle: React.CSSProperties = { textAlign: 'left', padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border)' };
+const tdStyle: React.CSSProperties = { padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border)' };
+
 export function BannedWordsPanel() {
   const router = useRouter();
   const [value, setValue] = useState('');

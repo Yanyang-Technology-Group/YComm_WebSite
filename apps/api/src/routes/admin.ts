@@ -5,7 +5,10 @@ import { errors } from '@ycomm/kernel';
 import { PERMISSION } from '@ycomm/config';
 import { assertPermission } from '@ycomm/access';
 import {
+  adminCreateInviteCode,
   banUser,
+  deleteInviteCode,
+  listInviteCodes,
   listRuntimeSettings,
   listUsers,
   muteUser,
@@ -37,6 +40,11 @@ const settingSchema = z.object({
 const decideSchema = z.object({
   decision: z.enum(['approve', 'reject']),
   note: z.string().max(500).optional(),
+});
+
+const inviteCreateSchema = z.object({
+  name: z.string().min(1).max(60),
+  code: z.string().max(10).optional(),
 });
 
 const adminUser = (user: UserRecord) => ({
@@ -180,6 +188,32 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       limit: Math.min(Number.parseInt(c.req.query('limit') ?? '50', 10) || 50, 200),
     });
     return c.json({ ok: true, data: { entries } });
+  });
+
+  // ---- 注册码管理（管理员可创建/查看/删除） ---------------------------
+  router.get('/invites', requirePermission(PERMISSION.INVITE_CREATE), async (c) => {
+    const handle = await getDb();
+    const inviteCodes = await listInviteCodes(handle.db);
+    return c.json({ ok: true, data: { inviteCodes } });
+  });
+
+  router.post('/invites', requirePermission(PERMISSION.INVITE_CREATE), async (c) => {
+    const body = await parseBody(c, inviteCreateSchema);
+    const handle = await getDb();
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const row = await adminCreateInviteCode(handle.db, {
+      name: body.name,
+      code: body.code,
+      createdBy: auth.userId,
+    });
+    return c.json({ ok: true, data: { inviteCode: row } }, 201);
+  });
+
+  router.delete('/invites/:inviteId', requirePermission(PERMISSION.INVITE_CREATE), async (c) => {
+    const handle = await getDb();
+    await deleteInviteCode(handle.db, c.req.param('inviteId'));
+    return c.json({ ok: true, data: null });
   });
 
   return router;

@@ -5,11 +5,14 @@ import { eq } from 'drizzle-orm';
 import { createInMemoryDb, schema, type DatabaseHandle } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import {
+  adminCreateInviteCode,
   assertAccountCanAct,
   createInviteCode,
   createSession,
+  deleteInviteCode,
   findSessionByToken,
   hashPassword,
+  listInviteCodes,
   register,
   requestPasswordReset,
   resetPassword,
@@ -267,6 +270,44 @@ describe('password reset', () => {
 
     await expect(resetPassword(handle.db, rawToken, 'another-password-1')).rejects.toMatchObject({
       code: errors.validation().code,
+    });
+  });
+});
+
+describe('admin invite codes', () => {
+  it('creates, lists and deletes invite codes with a 10-character limit', async () => {
+    const ownerId = await seedOwner();
+
+    const created = await adminCreateInviteCode(handle.db, {
+      name: '技术群 9 月码',
+      code: 'TECH0901',
+      createdBy: ownerId,
+    });
+    expect(created.code).toBe('TECH0901');
+    expect(created.name).toBe('技术群 9 月码');
+
+    // 11 位 → 拒绝
+    await expect(
+      adminCreateInviteCode(handle.db, { name: '超长码', code: 'ABCDEFGHIJK', createdBy: ownerId }),
+    ).rejects.toMatchObject({ code: errors.validation().code });
+
+    // 非法字符 → 拒绝
+    await expect(
+      adminCreateInviteCode(handle.db, { name: '非法码', code: '中文码12', createdBy: ownerId }),
+    ).rejects.toMatchObject({ code: errors.validation().code });
+
+    // 自动生成
+    const auto = await adminCreateInviteCode(handle.db, { name: '自动生成', createdBy: ownerId });
+    expect(auto.code.length).toBeLessThanOrEqual(10);
+
+    const all = await listInviteCodes(handle.db);
+    expect(all.length).toBe(2);
+
+    await deleteInviteCode(handle.db, created.id);
+    expect((await listInviteCodes(handle.db)).length).toBe(1);
+
+    await expect(deleteInviteCode(handle.db, created.id)).rejects.toMatchObject({
+      code: errors.notFound().code,
     });
   });
 });

@@ -1,0 +1,102 @@
+name: Deploy to Server
+
+# 部署模型：GitHub Actions 在 runner 上构建镜像（runner 访问 GitHub/Docker Hub 快），
+# 通过 SSH 把镜像 `docker save | docker load` 推送到你服务器的本地 Docker，
+# 然后 `docker run` 启动容器。
+#
+# 服务器不抓 GitHub、不拖 Docker Hub —— 两个对国内网络不稳定的上游全部绕开。
+# Postgres 仍由 Coolify 托管（跑在 docker 网络 `coolify` 上），容器同名加入该网络。
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # 未配置 SERVER_HOST 等 secrets 时跳过，避免报红
+    if: ${{ secrets.SERVER_HOST != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version (vYYYY.MM.DD.commits)
+        id: version
+        run: |
+          COUNT=$(git rev-list --count HEAD)
+          echo "version=v$(date +%Y.%m.%d).${COUNT}" >> "$GITHUB_OUTPUT"
+          echo "version=v$(date +%Y.%m.%d).${COUNT}"
+
+      - name: Build image on the runner
+        run: |
+          docker build -t ycomm-web:${{ steps.version.outputs.version }} .
+
+      - name: Push image to server (docker save | ssh | docker load)
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_SSH_USER: ${{ secrets.SERVER_SSH_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "$SERVER_SSH_KEY" > /tmp/deploy-key
+          chmod 600 /tmp/deploy-key
+          SSH="ssh -i /tmp/deploy-key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30"
+          docker save ycomm-web:"$VERSION" | gzip | $SSH "$SERVER_SSH_USER@$SERVER_HOST" 'gunzip | docker load'
+
+      - name: Run container
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_SSH_USER: ${{ secrets.SERVER_SSH_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          SITE_NAME: ${{ secrets.SITE_NAME }}
+          OWNER_USER: ${{ secrets.YCOMM_OWNER_USERNAME }}
+          OWNER_EMAIL: ${{ secrets.YCOMM_OWNER_EMAIL }}
+          OWNER_PASS: ${{ secrets.YCOMM_OWNER_PASSWORD }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "$SERVER_SSH_KEY" > /tmp/deploy-key
+          chmod 600 /tmp/deploy-key
+          SSH="ssh -i /tmp/deploy-key -o StrictHostKeyChecking=accept-new"
+          DATABASE_URL="postgres://ycomm:${DB_PASSWORD}@${DB_HOST}:5432/ycomm"
+          $SSH "$SERVER_SSH_USER@$SERVER_HOST" "docker rm -f ycomm >/dev/null 2>&1 || true; docker run -d --name ycomm --restart unless-stopped --network coolify -p 127.0.0.1:3000:3000 \
+            -e NODE_ENV=production \
+            -e DATABASE_DRIVER=postgres \
+            -e DATABASE_URL='${DATABASE_URL}' \
+            -e SESSION_SECRET='${SESSION_SECRET}' \
+            -e SITE_URL='${SITE_URL}' \
+            -e SITE_NAME='${SITE_NAME}' \
+            -e TRUST_PROXY_HEADERS=true \
+            -e YCOMM_OWNER_USERNAME='${OWNER_USER}' \
+            -e YCOMM_OWNER_EMAIL='${OWNER_EMAIL}' \
+            -e YCOMM_OWNER_PASSWORD='${OWNER_PASS}' \
+            ycomm-web:${VERSION}"
+
+      - name: Wait for healthy
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_SSH_USER: ${{ secrets.SERVER_SSH_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          echo "$SERVER_SSH_KEY" > /tmp/deploy-key
+          chmod 600 /tmp/deploy-key
+          SSH="ssh -i /tmp/deploy-key -o StrictHostKeyChecking=accept-new"
+          timeout 300 bash -c 'for i in $(seq 1 60); do
+            state=$($SSH "$SERVER_SSH_USER@$SERVER_HOST" "docker inspect --format '{{.State.Health.Status}}' ycomm 2>/dev/null || echo starting")
+            echo "[$i] health=$state"
+            [ "$state" = "healthy" ] && echo "DEPLOY OK (host: http://127.0.0.1:3000 on $SERVER_HOST)" && exit 0
+            sleep 5
+          done; exit 1'

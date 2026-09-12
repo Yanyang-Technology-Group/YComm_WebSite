@@ -30,3 +30,11 @@ coverage/
 .idea/
 .DS_Store
 Thumbs.db
+# ---- 本地机密与临时文件（严禁提交） ----
+.deploy-key*
+.secrets.txt
+.dbpass.txt
+.openapi.json
+.appuuid*.txt
+.genkey.mjs
+.verify.mjs

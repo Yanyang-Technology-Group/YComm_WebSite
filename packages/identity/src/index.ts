@@ -6,10 +6,14 @@
  */
 export { assertAccountCanAct, findUserByEmail, findUserByLogin, hasAnyUser, toPublicUser } from './account';
 export {
-  createInviteCode,
+  adminCreateInviteCode,
   consumeInviteCode,
+  createInviteCode,
+  deleteInviteCode,
   generateInviteCode,
-  type ClaimedInvite,
+  listInviteCodes,
+  type AdminInviteCodeInput,
+  type InviteCodeRow,
   type NewInviteCodeInput,
 } from './invites';
 export { hashPassword, verifyPassword } from './password';

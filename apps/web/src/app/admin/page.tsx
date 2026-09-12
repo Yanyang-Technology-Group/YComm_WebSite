@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { BannedWordsPanel } from '../../components/admin-panels';
+import { BannedWordsPanel, InviteCodesPanel } from '../../components/admin-panels';
 
 export const metadata: Metadata = { title: '管理后台' };
 export const dynamic = 'force-dynamic';
@@ -20,7 +20,8 @@ export default function AdminPage() {
           资源管理（发布上传 / 状态查看）
         </Link>
       </div>
-      <div style={{ marginTop: '1.5rem' }}>
+      <div style={{ marginTop: '1.5rem', display: 'grid', gap: '1rem' }}>
+        <InviteCodesPanel />
         <BannedWordsPanel />
       </div>
       <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '1.5rem' }}>
