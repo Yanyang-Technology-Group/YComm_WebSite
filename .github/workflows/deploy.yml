@@ -6,6 +6,10 @@ name: Deploy to Server
 #
 # 服务器不抓 GitHub、不拖 Docker Hub —— 两个对国内网络不稳定的上游全部绕开。
 # Postgres 仍由 Coolify 托管（跑在 docker 网络 `coolify` 上），容器同名加入该网络。
+#
+# ⚠️ 注意：job 级 `if` 不能引用 secrets 上下文（GitHub 会判定
+# "Invalid workflow file ... Unrecognized named-value: 'secrets'"，整个 run 0 个 job 直接失败）。
+# 因此「未配置 SERVER_HOST 就跳过」的门控放在第一步里做，后续步骤用 step 级 if 串起来。
 
 on:
   push:
@@ -21,16 +25,29 @@ permissions:
 
 jobs:
   deploy:
-    # 未配置 SERVER_HOST 等 secrets 时跳过，避免报红
-    if: ${{ secrets.SERVER_HOST != '' }}
     runs-on: ubuntu-latest
     steps:
+      # 门控：仓库 secrets 没配好时，只跑这一步然后其余步骤全部跳过（不报红）。
+      - name: Check deploy secrets
+        id: gate
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          if [ -z "$SERVER_HOST" ]; then
+            echo "::notice::SERVER_HOST 未配置，跳过部署（其余步骤将全部跳过）"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.gate.outputs.enabled == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Resolve version (vYYYY.MM.DD.commits)
+        if: steps.gate.outputs.enabled == 'true'
         id: version
         run: |
           COUNT=$(git rev-list --count HEAD)
@@ -38,10 +55,12 @@ jobs:
           echo "version=v$(date +%Y.%m.%d).${COUNT}"
 
       - name: Build image on the runner
+        if: steps.gate.outputs.enabled == 'true'
         run: |
           docker build -t ycomm-web:${{ steps.version.outputs.version }} .
 
       - name: Push image to server (docker save | ssh | docker load)
+        if: steps.gate.outputs.enabled == 'true'
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_SSH_USER: ${{ secrets.SERVER_SSH_USER }}
@@ -55,6 +74,7 @@ jobs:
           docker save ycomm-web:"$VERSION" | gzip | $SSH "$SERVER_SSH_USER@$SERVER_HOST" 'gunzip | docker load'
 
       - name: Run container
+        if: steps.gate.outputs.enabled == 'true'
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_SSH_USER: ${{ secrets.SERVER_SSH_USER }}
@@ -88,6 +108,7 @@ jobs:
             ycomm-web:${VERSION}"
 
       - name: Wait for healthy
+        if: steps.gate.outputs.enabled == 'true'
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_SSH_USER: ${{ secrets.SERVER_SSH_USER }}

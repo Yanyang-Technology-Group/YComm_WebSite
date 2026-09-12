@@ -41,3 +41,5 @@ Thumbs.db
 .redir-app.txt
 .spdx-lic/
 .agpl-full.txt
+# 本地 SSH 验证工具目录（含转换后的私钥副本，绝不入库）
+.tmpssh/
