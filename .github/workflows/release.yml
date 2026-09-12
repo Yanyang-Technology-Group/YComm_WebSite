@@ -95,16 +95,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push image
+      # GHCR 要求镜像仓库名全小写；org 本身可能含大写，这里统一小写化。
+      - name: Resolve image name (GHCR requires lowercase)
         id: image
+        run: |
+          IMAGE="ghcr.io/$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')/ycomm-web"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "Resolved image: ${IMAGE}"
+
+      - name: Build and push image
+        id: image-build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/ycomm-web:${{ steps.resolve.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/ycomm-web:latest
+            ${{ steps.image.outputs.image }}:${{ steps.resolve.outputs.version }}
+            ${{ steps.image.outputs.image }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -128,7 +136,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.resolve.outputs.version }}
-          IMAGE: ghcr.io/${{ github.repository_owner }}/ycomm-web
+          IMAGE: ${{ steps.image.outputs.image }}
         run: |
           BODY=$(cat <<'EOF'
           ## YComm ${{ steps.resolve.outputs.version }}
