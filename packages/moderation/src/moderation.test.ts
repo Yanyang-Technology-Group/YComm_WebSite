@@ -23,6 +23,8 @@ afterEach(async () => {
 describe('unified moderation queue', () => {
   it('decides an item through the domain decider and records the decision', async () => {
     // Register a fake decider standing in for a domain (forum/downloads).
+    const targetId = randomUUID();
+    const moderatorId = randomUUID();
     const acted: string[] = [];
     registerDecider('fake_target', {
       approve: async ({ targetId }) => {
@@ -33,22 +35,22 @@ describe('unified moderation queue', () => {
       },
     });
 
-    await enqueueForReview(handle.db, { targetType: 'fake_target', targetId: randomUUID(), reason: 'manual' });
+    await enqueueForReview(handle.db, { targetType: 'fake_target', targetId, reason: 'manual' });
 
     const pending = await listQueued(handle.db, {});
     expect(pending).toHaveLength(1);
     const item = pending[0];
     if (!item) throw new Error('expected item');
 
-    await decide(handle.db, item.id, { decision: 'approve', by: 'owner-1', note: 'ok' });
-    expect(acted).toEqual(['approve:t1']);
+    await decide(handle.db, item.id, { decision: 'approve', by: moderatorId, note: 'ok' });
+    expect(acted).toEqual([`approve:${targetId}`]);
 
     const [after] = await handle.db.select().from(schema.moderationItems).where(eq(schema.moderationItems.id, item.id));
     expect(after?.status).toBe('approved');
-    expect(after?.decided_by).toBe('owner-1');
+    expect(after?.decided_by).toBe(moderatorId);
 
     // Already decided — second decide is a 404-style unknown item.
-    await expect(decide(handle.db, item.id, { decision: 'reject', by: 'owner-1' })).rejects.toMatchObject({
+    await expect(decide(handle.db, item.id, { decision: 'reject', by: moderatorId })).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
   });
@@ -62,7 +64,7 @@ describe('unified moderation queue', () => {
     const pending = await listQueued(handle.db, {});
     const item = pending[0];
     if (!item) throw new Error('expected item');
-    await decide(handle.db, item.id, { decision: 'reject', by: 'owner-1' });
+    await decide(handle.db, item.id, { decision: 'reject', by: randomUUID() });
     const [after] = await handle.db.select().from(schema.moderationItems).where(eq(schema.moderationItems.id, item.id));
     expect(after?.status).toBe('rejected');
   });
