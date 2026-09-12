@@ -26,7 +26,7 @@
 - **Release**：push 到 master 自动跑 构建→测试→许可门禁 → 构建 GHCR 镜像 → 打
   `vYYYY.MM.DD.<提交数>` 标签 → 发布 GitHub Release（与 Yanyang_WebSite 同版本格式）。
 - **部署是手动的**：服务器在北京、海外 runner 直连 SSH 不稳，故在本地构建后用
-  `./scripts/deploy-manual.sh` 推送镜像并起容器（一步到位，含健康检查）；
+  `docker build` + `docker save|ssh|docker load` 推送镜像并 `docker run` 起容器；
   完整步骤见 [docs/DEPLOY.md](docs/DEPLOY.md) 与 [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md)。
 
 ## 快速开始（生产，Docker + Postgres）
