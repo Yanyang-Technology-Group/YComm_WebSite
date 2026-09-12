@@ -70,6 +70,8 @@ jobs:
         run: |
           echo "$SERVER_SSH_KEY" > /tmp/deploy-key
           chmod 600 /tmp/deploy-key
+          # OpenSSH 需要密钥文件以换行结尾，否则报 "invalid format"（粘贴进 Secrets 时常缺）
+          [ "$(tail -c1 /tmp/deploy-key)" != "" ] && echo >> /tmp/deploy-key || true
           # OpenSSH 只认自己的私钥格式（BEGIN OPENSSH PRIVATE KEY）。
           # Node/crypto 产出的 PKCS#8（BEGIN PRIVATE KEY）加载不了 → 先预检，报错清晰。
           ssh-keygen -y -f /tmp/deploy-key >/dev/null 2>&1 || {
@@ -98,6 +100,7 @@ jobs:
         run: |
           echo "$SERVER_SSH_KEY" > /tmp/deploy-key
           chmod 600 /tmp/deploy-key
+          [ "$(tail -c1 /tmp/deploy-key)" != "" ] && echo >> /tmp/deploy-key || true
           SSH="ssh -i /tmp/deploy-key -p ${SERVER_PORT:-22} -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
           DATABASE_URL="postgres://ycomm:${DB_PASSWORD}@${DB_HOST}:5432/ycomm"
           $SSH "$SERVER_SSH_USER@$SERVER_HOST" "docker rm -f ycomm >/dev/null 2>&1 || true; docker run -d --name ycomm --restart unless-stopped --network coolify -p 127.0.0.1:3000:3000 \
@@ -123,6 +126,7 @@ jobs:
         run: |
           echo "$SERVER_SSH_KEY" > /tmp/deploy-key
           chmod 600 /tmp/deploy-key
+          [ "$(tail -c1 /tmp/deploy-key)" != "" ] && echo >> /tmp/deploy-key || true
           SSH="ssh -i /tmp/deploy-key -p ${SERVER_PORT:-22} -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
           timeout 300 bash -c 'for i in $(seq 1 60); do
             state=$($SSH "$SERVER_SSH_USER@$SERVER_HOST" "docker inspect --format '{{.State.Health.Status}}' ycomm 2>/dev/null || echo starting")
