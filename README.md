@@ -25,9 +25,9 @@
 
 - **Release**：push 到 master 自动跑 构建→测试→许可门禁 → 构建 GHCR 镜像 → 打
   `vYYYY.MM.DD.<提交数>` 标签 → 发布 GitHub Release（与 Yanyang_WebSite 同版本格式）。
-- **Deploy to Server**：配置好仓库 Secrets 后，push 自动在 runner 构建镜像并 ssh
-  `docker save|load` 推送到服务器运行（服务器不抓 GitHub/不拉 Docker Hub，
-  规避国内网络两处不稳定）；详见 `docs/CLOUDFLARE.md` 与 CI 文件。
+- **部署是手动的**：服务器在北京、海外 runner 直连 SSH 不稳，故在本地构建后用
+  `./scripts/deploy-manual.sh` 推送镜像并起容器（一步到位，含健康检查）；
+  完整步骤见 [docs/DEPLOY.md](docs/DEPLOY.md) 与 [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md)。
 
 ## 快速开始（生产，Docker + Postgres）
 
@@ -96,6 +96,8 @@ packages/audit         审计日志
 ## 文档
 
 - 架构设计（分层、权限判定链、数据模型、安全边界、测试策略、分期）：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 手动构建与部署（服务器在北京，不走 Actions）：[docs/DEPLOY.md](docs/DEPLOY.md)
+- 域名重定向（c/comm.yanyn.cn → community.yanyn.cn）：[docs/CLOUDFLARE.md](docs/CLOUDFLARE.md)
 - 贡献（DCO 与提交规范）：[CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License

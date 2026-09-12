@@ -3,8 +3,8 @@
 真实（canonical）域名：`https://community.yanyn.cn`
 旧别名子域：`c.yanyn.cn`、`comm.yanyn.cn`（全部 301 永久重定向过去）
 
-> ⚠️ 尽快把 GitHub Secrets 里的 `SITE_URL` 设为 `https://community.yanyn.cn`，
-> 否则邮件里的验证/找回链接会指向错误地址。
+> ⚠️ 部署时务必把 `SITE_URL` 设为 `https://community.yanyn.cn`（见
+> [DEPLOY.md](DEPLOY.md) 第四节起容器参数），否则邮件里的验证/找回链接会指向错误地址。
 
 ## 方案 A（推荐）：Cloudflare 规则引擎，零额外容器
 
