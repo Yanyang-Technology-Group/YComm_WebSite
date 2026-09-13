@@ -120,20 +120,39 @@ jobs:
           cache-to: type=gha,mode=max
 
       # ---- 打标签：保证 Release 与镜像版本一致 -------------------------
+      # 镜像在上一步就已经推送成功，所以这一步无论如何都不应该让整个发布失败。
+      # 已知失败场景：同名 tag 已存在（并发/重复触发），或 tag 指向的提交在远端
+      # 不可达（force-push 后对象被回收）→ GitHub 报
+      #   remote: fatal error in commit_refs
+      #     ! [remote rejected] vX -> vX (failure)
       - name: Create git tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.resolve.outputs.version }}
         run: |
-          if ! git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag "$VERSION"
-            git push origin "refs/tags/$VERSION"
-            echo "tag $VERSION created"
-          else
-            echo "tag $VERSION already exists, skipping"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # 先同步远端 tag，避免本地看不到「并发运行刚建好的」同名 tag。
+          git fetch --tags --force origin >/dev/null 2>&1 || true
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "tag $VERSION already exists on remote, skipping"
+            exit 0
           fi
+
+          git tag "$VERSION"
+          for attempt in 1 2 3; do
+            if git push origin "refs/tags/$VERSION"; then
+              echo "tag $VERSION created"
+              exit 0
+            fi
+            echo "push attempt $attempt failed, retrying..."
+            sleep 3
+          done
+
+          git tag -d "$VERSION" >/dev/null 2>&1 || true
+          echo "::warning::tag $VERSION 推送失败；镜像 ${{ steps.image.outputs.image }}:$VERSION 已发布，部署不受影响"
 
       - name: Create GitHub Release
         env:
@@ -141,6 +160,12 @@ jobs:
           VERSION: ${{ steps.resolve.outputs.version }}
           IMAGE: ${{ steps.image.outputs.image }}
         run: |
+          # 没有 tag 就不建 Release（否则 gh 会拿默认分支硬造一个 tag，版本对不上）。
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "::warning::tag $VERSION 不存在，跳过 Release；镜像已发布"
+            exit 0
+          fi
+
           BODY=$(cat <<'EOF'
           ## YComm ${{ steps.resolve.outputs.version }}
 
