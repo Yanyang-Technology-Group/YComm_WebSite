@@ -45,3 +45,4 @@ Thumbs.db
 .tmpssh/
 # 本地部署脚本（含服务器/数据库机密，绝不入库）
 /deploy.sh
+/deploy.bat
