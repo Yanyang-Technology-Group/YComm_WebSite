@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { apiFetch } from '../lib/api';
+import { ThemePicker } from './theme-toggle';
 
 interface Profile {
   id: string;
@@ -228,6 +229,11 @@ export function ConsolePanel() {
               )}
             </div>
           </form>
+
+          <div className="panel">
+            <p className="panel-title">外观 · 主题颜色</p>
+            <ThemePicker />
+          </div>
         </div>
       )}
 

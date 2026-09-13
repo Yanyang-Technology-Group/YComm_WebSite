@@ -4,7 +4,6 @@ import { cookies } from 'next/headers';
 import { NAV_ITEMS, getSiteBranding } from '@ycomm/config';
 import { app } from '@ycomm/api';
 import { SessionNav } from '../components/session-nav';
-import { ThemeToggle } from '../components/theme-toggle';
 import { GuestPrompt } from '../components/guest-prompt';
 import './globals.css';
 
@@ -14,8 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const branding = getSiteBranding();
   return {
     title: {
-      default: `${branding.name} — ${branding.tagline}`,
-      template: `%s · ${branding.name}`,
+      // 晏阳社区 / 晏阳社区 | 论坛 / 晏阳社区 | 下载区 …
+      default: branding.name,
+      template: `${branding.name} | %s`,
     },
     description: branding.description,
   };
@@ -45,8 +45,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="site-header">
           <div className="site-header-inner">
             <Link href="/" className="brand">
-              <img src="/logo.png" alt={branding.name} className="logo logo-light" />
-              <img src="/logo-dark.png" alt={branding.name} className="logo logo-dark" />
+              <img src="/logo.png" alt={branding.name} className="logo" />
               <span className="brand-name">{branding.name}</span>
             </Link>
             <nav className="site-nav">
@@ -58,7 +57,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </nav>
             <span className="flex-spacer" />
             <nav className="site-actions">
-              <ThemeToggle />
               <SessionNav />
             </nav>
           </div>

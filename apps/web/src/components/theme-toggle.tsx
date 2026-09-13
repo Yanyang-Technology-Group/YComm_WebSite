@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react';
 
 export const THEMES = [
-  { id: 'azure', label: '晏阳蓝', swatch: '#5da4fa' },
-  { id: 'pink', label: '猛男粉', swatch: '#FF9999' },
-  { id: 'mint', label: '草神绿', swatch: '#B2FF66' },
-  { id: 'light', label: '浅色', swatch: '#f5f5f5' },
-  { id: 'dark', label: '深色', swatch: '#22262f' },
+  { id: 'azure', label: '晏阳蓝', swatch: '#5da4fa', desc: '默认 · 清爽通透' },
+  { id: 'pink', label: '猛男粉', swatch: '#FF9999', desc: '温柔可爱' },
+  { id: 'mint', label: '草神绿', swatch: '#B2FF66', desc: '清新自然' },
+  { id: 'light', label: '浅色', swatch: '#f4f4f5', desc: '简洁明亮' },
+  { id: 'dark', label: '深色', swatch: '#23272f', desc: '夜间护眼' },
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]['id'];
@@ -36,9 +36,12 @@ function initialTheme(): ThemeId {
   return (document.documentElement.dataset.theme as ThemeId) || 'azure';
 }
 
-export function ThemeToggle() {
+/**
+ * 主题选择器 —— 放在个人控制台里。
+ * 每个主题一张可点选的卡片：色块 + 名称 + 说明，选中的带高亮对勾。
+ */
+export function ThemePicker() {
   const [theme, setTheme] = useState<ThemeId>('azure');
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     setTheme(initialTheme());
@@ -47,87 +50,28 @@ export function ThemeToggle() {
   function choose(next: ThemeId) {
     applyTheme(next);
     setTheme(next);
-    setOpen(false);
   }
 
   return (
-    <span style={{ position: 'relative' }}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        title="主题颜色"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.35rem',
-          background: 'none',
-          border: '1px solid rgba(255,255,255,0.25)',
-          color: 'var(--header-text)',
-          borderRadius: 999,
-          padding: '0.2rem 0.6rem',
-          fontSize: '0.85rem',
-        }}
-      >
-        <span
-          style={{
-            display: 'inline-block',
-            width: 12,
-            height: 12,
-            borderRadius: 999,
-            background: THEMES.find((entry) => entry.id === theme)?.swatch ?? '#1d6fd1',
-          }}
-        />
-        主题
-      </button>
-      {open && (
-        <div
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: 'calc(100% + 6px)',
-            zIndex: 50,
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 10,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-            padding: '0.4rem',
-            display: 'grid',
-            gap: '0.15rem',
-            minWidth: 130,
-          }}
+    <div className="theme-picker">
+      {THEMES.map((entry) => (
+        <button
+          key={entry.id}
+          type="button"
+          className={`theme-option${theme === entry.id ? ' active' : ''}`}
+          onClick={() => choose(entry.id)}
+          aria-pressed={theme === entry.id}
         >
-          {THEMES.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              onClick={() => choose(entry.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text)',
-                padding: '0.35rem 0.6rem',
-                textAlign: 'left',
-                fontSize: '0.9rem',
-              }}
-            >
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: 14,
-                  height: 14,
-                  borderRadius: 999,
-                  background: entry.swatch,
-                }}
-              />
+          <span className="theme-swatch" style={{ background: entry.swatch }} />
+          <span className="theme-meta">
+            <span className="theme-label">
               {entry.label}
               {theme === entry.id ? ' ✓' : ''}
-            </button>
-          ))}
-        </div>
-      )}
-    </span>
+            </span>
+            <span className="theme-desc">{entry.desc}</span>
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
