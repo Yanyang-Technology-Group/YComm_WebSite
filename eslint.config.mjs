@@ -36,6 +36,8 @@ export default defineConfig([
     '**/.data/**',
     '**/migrations/**',
     '**/dist/**',
+    // Local-only scratch/secret dirs listed in .gitignore (SSH debug tools, etc.).
+    '.tmpssh/**',
   ]),
 
   js.configs.recommended,
