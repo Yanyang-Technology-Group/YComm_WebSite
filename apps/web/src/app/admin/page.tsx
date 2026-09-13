@@ -14,6 +14,9 @@ export default function AdminPage() {
         <Link href="/admin/users" style={cardStyle}>
           用户管理（角色 / 封禁 / 禁言）
         </Link>
+        <Link href="/admin/boards" style={cardStyle}>
+          版块管理（新增 / 删除 / 访问设置）
+        </Link>
         <Link href="/admin/moderation" style={cardStyle}>
           审核队列（论坛内容 / 下载资源 / 失效链接）
         </Link>

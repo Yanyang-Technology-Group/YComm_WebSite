@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { getDb } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
-import { PERMISSION } from '@ycomm/config';
+import { PERMISSION, parseAccessPolicy } from '@ycomm/config';
 import { assertPermission } from '@ycomm/access';
 import {
   adminCreateInviteCode,
@@ -22,6 +22,14 @@ import {
 import { listRecentAudit } from '@ycomm/audit';
 import { decide, listQueued } from '@ycomm/moderation';
 import { createCard, deleteCard, listAllCards, listAllResources, updateCard } from '@ycomm/downloads';
+import {
+  archiveBoard,
+  createBoard,
+  listAllBoards,
+  restoreBoard,
+  updateBoard,
+  type BoardView,
+} from '@ycomm/forum';
 import type { AppVariables } from '../context';
 import { sessionAuth } from '../middleware/session';
 import { requirePermission } from '../middleware/permission';
@@ -45,6 +53,21 @@ const decideSchema = z.object({
 const inviteCreateSchema = z.object({
   name: z.string().min(1).max(60),
   code: z.string().max(10).optional(),
+});
+
+const boardCreateSchema = z.object({
+  slug: z.string().regex(/^[a-z0-9-]{2,40}$/, 'slug 仅限小写字母/数字/连字符'),
+  name: z.string().min(2).max(60),
+  description: z.string().max(500).default(''),
+  sortOrder: z.number().int().optional(),
+  visibility: z.enum(['public', 'login', 'invite']).default('public'),
+});
+
+const boardUpdateSchema = z.object({
+  name: z.string().min(2).max(60).optional(),
+  description: z.string().max(500).optional(),
+  sortOrder: z.number().int().optional(),
+  visibility: z.enum(['public', 'login', 'invite']).optional(),
 });
 
 const cardCreateSchema = z.object({
@@ -287,7 +310,70 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
     return c.json({ ok: true, data: null });
   });
 
+  // ---- 版块管理（新增 / 改名 / 排序 / 访问设置 / 归档删除） ------------
+  router.get('/boards', requirePermission(PERMISSION.FORUM_BOARD_MANAGE), async (c) => {
+    const handle = await getDb();
+    const boards = await listAllBoards(handle.db);
+    return c.json({ ok: true, data: { boards: boards.map(adminBoard) } });
+  });
+
+  router.post('/boards', requirePermission(PERMISSION.FORUM_BOARD_MANAGE), async (c) => {
+    const body = await parseBody(c, boardCreateSchema);
+    const handle = await getDb();
+    const board = await createBoard(handle.db, {
+      slug: body.slug,
+      name: body.name,
+      description: body.description,
+      sortOrder: body.sortOrder,
+      policy: parseAccessPolicy({ visibility: body.visibility }),
+    });
+    const view: BoardView = { ...board, policy: parseAccessPolicy(board.access_policy) };
+    return c.json({ ok: true, data: { board: adminBoard(view) } }, 201);
+  });
+
+  router.patch('/boards/:boardId', requirePermission(PERMISSION.FORUM_BOARD_MANAGE), async (c) => {
+    const body = await parseBody(c, boardUpdateSchema);
+    const handle = await getDb();
+    const board = await updateBoard(handle.db, c.req.param('boardId'), {
+      name: body.name,
+      description: body.description,
+      sortOrder: body.sortOrder,
+      policy: body.visibility !== undefined ? parseAccessPolicy({ visibility: body.visibility }) : undefined,
+    });
+    const view: BoardView = { ...board, policy: parseAccessPolicy(board.access_policy) };
+    return c.json({ ok: true, data: { board: adminBoard(view) } });
+  });
+
+  /** 删除 = 软删除（归档）：主题与回帖数据保留，可随时恢复。 */
+  router.delete('/boards/:boardId', requirePermission(PERMISSION.FORUM_BOARD_MANAGE), async (c) => {
+    const handle = await getDb();
+    await archiveBoard(handle.db, c.req.param('boardId'));
+    return c.json({ ok: true, data: null });
+  });
+
+  router.post('/boards/:boardId/restore', requirePermission(PERMISSION.FORUM_BOARD_MANAGE), async (c) => {
+    const handle = await getDb();
+    await restoreBoard(handle.db, c.req.param('boardId'));
+    return c.json({ ok: true, data: null });
+  });
+
   return router;
+}
+
+function adminBoard(board: BoardView) {
+  return {
+    id: board.id,
+    slug: board.slug,
+    name: board.name,
+    description: board.description,
+    parentId: board.parent_id,
+    sortOrder: board.sort_order,
+    visibility: board.policy.visibility,
+    minLevel: board.policy.minLevel,
+    requireInvite: board.policy.requireInvite,
+    archivedAt: board.archived_at,
+    createdAt: board.created_at,
+  };
 }
 
 function adminCard(card: {

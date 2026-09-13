@@ -99,8 +99,8 @@ export function AuthForm({
       }
 
       if (kind === 'login') {
-        startTransition(() => router.push('/'));
-        router.refresh();
+        // 硬跳转：带新会话 cookie 让服务端重新渲染，避免前端状态不生效。
+        window.location.assign('/');
         return;
       }
       if (kind === 'register') {
@@ -152,9 +152,12 @@ export function AuthForm({
             autoComplete="new-password"
           />
           <input name="inviteCode" placeholder="邀请码（可选）" autoComplete="off" />
-          {captcha && <CaptchaField script={captcha.script} siteKey={captcha.siteKey} endpoint={captcha.endpoint} />}
         </>
       )}
+
+      {/* 人机验证：注册 / 登录 / 找回密码 / 重置密码 四类表单统一挂载 */}
+      {(kind === 'register' || kind === 'login' || kind === 'forgot' || kind === 'reset') &&
+        captcha && <CaptchaField script={captcha.script} siteKey={captcha.siteKey} endpoint={captcha.endpoint} />}
 
       {kind === 'forgot' && <input name="email" type="email" placeholder="注册邮箱" required />}
 

@@ -1,86 +1,86 @@
 /* =============================================================
    全局样式与主题变量 —— 晏阳社区
    主题：晏阳蓝(azure 默认) / 猛男粉(pink) / 草神绿(mint) / 浅色(light) / 深色(dark)
-   视觉：简约大气 · 圆润通透 · 留白优先 · 层次清晰
+   视觉：克制的圆角、清晰的边界、充足的间距、靠排版而不是装饰撑起层次。
    ============================================================= */
 :root,
 [data-theme='azure'] {
-  --bg: #f3f7fd;
+  --bg: #f3f6fa;
   --surface: #ffffff;
-  --text: #1b2536;
-  --muted: #6b7a94;
-  --border: #e3ecf9;
+  --text: #1c2533;
+  --muted: #68748a;
+  --border: #dde5f0;
   --accent: #5da4fa;
   --accent-strong: #2f81e8;
   --accent-soft: #e9f2fe;
-  --header-bg: rgba(255, 255, 255, 0.82);
-  --header-text: #1b2536;
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 28px rgba(16, 24, 40, 0.07);
+  --header-bg: #ffffff;
+  --header-text: #1c2533;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
   color-scheme: light;
 }
 
 [data-theme='pink'] {
-  --bg: #fdf4f6;
+  --bg: #fbf3f5;
   --surface: #ffffff;
   --text: #3a1f28;
-  --muted: #987480;
-  --border: #f7e0e7;
+  --muted: #8f6b76;
+  --border: #f2dde3;
   --accent: #ff9999;
-  --accent-strong: #ef6f7c;
+  --accent-strong: #e95863;
   --accent-soft: #ffecef;
-  --header-bg: rgba(255, 255, 255, 0.82);
+  --header-bg: #ffffff;
   --header-text: #3a1f28;
-  --shadow-sm: 0 1px 2px rgba(80, 30, 45, 0.04);
-  --shadow: 0 1px 2px rgba(80, 30, 45, 0.04), 0 10px 28px rgba(80, 30, 45, 0.07);
+  --shadow-sm: 0 1px 2px rgba(80, 30, 45, 0.05);
+  --shadow: 0 1px 3px rgba(80, 30, 45, 0.06), 0 8px 24px rgba(80, 30, 45, 0.06);
   color-scheme: light;
 }
 
 [data-theme='mint'] {
-  --bg: #f3faf0;
+  --bg: #f1f8ee;
   --surface: #ffffff;
   --text: #1a3322;
-  --muted: #5f7f68;
-  --border: #dff0d6;
+  --muted: #5c7764;
+  --border: #dcecd2;
   --accent: #b2ff66;
-  --accent-strong: #58a32c;
+  --accent-strong: #4f9426;
   --accent-soft: #f0fbe2;
-  --header-bg: rgba(255, 255, 255, 0.82);
+  --header-bg: #ffffff;
   --header-text: #1a3322;
-  --shadow-sm: 0 1px 2px rgba(30, 80, 45, 0.04);
-  --shadow: 0 1px 2px rgba(30, 80, 45, 0.04), 0 10px 28px rgba(30, 80, 45, 0.07);
+  --shadow-sm: 0 1px 2px rgba(30, 80, 45, 0.05);
+  --shadow: 0 1px 3px rgba(30, 80, 45, 0.06), 0 8px 24px rgba(30, 80, 45, 0.06);
   color-scheme: light;
 }
 
 [data-theme='light'] {
-  --bg: #fafafa;
+  --bg: #f7f7f8;
   --surface: #ffffff;
   --text: #1f1f1f;
-  --muted: #6b7280;
-  --border: #e7e7e9;
+  --muted: #6a6e76;
+  --border: #e3e4e7;
   --accent: #2563eb;
   --accent-strong: #1d4ed8;
   --accent-soft: #eef4ff;
-  --header-bg: rgba(255, 255, 255, 0.82);
+  --header-bg: #ffffff;
   --header-text: #1f1f1f;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 28px rgba(0, 0, 0, 0.06);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.05);
   color-scheme: light;
 }
 
 [data-theme='dark'] {
   --bg: #0e1116;
-  --surface: #161b23;
-  --text: #e6ebf2;
-  --muted: #8b95a7;
-  --border: #252d3a;
+  --surface: #171c25;
+  --text: #e4e9f0;
+  --muted: #8d97a8;
+  --border: #262e3c;
   --accent: #5ea2ef;
   --accent-strong: #7db4f7;
   --accent-soft: #1b293d;
-  --header-bg: rgba(12, 15, 20, 0.82);
-  --header-text: #e6ebf2;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.35);
+  --header-bg: #10141b;
+  --header-text: #e4e9f0;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
   color-scheme: dark;
 }
 
@@ -110,8 +110,8 @@ body {
   background: var(--bg);
   color: var(--text);
   transition:
-    background 0.25s ease,
-    color 0.25s ease;
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 a {
@@ -134,7 +134,7 @@ a:hover {
   color: var(--text);
 }
 
-/* ===== 顶部导航：居中、通透、圆润 ===== */
+/* ===== 顶部导航：居中、清楚、不圆润 ===== */
 .site-header {
   position: sticky;
   top: 0;
@@ -142,8 +142,6 @@ a:hover {
   background: var(--header-bg);
   color: var(--header-text);
   border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .site-header-inner {
@@ -162,15 +160,14 @@ a:hover {
   gap: 0.7rem;
   color: var(--header-text);
   font-weight: 800;
-  font-size: 1.08rem;
+  font-size: 1.1rem;
   letter-spacing: -0.01em;
 }
 
 .brand .logo {
-  height: 2.25rem;
+  height: 2.1rem;
   width: auto;
-  border-radius: 10px;
-  box-shadow: var(--shadow-sm);
+  border-radius: 6px;
 }
 
 .brand-name {
@@ -179,14 +176,14 @@ a:hover {
 
 .site-nav {
   display: flex;
-  gap: 0.35rem;
+  gap: 0.25rem;
   font-size: 0.95rem;
 }
 
 .nav-link {
   color: var(--muted);
-  padding: 0.45rem 0.9rem;
-  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  border-radius: 6px;
   transition:
     color 0.15s ease,
     background 0.15s ease;
@@ -204,18 +201,20 @@ a:hover {
 
 .site-actions {
   display: flex;
-  gap: 0.9rem;
+  gap: 0.6rem;
   align-items: center;
   font-size: 0.9rem;
 }
 
 .nav-auth {
   color: var(--muted);
-  padding: 0.4rem 0.8rem;
-  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
   transition:
     color 0.15s ease,
-    background 0.15s ease;
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .nav-auth:hover {
@@ -227,7 +226,7 @@ a:hover {
 .nav-auth-strong {
   color: var(--accent-strong);
   font-weight: 600;
-  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
 
 .nav-user {
@@ -246,7 +245,7 @@ a:hover {
 /* ===== 底部 ===== */
 .site-footer {
   border-top: 1px solid var(--border);
-  padding: 2.5rem 1.5rem 3rem;
+  padding: 2.25rem 1.5rem 2.75rem;
   color: var(--muted);
   font-size: 0.85rem;
   letter-spacing: 0.02em;
@@ -271,53 +270,32 @@ a:hover {
   font-variant-numeric: tabular-nums;
   font-size: 0.8rem;
   letter-spacing: 0.04em;
-  padding: 0.1rem 0.55rem;
+  padding: 0.15rem 0.6rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 6px;
   background: var(--surface);
 }
 
-/* ===== 首页 hero：一个焦点 + 克制配饰 ===== */
+/* ===== 首页 hero：一个焦点，无装饰堆砌 ===== */
 .hero {
-  position: relative;
   text-align: center;
-  padding: 5.5rem 1rem 4.5rem;
-  overflow: hidden;
-}
-
-/* 焦点后方一团柔光，主题色随参数变化，不抢内容 */
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: -10% -20% auto;
-  height: 100%;
-  background: radial-gradient(
-    ellipse 60% 55% at 50% 0%,
-    color-mix(in srgb, var(--accent) 16%, transparent),
-    transparent 70%
-  );
-  pointer-events: none;
-}
-
-.hero > * {
-  position: relative;
-  z-index: 1;
+  padding: 5rem 1rem 4rem;
 }
 
 .hero-kicker {
   display: inline-block;
   font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   color: var(--accent-strong);
   background: var(--accent-soft);
-  border-radius: 999px;
-  padding: 0.3rem 1rem;
+  border-radius: 4px;
+  padding: 0.3rem 0.9rem;
   margin-bottom: 1.25rem;
 }
 
 .hero-title {
-  font-size: 3.1rem;
+  font-size: 3rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.2;
@@ -325,7 +303,7 @@ a:hover {
 }
 
 .hero-tagline {
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 500;
   color: var(--muted);
   margin: 0 0 1.25rem;
@@ -340,33 +318,29 @@ a:hover {
 
 .hero-actions {
   display: flex;
-  gap: 1rem;
+  gap: 0.9rem;
   justify-content: center;
   flex-wrap: wrap;
 }
 
-/* ===== 按钮：flat 圆润、有主次 ===== */
+/* ===== 按钮：扁平、直角略圆、主次分明 ===== */
 button {
   font: inherit;
-  border: 1px solid transparent;
-  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  background: var(--surface);
   color: var(--text);
   cursor: pointer;
-  padding: 0.55rem 1.25rem;
-  border-radius: 12px;
+  padding: 0.5rem 1.1rem;
+  border-radius: 8px;
   transition:
-    transform 0.12s ease,
-    filter 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease;
+    background 0.15s ease,
+    border-color 0.15s ease,
+    filter 0.15s ease;
 }
 
 button:hover {
-  filter: brightness(0.97);
-}
-
-button:active {
-  transform: translateY(1px);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
 }
 
 button:disabled {
@@ -376,39 +350,42 @@ button:disabled {
 
 button.primary {
   background: var(--accent-strong);
+  border-color: var(--accent-strong);
   color: #fff;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+button.primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  filter: none;
 }
 
 .hero-btn {
   display: inline-block;
-  padding: 0.7rem 1.7rem;
-  border-radius: 999px;
+  padding: 0.65rem 1.5rem;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease;
 }
 
 .hero-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow);
+  border-color: var(--accent);
   opacity: 1;
 }
 
 .hero-btn.primary {
   background: var(--accent-strong);
-  border-color: transparent;
+  border-color: var(--accent-strong);
   color: #fff;
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
-/* ===== 表单：呼吸感输入 ===== */
+.hero-btn.primary:hover {
+  background: var(--accent);
+}
+
+/* ===== 表单：输入清楚、焦点可见 ===== */
 input,
 textarea,
 select {
@@ -416,8 +393,8 @@ select {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  padding: 0.7rem 1rem;
-  border-radius: 12px;
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
@@ -428,7 +405,7 @@ textarea:focus,
 select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 /* 深色模式下浏览器自动填表配色修正 */
@@ -437,13 +414,13 @@ select:focus {
   -webkit-text-fill-color: var(--text);
 }
 
-/* ===== 通用卡片 / 文本 ===== */
+/* ===== 卡片 / 文本：边界清楚、间距从容 ===== */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 10px;
   padding: 1.25rem 1.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
   box-shadow: var(--shadow-sm);
 }
 
@@ -455,23 +432,25 @@ select:focus {
 .post-item {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 1.25rem 1.5rem;
-  margin-bottom: 1rem;
+  border-radius: 10px;
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 1.5rem;
   box-shadow: var(--shadow-sm);
 }
 
 .page-title {
-  font-size: 1.75rem;
+  font-size: 1.7rem;
   font-weight: 800;
   letter-spacing: -0.015em;
-  margin: 0 0 0.4rem;
+  margin: 0 0 0.5rem;
 }
 
 .section-title {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  margin: 0.25rem 0 1rem;
+  margin: 0.5rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .muted {
@@ -485,20 +464,20 @@ select:focus {
   font-weight: 600;
   color: var(--accent-strong);
   background: var(--accent-soft);
-  border-radius: 999px;
-  padding: 0.15rem 0.6rem;
+  border-radius: 4px;
+  padding: 0.12rem 0.5rem;
   margin-top: 0.4rem;
 }
 
-/* ===== 论坛三栏（Discord 式） ===== */
+/* ===== 论坛三栏：组件之间拉开距离 ===== */
 .forum-layout {
   display: flex;
-  gap: 1.75rem;
+  gap: 2.25rem;
   align-items: flex-start;
 }
 
 .forum-sidebar {
-  width: 216px;
+  width: 220px;
   flex-shrink: 0;
   position: sticky;
   top: 5.25rem;
@@ -510,7 +489,7 @@ select:focus {
 }
 
 .forum-info {
-  width: 244px;
+  width: 248px;
   flex-shrink: 0;
   position: sticky;
   top: 5.25rem;
@@ -519,9 +498,9 @@ select:focus {
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 10px;
   padding: 1.25rem 1.5rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
   box-shadow: var(--shadow-sm);
 }
 
@@ -531,19 +510,20 @@ select:focus {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--muted);
-  margin: 0 0 0.9rem;
-  padding-bottom: 0.6rem;
+  margin: 0 0 0.85rem;
+  padding-bottom: 0.55rem;
   border-bottom: 1px solid var(--border);
 }
 
 .board-link {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.55rem 0.75rem;
-  border-radius: 12px;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
   color: var(--text);
   font-size: 0.95rem;
+  margin-bottom: 0.25rem;
   transition: background 0.15s ease;
 }
 
@@ -568,7 +548,7 @@ select:focus {
   }
 
   .forum-sidebar {
-    width: 168px;
+    width: 170px;
   }
 }
 
@@ -578,7 +558,7 @@ select:focus {
   }
 
   .hero-title {
-    font-size: 2.3rem;
+    font-size: 2.2rem;
   }
 }
 
@@ -595,20 +575,20 @@ select:focus {
   position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 12px;
   padding: 1.25rem;
   color: var(--text);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
+    transform 0.12s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .card-tile:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
   box-shadow: var(--shadow);
   opacity: 1;
 }
@@ -632,8 +612,8 @@ select:focus {
   font-weight: 600;
   color: var(--accent-strong);
   background: var(--accent-soft);
-  border-radius: 999px;
-  padding: 0.08rem 0.55rem;
+  border-radius: 4px;
+  padding: 0.08rem 0.5rem;
 }
 
 /* 后台卡片编辑器（固定网格单位，便于拖拽换算尺寸） */
@@ -648,7 +628,7 @@ select:focus {
   position: relative;
   background: var(--surface);
   border: 2px solid var(--border);
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 0.7rem;
   cursor: pointer;
   overflow: visible;
@@ -695,8 +675,7 @@ select:focus {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: rgba(10, 14, 20, 0.5);
-  backdrop-filter: blur(3px);
+  background: rgba(10, 14, 20, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -706,9 +685,9 @@ select:focus {
 .modal {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 12px;
   box-shadow: var(--shadow);
-  padding: 2.25rem 2rem 2rem;
+  padding: 2rem 1.75rem 1.75rem;
   max-width: 400px;
   width: 100%;
   position: relative;
@@ -717,11 +696,11 @@ select:focus {
 
 .modal-close {
   position: absolute;
-  top: 0.6rem;
-  right: 0.9rem;
+  top: 0.5rem;
+  right: 0.75rem;
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   line-height: 1;
   color: var(--muted);
   cursor: pointer;
@@ -729,14 +708,12 @@ select:focus {
 }
 
 .modal-close:hover {
-  filter: none;
   background: var(--accent-soft);
-  border-radius: 999px;
 }
 
 .modal-title {
   margin: 0 0 0.6rem;
-  font-size: 1.35rem;
+  font-size: 1.3rem;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
@@ -776,19 +753,16 @@ select:focus {
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 0.8rem 1rem;
   cursor: pointer;
   transition:
     border-color 0.15s ease,
-    background 0.15s ease,
-    transform 0.12s ease;
+    background 0.15s ease;
 }
 
 .theme-option:hover {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  filter: none;
-  transform: translateY(-1px);
 }
 
 .theme-option.active {
@@ -797,11 +771,11 @@ select:focus {
 }
 
 .theme-swatch {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 6px;
   flex-shrink: 0;
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6), var(--shadow-sm);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 .theme-meta {
@@ -826,10 +800,8 @@ select:focus {
    切换动效：渐变幕布 + 组件「坠落又弹回」
    - 路由切换：<html data-anim="route">（PageTransition 触发）
    - 主题切换：<html data-anim="theme">（主题选择器触发）
-   都由 CSS 完成，JS 只切标记；颜色取自当前主题的 --accent。
+   由 CSS 完成，JS 只切标记；颜色取自当前主题的 --accent。
    ============================================================= */
-
-/* 幕布：一层主题色渐变扫过全屏 */
 .anim-veil {
   position: fixed;
   inset: 0;
@@ -839,33 +811,31 @@ select:focus {
   background: linear-gradient(
     180deg,
     transparent 0%,
-    color-mix(in srgb, var(--accent) 24%, transparent) 45%,
-    color-mix(in srgb, var(--accent) 38%, transparent) 55%,
+    color-mix(in srgb, var(--accent) 22%, transparent) 45%,
+    color-mix(in srgb, var(--accent) 34%, transparent) 55%,
     transparent 100%
   );
 }
 
-/* 路由：自上而下扫过 */
 html[data-anim='route'] .anim-veil {
-  animation: veil-sweep-down 0.75s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: veil-sweep-down 0.7s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
-/* 主题：斜向扫过，和路由区分开 */
 html[data-anim='theme'] .anim-veil {
   background: linear-gradient(
     100deg,
     transparent 0%,
-    color-mix(in srgb, var(--accent) 22%, transparent) 38%,
-    color-mix(in srgb, var(--accent) 40%, transparent) 50%,
-    color-mix(in srgb, var(--accent) 22%, transparent) 62%,
+    color-mix(in srgb, var(--accent) 20%, transparent) 40%,
+    color-mix(in srgb, var(--accent) 36%, transparent) 50%,
+    color-mix(in srgb, var(--accent) 20%, transparent) 60%,
     transparent 100%
   );
-  animation: veil-sweep-across 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: veil-sweep-across 0.75s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 @keyframes veil-sweep-down {
   0% {
-    opacity: 0.9;
+    opacity: 0.85;
     transform: translateY(-100%);
   }
   100% {
@@ -876,7 +846,7 @@ html[data-anim='theme'] .anim-veil {
 
 @keyframes veil-sweep-across {
   0% {
-    opacity: 0.95;
+    opacity: 0.9;
     transform: translateX(-100%);
   }
   100% {
@@ -885,72 +855,55 @@ html[data-anim='theme'] .anim-veil {
   }
 }
 
-/* 组件坠落 → 触底回弹 → 归位 */
 @keyframes drop-bounce {
   0% {
     opacity: 0;
-    transform: translateY(-26px) scale(0.985);
+    transform: translateY(-24px);
   }
   55% {
     opacity: 1;
-    transform: translateY(7px) scale(1.003);
+    transform: translateY(6px);
   }
   75% {
-    transform: translateY(-3px) scale(1);
+    transform: translateY(-3px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
-/* 每次进入页面，顶层区块依次坠落（轻微错峰，看起来更「弹」） */
 .page-anim > * {
-  animation: drop-bounce 0.62s cubic-bezier(0.22, 1.15, 0.36, 1) both;
+  animation: drop-bounce 0.6s cubic-bezier(0.22, 1.1, 0.36, 1) both;
 }
 
 .page-anim > *:nth-child(1) {
   animation-delay: 0.02s;
 }
 .page-anim > *:nth-child(2) {
-  animation-delay: 0.07s;
+  animation-delay: 0.06s;
 }
 .page-anim > *:nth-child(3) {
-  animation-delay: 0.12s;
+  animation-delay: 0.1s;
 }
 .page-anim > *:nth-child(4) {
-  animation-delay: 0.17s;
+  animation-delay: 0.14s;
 }
 .page-anim > *:nth-child(5) {
-  animation-delay: 0.22s;
+  animation-delay: 0.18s;
 }
 .page-anim > *:nth-child(n + 6) {
-  animation-delay: 0.26s;
+  animation-delay: 0.22s;
 }
 
-/* 改主题时整页再落一次，并让背景轻轻呼吸一下，掩盖配色的瞬间跳变 */
 html[data-anim='theme'] .page-anim > * {
-  animation: drop-bounce 0.7s cubic-bezier(0.22, 1.15, 0.36, 1) both;
-}
-
-html[data-anim='theme'] body {
-  animation: theme-pulse 0.85s ease both;
-}
-
-@keyframes theme-pulse {
-  0% {
-    filter: brightness(1.05) saturate(1.1);
-  }
-  100% {
-    filter: brightness(1) saturate(1);
-  }
+  animation: drop-bounce 0.65s cubic-bezier(0.22, 1.1, 0.36, 1) both;
 }
 
 /* 系统开启「减少动态效果」时全部关闭 */
 @media (prefers-reduced-motion: reduce) {
   .anim-veil,
-  .page-anim > *,
-  html[data-anim='theme'] body {
+  .page-anim > * {
     animation: none !important;
   }
 }

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { enabledOAuthProviders } from '@ycomm/kernel';
+import { captchaConfig, enabledOAuthProviders } from '@ycomm/kernel';
 import { AuthForm } from '../../components/auth-form';
 
 export const metadata: Metadata = { title: '登录' };
@@ -8,9 +8,10 @@ export const dynamic = 'force-dynamic';
 
 export default function LoginPage() {
   const providers = enabledOAuthProviders();
+  const captcha = captchaConfig();
   return (
     <div style={{ maxWidth: 480, margin: '0 auto' }}>
-      <AuthForm kind="login" />
+      <AuthForm kind="login" captcha={captcha} />
       {providers.includes('github') && (
         <div style={{ marginTop: '1rem' }}>
           <a

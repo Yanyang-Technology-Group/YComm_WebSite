@@ -1,10 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 export function LogoutButton() {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -13,8 +11,8 @@ export function LogoutButton() {
     setFailed(false);
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/');
-      router.refresh();
+      // 硬跳转：带「已注销」的结果让服务端重新渲染头部状态。
+      window.location.assign('/');
     } catch {
       setFailed(true);
       setPending(false);

@@ -1,6 +1,8 @@
+'use client';
+
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-import { app } from '@ycomm/api';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { LogoutButton } from './logout-button';
 
 interface MePayload {
@@ -8,25 +10,27 @@ interface MePayload {
 }
 
 /**
- * Header session indicator. Same discipline as every server component: reach
- * the backend only through `app.request(...)` — here carrying the incoming
- * cookie, which is how the in-process call learns who is signed in.
+ * 头部登录状态：直连 `/api/auth/me`（浏览器自动带上会话 cookie），
+ * 路由变化时重新拉取——登录/登出后状态一定和真实会话一致。
  */
-export async function SessionNav() {
-  let user: { username: string; role: string } | null = null;
+export function SessionNav() {
+  const pathname = usePathname();
+  const [user, setUser] = useState<{ username: string; role: string } | null>(null);
 
-  try {
-    const cookieHeader = (await cookies()).toString();
-    const response = await app.request('/api/auth/me', {
-      headers: cookieHeader ? { cookie: cookieHeader } : {},
-    });
-    if (response.ok) {
-      const json = (await response.json()) as MePayload;
-      user = json.user ?? null;
-    }
-  } catch {
-    user = null;
-  }
+  useEffect(() => {
+    let active = true;
+    fetch('/api/auth/me')
+      .then((response) => (response.ok ? (response.json() as Promise<MePayload>) : null))
+      .then((json) => {
+        if (active) setUser(json?.user ?? null);
+      })
+      .catch(() => {
+        if (active) setUser(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [pathname]);
 
   if (!user) {
     return (

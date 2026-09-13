@@ -57,15 +57,17 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   login: z.string().min(1).max(255),
   password: z.string().min(1).max(200),
+  captchaToken: z.string().min(1).optional(),
 });
 
-const emailSchema = z.object({ email: z.string().trim().min(3).max(255) });
+const emailSchema = z.object({ email: z.string().trim().min(3).max(255), captchaToken: z.string().min(1).optional() });
 
 const verificationSchema = z.object({ token: z.string().min(1).max(256) });
 
 const resetSchema = z.object({
   token: z.string().min(1).max(256),
   password: z.string().min(1).max(200),
+  captchaToken: z.string().min(1).optional(),
 });
 
 const profileSchema = z.object({
@@ -166,6 +168,9 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   router.post('/login', rateLimitByIp('login'), async (c) => {
     const body = await parseBody(c, loginSchema);
     const handle = await getDb();
+
+    await verifyCaptcha(body.captchaToken);
+
     const user = await findUserByLogin(handle.db, body.login);
 
     const passwordOk = user?.password_hash
@@ -397,6 +402,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   router.post('/forgot-password', rateLimitByIp('passwordReset'), async (c) => {
     const body = await parseBody(c, emailSchema);
     const handle = await getDb();
+    await verifyCaptcha(body.captchaToken);
     await requestPasswordReset(handle.db, body.email);
     return c.json({ ok: true, data: null });
   });
@@ -404,6 +410,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   router.post('/reset-password', rateLimitByIp('passwordReset'), async (c) => {
     const body = await parseBody(c, resetSchema);
     const handle = await getDb();
+    await verifyCaptcha(body.captchaToken);
     await resetPassword(handle.db, body.token, body.password);
     return c.json({ ok: true, data: null });
   });

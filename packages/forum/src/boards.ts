@@ -29,6 +29,12 @@ export async function listBoards(db: Db, subject: AccessSubject | null): Promise
   return visible;
 }
 
+/** 管理用：列出全部版块（含已归档），不做访问策略过滤，按 sort_order 排序。 */
+export async function listAllBoards(db: Db): Promise<BoardView[]> {
+  const rows = await db.select().from(schema.boards).orderBy(asc(schema.boards.sort_order));
+  return rows.map((row) => ({ ...row, policy: safeParseAccessPolicy(row.access_policy) }));
+}
+
 export async function getBoardBySlug(db: Db, slug: string): Promise<BoardView | null> {
   const rows = await db.select().from(schema.boards).where(eq(schema.boards.slug, slug)).limit(1);
   const row = rows[0];
@@ -96,4 +102,9 @@ export async function updateBoard(
 
 export async function archiveBoard(db: Db, boardId: string): Promise<void> {
   await db.update(schema.boards).set({ archived_at: new Date() }).where(eq(schema.boards.id, boardId));
+}
+
+/** 把已归档的版块恢复上线（管理员误删救回）。 */
+export async function restoreBoard(db: Db, boardId: string): Promise<void> {
+  await db.update(schema.boards).set({ archived_at: null }).where(eq(schema.boards.id, boardId));
 }
