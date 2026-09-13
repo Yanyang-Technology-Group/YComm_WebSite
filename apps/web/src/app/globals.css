@@ -1020,3 +1020,139 @@ html[data-anim='theme'] .page-anim > * {
 .admin-menu-arrow {
   color: var(--muted);
 }
+
+/* ===== 移动端自适应 ===== */
+.nav-burger {
+  display: none;
+  justify-content: center;
+  align-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.nav-burger-lines,
+.nav-burger-lines::before,
+.nav-burger-lines::after {
+  content: '';
+  display: block;
+  width: 16px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 1px;
+  position: relative;
+}
+
+.nav-burger-lines::before {
+  top: -5px;
+  position: absolute;
+}
+
+.nav-burger-lines::after {
+  top: 5px;
+  position: absolute;
+}
+
+.nav-drawer {
+  position: absolute;
+  top: 100%;
+  right: 1.5rem;
+  min-width: 11rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 0.4rem;
+  display: grid;
+  gap: 0.15rem;
+  z-index: 50;
+}
+
+.nav-drawer-link {
+  padding: 0.55rem 0.8rem;
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.nav-drawer-link:hover {
+  background: var(--accent-soft);
+  opacity: 1;
+}
+
+/* 平板 / 手机 */
+@media (max-width: 860px) {
+  .forum-layout {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-nav {
+    display: none;
+  }
+
+  .nav-burger {
+    display: inline-flex;
+  }
+
+  .site-header-inner {
+    gap: 1rem;
+    padding: 0 1rem;
+  }
+
+  .site-main {
+    padding: 1.5rem 1rem 5rem;
+  }
+
+  .hero {
+    padding: 3rem 0.5rem 2.5rem;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-tagline {
+    font-size: 1.05rem;
+  }
+
+  .fab-bottom-left {
+    left: 1rem;
+    bottom: 1rem;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.9rem;
+  }
+
+  .admin-menu-title {
+    width: 5.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .topic-block-text {
+    white-space: normal;
+  }
+
+  .topic-block-post {
+    flex-wrap: wrap;
+  }
+
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .modal {
+    border-radius: 12px;
+  }
+
+  .site-footer-inner {
+    gap: 0.35rem;
+    font-size: 0.8rem;
+  }
+}

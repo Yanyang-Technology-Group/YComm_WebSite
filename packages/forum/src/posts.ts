@@ -150,9 +150,12 @@ export async function listTopicPreviews(db: Db, topicIds: string[]): Promise<Map
     }
   }
 
-  // 回复的点赞数
+  // 回复的点赞数（子查询字段必须显式 .as() 别名，否则外层引用报错）
   const likeCounts = db
-    .select({ targetId: schema.reactions.target_id, count: sql<number>`count(*)::int` })
+    .select({
+      targetId: schema.reactions.target_id,
+      count: sql<number>`count(*)::int`.as('count'),
+    })
     .from(schema.reactions)
     .where(eq(schema.reactions.target_type, 'post'))
     .groupBy(schema.reactions.target_id)

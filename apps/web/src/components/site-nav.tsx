@@ -6,12 +6,13 @@ import { useEffect, useState } from 'react';
 import { NAV_ITEMS } from '@ycomm/config';
 
 /**
- * 顶部导航：需要登录的项（控制台/管理）用客户端直连 `/api/auth/me` 判定，
- * 和 SessionNav 同一套数据源，登录/登出后立即一致（不依赖服务端渲染状态）。
+ * 顶部导航：登录态用客户端直连 /api/auth/me 判定。
+ * 桌面端横排；小屏（<=760px）折成「三横杠」汉堡菜单。
  */
 export function SiteNav() {
   const pathname = usePathname();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -28,15 +29,42 @@ export function SiteNav() {
     };
   }, [pathname]);
 
+  // 路由变化时收起汉堡菜单
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  const items = NAV_ITEMS.filter((item) => !item.requiresAuth || signedIn === true);
+
   return (
-    <nav className="site-nav">
-      {NAV_ITEMS.map((item) =>
-        item.requiresAuth && signedIn !== true ? null : (
+    <>
+      <button
+        type="button"
+        className="nav-burger"
+        onClick={() => setOpen((value) => !value)}
+        aria-label="菜单"
+        aria-expanded={open}
+      >
+        <span className="nav-burger-lines" aria-hidden="true" />
+      </button>
+
+      {open && (
+        <div className="nav-drawer">
+          {items.map((item) => (
+            <Link key={item.href} href={item.href} className="nav-drawer-link">
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <nav className="site-nav">
+        {items.map((item) => (
           <Link key={item.href} href={item.href} className="nav-link">
             {item.label}
           </Link>
-        ),
-      )}
-    </nav>
+        ))}
+      </nav>
+    </>
   );
 }
