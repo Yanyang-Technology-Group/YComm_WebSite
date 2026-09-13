@@ -1136,6 +1136,31 @@ html[data-anim='theme'] .page-anim > * {
   color: var(--muted);
 }
 
+/* ===== GitHub 快捷登录按钮（带 logo）===== */
+.github-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.7rem 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-sizing: border-box;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.github-login-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  opacity: 1;
+}
+
 /* ===== 移动端自适应 ===== */
 .nav-burger {
   display: none;

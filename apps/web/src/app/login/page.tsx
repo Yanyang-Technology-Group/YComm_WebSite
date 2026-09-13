@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { captchaConfig, enabledOAuthProviders } from '@ycomm/kernel';
 import { AuthForm } from '../../components/auth-form';
+import { GitHubLoginButton } from '../../components/github-login';
 
 export const metadata: Metadata = { title: '登录' };
 export const dynamic = 'force-dynamic';
@@ -14,13 +15,7 @@ export default function LoginPage() {
       <AuthForm kind="login" captcha={captcha} />
       {providers.includes('github') && (
         <div style={{ marginTop: '1rem' }}>
-          <a
-            href="/api/auth/github"
-            className="hero-btn"
-            style={{ width: '100%', textAlign: 'center', display: 'block' }}
-          >
-            使用 GitHub 登录
-          </a>
+          <GitHubLoginButton />
         </div>
       )}
       <p style={{ marginTop: '1rem', fontSize: '0.9rem' }}>
