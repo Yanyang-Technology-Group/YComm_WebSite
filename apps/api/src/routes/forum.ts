@@ -26,8 +26,9 @@ import {
   unlikePost,
 } from '@ycomm/forum';
 import { decide, listQueued } from '@ycomm/moderation';
+import { logAudit } from '@ycomm/audit';
 import type { AppVariables } from '../context';
-import { requireAuth, sessionAuth } from '../middleware/session';
+import { clientIp, requireAuth, sessionAuth } from '../middleware/session';
 import { requirePermission } from '../middleware/permission';
 import { rateLimitByUser } from '../middleware/rate-limit';
 
@@ -230,6 +231,16 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
       assertPermission(auth.subject, PERMISSION.FORUM_POST_DELETE_ANY);
     }
     await deletePost(handle.db, post.id, auth.userId);
+    // 管理动作留痕：删别人的帖子记 `admin.`，删自己的记 `forum.`。
+    const own = post.author_id === auth.userId;
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: own ? 'forum.post.deleted_own' : 'admin.post.deleted',
+      targetType: 'post',
+      targetId: post.id,
+      meta: { topicId: post.topic_id, authorId: post.author_id },
+    });
     return c.json({ ok: true, data: null });
   });
 
@@ -273,6 +284,14 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
       newBoardId: body.boardId,
       byId: auth.userId,
     });
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: `admin.topic.${body.action}`,
+      targetType: 'topic',
+      targetId: topic.id,
+      meta: { title: topic.title, newBoardId: body.boardId ?? null },
+    });
     return c.json({ ok: true, data: { topic } });
   });
 
@@ -290,6 +309,15 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
       assertPermission(auth.subject, PERMISSION.FORUM_POST_DELETE_ANY);
     }
     await moderateTopic(handle.db, topic.id, 'delete', { byId: auth.userId });
+    const own = topic.author_id === auth.userId;
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: own ? 'forum.topic.deleted_own' : 'admin.topic.deleted',
+      targetType: 'topic',
+      targetId: topic.id,
+      meta: { title: topic.title, boardId: topic.board_id, authorId: topic.author_id },
+    });
     return c.json({ ok: true, data: null });
   });
 
@@ -322,6 +350,14 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
       throw errors.notFound('审核项不存在');
     }
     await decide(handle.db, item.id, { decision: body.decision, by: auth.userId, note: body.note });
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: `moderation.${body.decision}`,
+      targetType: item.target_type,
+      targetId: item.target_id,
+      meta: { itemId: item.id, note: body.note ?? null, reason: item.reason ?? null },
+    });
     return c.json({ ok: true, data: null });
   });
 

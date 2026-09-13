@@ -360,12 +360,13 @@ a:hover {
   flex-shrink: 0;
 }
 
-/* 帖子头部：头像 + 元信息 */
+/* 帖子头部：头像 + 元信息 + 管理员操作入口 */
 .post-head {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
 }
 
 /* ===== 论坛三栏：左右栏与中间区分开 ===== */
@@ -971,6 +972,22 @@ select:focus {
   font-size: 0.85rem;
   cursor: pointer;
   padding: 0.25rem 0.75rem;
+}
+
+/* 封禁/禁言时长弹窗：左对齐表单卡片 */
+.modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 1.35rem 1.5rem 1.5rem;
+  max-width: 460px;
+  width: 100%;
+  text-align: left;
+}
+
+.modal-card .modal-title {
+  font-size: 1.1rem;
 }
 
 /* ===== 控制台 · 主题选择器 ===== */

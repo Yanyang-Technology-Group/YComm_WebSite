@@ -41,6 +41,20 @@ export async function listAllCards(db: Db): Promise<CardRow[]> {
     .orderBy(asc(schema.downloadCards.position), asc(schema.downloadCards.created_at));
 }
 
+/**
+ * 所有可见层级的卡片（扁平列表）。
+ *
+ * 卡片可以无限套娃，所以前台必须能一次拿到整棵树——按 `parentId` 自行组层级；
+ * 只返回根层会让「进入子卡片」永远显示为空。
+ */
+export async function listVisibleCards(
+  db: Db,
+  subject: AccessSubject | null,
+): Promise<CardRow[]> {
+  const rows = await listAllCards(db);
+  return rows.filter((row) => canSee(subject, row.visibility));
+}
+
 export async function getCard(db: Db, cardId: string): Promise<CardRow | null> {
   const rows = await db
     .select()

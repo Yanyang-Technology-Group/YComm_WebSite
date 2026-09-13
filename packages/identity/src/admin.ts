@@ -1,4 +1,4 @@
-import { desc, eq, like, or, sql } from 'drizzle-orm';
+import { and, desc, eq, like, ne, or, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import { canAssignRole, FEATURE_DEFAULTS, type AssignableRole } from '@ycomm/config';
@@ -61,12 +61,17 @@ export async function listUsers(
   const limit = Math.min(options.limit ?? 20, 100);
   const q = options.q?.trim();
 
-  const where = q
-    ? or(
+  // 已注销的账号不再出现在用户列表里（数据仍保留在库里，用于审计与追溯）。
+  const filters = [ne(schema.users.state, 'deleted')];
+  if (q) {
+    filters.push(
+      or(
         like(sql`lower(${schema.users.username})`, `%${q.toLowerCase()}%`),
         like(sql`lower(${schema.users.email})`, `%${q.toLowerCase()}%`),
-      )
-    : undefined;
+      )!,
+    );
+  }
+  const where = and(...filters);
 
   const users = await db
     .select()
@@ -120,7 +125,7 @@ export async function banUser(
   db: Db,
   actorInput: AdminActor,
   targetId: string,
-  reason?: string,
+  options: { reason?: string; until?: Date | null } = {},
 ): Promise<UserRecord> {
   const actor = await canonicalActor(db, actorInput);
   const target = await loadTarget(db, targetId);
@@ -128,7 +133,13 @@ export async function banUser(
 
   const [updated] = await db
     .update(schema.users)
-    .set({ state: 'banned', ban_reason: reason ?? null, updated_at: new Date() })
+    .set({
+      state: 'banned',
+      ban_reason: options.reason ?? null,
+      // NULL = 永久封禁
+      banned_until: options.until ?? null,
+      updated_at: new Date(),
+    })
     .where(eq(schema.users.id, targetId))
     .returning();
   if (!updated) throw errors.internal(undefined, 'ban failed');
@@ -136,16 +147,17 @@ export async function banUser(
   await db.insert(schema.userSanctions).values({
     user_id: targetId,
     kind: 'ban',
-    reason: reason ?? '',
+    reason: options.reason ?? '',
     issued_by: actor.id,
     starts_at: new Date(),
+    ends_at: options.until ?? null,
   });
   await db.insert(schema.auditLogs).values({
     actor_id: actor.id,
     action: 'admin.user.banned',
     target_type: 'user',
     target_id: targetId,
-    meta: { reason: reason ?? null },
+    meta: { reason: options.reason ?? null, until: options.until ? options.until.toISOString() : null },
   });
   return updated;
 }
@@ -157,7 +169,7 @@ export async function unbanUser(db: Db, actorInput: AdminActor, targetId: string
 
   const [updated] = await db
     .update(schema.users)
-    .set({ state: 'active', ban_reason: null, updated_at: new Date() })
+    .set({ state: 'active', ban_reason: null, banned_until: null, updated_at: new Date() })
     .where(eq(schema.users.id, targetId))
     .returning();
   if (!updated) throw errors.internal(undefined, 'unban failed');
@@ -169,6 +181,26 @@ export async function unbanUser(db: Db, actorInput: AdminActor, targetId: string
     target_id: targetId,
   });
   return updated;
+}
+
+/** 到期的限时封禁/禁言自动解除（每次会话解析时顺手做一次，无需定时任务）。 */
+export async function expireSanctions(db: Db, user: UserRecord): Promise<UserRecord> {
+  const now = new Date();
+  const banExpired = user.state === 'banned' && user.banned_until !== null && user.banned_until <= now;
+  const muteExpired = user.state === 'muted' && user.muted_until !== null && user.muted_until <= now;
+  if (!banExpired && !muteExpired) return user;
+
+  const [updated] = await db
+    .update(schema.users)
+    .set({
+      state: 'active',
+      ...(banExpired ? { ban_reason: null, banned_until: null } : {}),
+      ...(muteExpired ? { mute_reason: null, muted_until: null } : {}),
+      updated_at: now,
+    })
+    .where(eq(schema.users.id, user.id))
+    .returning();
+  return updated ?? user;
 }
 
 export async function muteUser(

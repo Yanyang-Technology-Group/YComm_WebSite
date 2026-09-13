@@ -17,6 +17,10 @@ export default function RegisterPage() {
       {providers.includes('github') && (
         <div style={{ marginTop: '1rem' }}>
           <GitHubLoginButton />
+          <p className="muted" style={{ margin: '0.5rem 0 0', fontSize: '0.85rem' }}>
+            注意：用 GitHub 登录创建的账号<strong>没有密码</strong>，之后无法修改密码，只能继续用 GitHub 登录。
+            想用密码登录请在左侧表单注册。
+          </p>
         </div>
       )}
       <p style={{ marginTop: '1rem', fontSize: '0.9rem' }}>

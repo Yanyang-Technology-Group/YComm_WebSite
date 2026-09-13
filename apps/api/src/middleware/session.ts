@@ -1,7 +1,7 @@
 import { createMiddleware } from 'hono/factory';
 import { getCookie } from 'hono/cookie';
 import { getDb } from '@ycomm/db';
-import { findSessionByToken, toPublicUser } from '@ycomm/identity';
+import { expireSanctions, findSessionByToken, toPublicUser } from '@ycomm/identity';
 import { getEnv } from '@ycomm/kernel';
 import type { AccessSubject } from '@ycomm/access';
 import type { AppVariables } from '../context';
@@ -20,7 +20,8 @@ export const sessionAuth = createMiddleware<{ Variables: AppVariables }>(async (
     const handle = await getDb();
     const found = await findSessionByToken(handle.db, rawToken);
     if (found) {
-      const user = found.user;
+      // 限时封禁/禁言到期即在解析会话时自动解除（无需定时任务）。
+      const user = await expireSanctions(handle.db, found.user);
       const subject: AccessSubject = {
         id: user.id,
         role: user.role,

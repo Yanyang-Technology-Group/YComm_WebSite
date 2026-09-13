@@ -1,6 +1,6 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
-import { getDb } from '@ycomm/db';
+import { getDb, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import { PERMISSION, parseAccessPolicy } from '@ycomm/config';
 import { assertPermission } from '@ycomm/access';
@@ -20,7 +20,7 @@ import {
   unmuteUser,
   type UserRecord,
 } from '@ycomm/identity';
-import { listRecentAudit, logAudit } from '@ycomm/audit';
+import { listAuditLogs, logAudit } from '@ycomm/audit';
 import { decide, listQueued } from '@ycomm/moderation';
 import { createCard, deleteCard, listAllCards, listAllResources, updateCard } from '@ycomm/downloads';
 import {
@@ -37,7 +37,11 @@ import { requirePermission } from '../middleware/permission';
 import { parseBody } from './forum';
 
 const roleSchema = z.object({ role: z.enum(['member', 'admin', 'owner']) });
-const banSchema = z.object({ reason: z.string().max(300).optional() });
+const banSchema = z.object({
+  reason: z.string().max(300).optional(),
+  /** null / 缺省 = 永久封禁。 */
+  until: z.string().datetime().nullable().optional(),
+});
 const muteSchema = z.object({
   /** null / 缺省 = 永久禁言。 */
   until: z.string().datetime().nullable().optional(),
@@ -103,6 +107,11 @@ const adminUser = (user: UserRecord) => ({
   postCount: user.post_count,
   likeReceivedCount: user.like_received_count,
   createdAt: user.created_at,
+  // 封禁/禁言到期时间（null = 永久或未生效），前端据此显示剩余时间。
+  mutedUntil: user.muted_until,
+  bannedUntil: user.banned_until,
+  muteReason: user.mute_reason,
+  banReason: user.ban_reason,
 });
 
 /** The moderation decision permission depends on what is being decided. */
@@ -110,6 +119,32 @@ function permissionForTarget(targetType: string): (typeof PERMISSION)[keyof type
   if (targetType === 'download_resource') return PERMISSION.DOWNLOAD_RESOURCE_AUDIT;
   if (targetType === 'download_link') return PERMISSION.DOWNLOAD_RESOURCE_DELETE_ANY;
   return PERMISSION.FORUM_CONTENT_AUDIT;
+}
+
+/**
+ * 统一的管理动作审计：谁（用户名会由日志查询关联出来）、从哪个 IP、做了什么、
+ * 对象是谁，全都落 `audit_logs`。管理员在「操作日志」页面能看到完整流水。
+ */
+async function auditAdmin(
+  db: Db,
+  c: Context<{ Variables: AppVariables }>,
+  entry: {
+    action: string;
+    targetType?: string | null;
+    targetId?: string | null;
+    meta?: Record<string, unknown>;
+  },
+): Promise<void> {
+  const auth = c.get('auth');
+  if (!auth) return;
+  await logAudit(db, {
+    actorId: auth.userId,
+    actorIp: clientIp(c),
+    action: entry.action,
+    targetType: entry.targetType ?? null,
+    targetId: entry.targetId ?? null,
+    meta: entry.meta ?? {},
+  });
 }
 
 export function adminRoutes(): Hono<{ Variables: AppVariables }> {
@@ -140,7 +175,12 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
     const auth = c.get('auth');
     if (!auth) throw errors.unauthenticated();
-    const updated = await banUser(handle.db, { id: auth.userId, role: auth.subject.role }, c.req.param('userId'), body.reason);
+    const updated = await banUser(
+      handle.db,
+      { id: auth.userId, role: auth.subject.role },
+      c.req.param('userId'),
+      { reason: body.reason, until: body.until ? new Date(body.until) : null },
+    );
     return c.json({ ok: true, data: { user: adminUser(updated) } });
   });
 
@@ -227,6 +267,12 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
     if (!item) throw errors.notFound('审核项不存在');
     assertPermission(auth.subject, permissionForTarget(item.target_type));
     await decide(handle.db, item.id, { decision: body.decision, by: auth.userId, note: body.note });
+    await auditAdmin(handle.db, c, {
+      action: `moderation.${body.decision}`,
+      targetType: item.target_type,
+      targetId: item.target_id,
+      meta: { itemId: item.id, note: body.note ?? null, reason: item.reason ?? null },
+    });
     return c.json({ ok: true, data: null });
   });
 
@@ -253,10 +299,13 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
 
   router.get('/audit', requirePermission(PERMISSION.SYSTEM_AUDITLOG_VIEW), async (c) => {
     const handle = await getDb();
-    const entries = await listRecentAudit(handle.db, {
+    const actionPrefix = c.req.query('action') ?? undefined;
+    const result = await listAuditLogs(handle.db, {
+      actionPrefix,
+      offset: Number.parseInt(c.req.query('offset') ?? '0', 10) || 0,
       limit: Math.min(Number.parseInt(c.req.query('limit') ?? '50', 10) || 50, 200),
     });
-    return c.json({ ok: true, data: { entries } });
+    return c.json({ ok: true, data: { entries: result.entries, total: result.total } });
   });
 
   // ---- 注册码管理（管理员可创建/查看/删除） ---------------------------
@@ -277,12 +326,24 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       maxUses: body.maxUses,
       createdBy: auth.userId,
     });
+    await auditAdmin(handle.db, c, {
+      action: 'admin.invite.created',
+      targetType: 'invite_code',
+      targetId: row.id,
+      meta: { code: row.code, name: body.name, maxUses: row.maxUses },
+    });
     return c.json({ ok: true, data: { inviteCode: row } }, 201);
   });
 
   router.delete('/invites/:inviteId', requirePermission(PERMISSION.INVITE_CREATE), async (c) => {
     const handle = await getDb();
-    await deleteInviteCode(handle.db, c.req.param('inviteId'));
+    const inviteId = c.req.param('inviteId');
+    await deleteInviteCode(handle.db, inviteId);
+    await auditAdmin(handle.db, c, {
+      action: 'admin.invite.deleted',
+      targetType: 'invite_code',
+      targetId: inviteId,
+    });
     return c.json({ ok: true, data: null });
   });
 
@@ -307,6 +368,12 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       visibility: body.visibility,
       position: body.position,
     });
+    await auditAdmin(handle.db, c, {
+      action: 'admin.card.created',
+      targetType: 'download_card',
+      targetId: card.id,
+      meta: { title: card.title, kind: card.kind, parentId: card.parent_id, visibility: card.visibility },
+    });
     return c.json({ ok: true, data: { card: adminCard(card) } }, 201);
   });
 
@@ -324,12 +391,24 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       visibility: body.visibility,
       position: body.position,
     });
+    await auditAdmin(handle.db, c, {
+      action: 'admin.card.updated',
+      targetType: 'download_card',
+      targetId: card.id,
+      meta: { title: card.title, kind: card.kind, parentId: card.parent_id, visibility: card.visibility, ...body },
+    });
     return c.json({ ok: true, data: { card: adminCard(card) } });
   });
 
   router.delete('/cards/:cardId', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
     const handle = await getDb();
-    await deleteCard(handle.db, c.req.param('cardId'));
+    const cardId = c.req.param('cardId');
+    await deleteCard(handle.db, cardId);
+    await auditAdmin(handle.db, c, {
+      action: 'admin.card.deleted',
+      targetType: 'download_card',
+      targetId: cardId,
+    });
     return c.json({ ok: true, data: null });
   });
 
@@ -351,6 +430,12 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       policy: parseAccessPolicy({ visibility: body.visibility }),
     });
     const view: BoardView = { ...board, policy: parseAccessPolicy(board.access_policy) };
+    await auditAdmin(handle.db, c, {
+      action: 'admin.board.created',
+      targetType: 'board',
+      targetId: board.id,
+      meta: { slug: board.slug, name: board.name, visibility: body.visibility },
+    });
     return c.json({ ok: true, data: { board: adminBoard(view) } }, 201);
   });
 
@@ -364,19 +449,37 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       policy: body.visibility !== undefined ? parseAccessPolicy({ visibility: body.visibility }) : undefined,
     });
     const view: BoardView = { ...board, policy: parseAccessPolicy(board.access_policy) };
+    await auditAdmin(handle.db, c, {
+      action: 'admin.board.updated',
+      targetType: 'board',
+      targetId: board.id,
+      meta: { slug: board.slug, ...body },
+    });
     return c.json({ ok: true, data: { board: adminBoard(view) } });
   });
 
   /** 删除 = 软删除（归档）：主题与回帖数据保留，可随时恢复。 */
   router.delete('/boards/:boardId', requirePermission(PERMISSION.FORUM_BOARD_MANAGE), async (c) => {
     const handle = await getDb();
-    await archiveBoard(handle.db, c.req.param('boardId'));
+    const boardId = c.req.param('boardId');
+    await archiveBoard(handle.db, boardId);
+    await auditAdmin(handle.db, c, {
+      action: 'admin.board.archived',
+      targetType: 'board',
+      targetId: boardId,
+    });
     return c.json({ ok: true, data: null });
   });
 
   router.post('/boards/:boardId/restore', requirePermission(PERMISSION.FORUM_BOARD_MANAGE), async (c) => {
     const handle = await getDb();
-    await restoreBoard(handle.db, c.req.param('boardId'));
+    const boardId = c.req.param('boardId');
+    await restoreBoard(handle.db, boardId);
+    await auditAdmin(handle.db, c, {
+      action: 'admin.board.restored',
+      targetType: 'board',
+      targetId: boardId,
+    });
     return c.json({ ok: true, data: null });
   });
 

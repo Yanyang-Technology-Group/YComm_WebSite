@@ -14,7 +14,7 @@ import {
   getResourceIdByLink,
   listPublishedResources,
   listVisibleCategories,
-  listCards,
+  listVisibleCards,
   openLocalFile,
   removeLink,
   reportDeadLink,
@@ -71,7 +71,8 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
   router.get('/cards', async (c) => {
     const handle = await getDb();
     const subject = c.get('auth')?.subject ?? null;
-    const cards = await listCards(handle.db, subject);
+    // 返回全部层级的可见卡片（扁平），前端按 parentId 组树 —— 支持无限套娃。
+    const cards = await listVisibleCards(handle.db, subject);
     return c.json({
       ok: true,
       data: {

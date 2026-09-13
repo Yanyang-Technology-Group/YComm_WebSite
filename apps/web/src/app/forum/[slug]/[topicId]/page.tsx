@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { apiGet } from '../../../../lib/server-api';
 import { DeletePostButton, DeleteTopicButton, LikeButton, ReplyForm } from '../../../../components/forum-form';
+import { AuthorSanctions } from '../../../../components/author-sanctions';
 import { MarkdownContent } from '../../../../components/markdown-content';
 
 export const metadata: Metadata = { title: '主题' };
@@ -93,6 +94,11 @@ export default async function TopicPage({
               {new Date(post.created_at).toLocaleString('zh-CN')}
               {post.edited_at ? ' · 已编辑' : ''}
             </span>
+            <AuthorSanctions
+              userId={post.author_id}
+              username={post.authorUsername}
+              displayName={post.authorDisplayName}
+            />
           </div>
           <MarkdownContent text={post.content_md} />
           <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.75rem' }}>

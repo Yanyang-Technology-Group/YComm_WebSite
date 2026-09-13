@@ -19,6 +19,7 @@ export {
   getCard,
   listAllCards,
   listCards,
+  listVisibleCards,
   updateCard,
   type CardKind,
   type CardRow,

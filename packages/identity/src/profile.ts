@@ -40,6 +40,17 @@ export async function changePassword(db: Db, userId: string, currentPassword: st
   }
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
   if (!user) throw errors.notFound('用户不存在');
+  // 第三方（GitHub）登录创建的账号没有密码，不能改密——只能继续用第三方登录。
+  if (!user.password_hash) {
+    throw errors.validation({
+      issues: [
+        {
+          path: 'currentPassword',
+          message: '该账号通过 GitHub 登录，没有设置密码，无法修改密码',
+        },
+      ],
+    });
+  }
   const ok = user.password_hash ? await verifyPassword(user.password_hash, currentPassword) : false;
   if (!ok) {
     throw errors.validation({ issues: [{ path: 'currentPassword', message: '当前密码不正确' }] });

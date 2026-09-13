@@ -42,6 +42,8 @@ export const users = pgTable(
     muted_until: timestamp('muted_until', { withTimezone: true, mode: 'date' }),
     mute_reason: text('mute_reason'),
     ban_reason: text('ban_reason'),
+    /** 封禁到期时间；NULL = 永久封禁。到期后自动解除。 */
+    banned_until: timestamp('banned_until', { withTimezone: true, mode: 'date' }),
     /** 注销时间：self-deleting 进入冷静期的时间戳；owner 直接注销同样落这里（无冷静期）。 */
     deleted_at: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
     created_at: createdAtColumn(),

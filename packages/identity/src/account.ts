@@ -14,6 +14,7 @@ export function toPublicUser(user: UserRecord): PublicUser {
     state: user.state,
     avatarPath: user.avatar_path,
     bio: user.bio,
+    hasPassword: user.password_hash !== null,
     createdAt: user.created_at,
   };
 }
@@ -38,7 +39,11 @@ export function assertAccountCanAct(
     throw errors.forbidden('账号注销确认中，请重新登录以取消');
   }
   if (user.state === 'banned') {
-    throw errors.accountBanned(user.ban_reason);
+    // 限时封禁到期后不再拦截（会话中间件会顺手把状态改回 active）。
+    const bannedUntil = user.banned_until;
+    if (bannedUntil === null || bannedUntil > new Date()) {
+      throw errors.accountBanned(user.ban_reason);
+    }
   }
   if (user.state === 'muted') {
     const mutedUntil = user.muted_until;

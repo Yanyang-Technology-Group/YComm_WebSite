@@ -11,6 +11,7 @@ import {
   changePassword,
   confirmAccountDeletion,
   createSession,
+  expireSanctions,
   findOrCreateOAuthUser,
   findUserByLogin,
   getInviteBinding,
@@ -200,6 +201,8 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     }
 
     if (!user || user.state === 'deleted') throw errors.forbidden('账号已注销');
+    // 限时封禁到期后自动解除，避免到期仍无法登录。
+    user = await expireSanctions(handle.db, user);
     if (user.state === 'banned') throw errors.accountBanned(user.ban_reason);
 
     const session = await createSession(handle.db, {
@@ -480,6 +483,8 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
         user = (await reviveIfPendingDeletion(handle.db, user)) ?? user;
       }
       if (user.state === 'deleted') return c.redirect('/login?oauth=deleted', 302);
+      // 限时封禁到期后自动解除。
+      user = await expireSanctions(handle.db, user);
       if (user.state === 'banned') return c.redirect('/login?oauth=banned', 302);
 
       const session = await createSession(handle.db, {

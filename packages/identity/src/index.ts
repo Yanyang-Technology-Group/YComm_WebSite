@@ -50,6 +50,7 @@ export {
 export { issueVerificationTokenForUser, resendVerification, verifyEmail } from './verification';
 export {
   banUser,
+  expireSanctions,
   listRuntimeSettings,
   listUsers,
   muteUser,

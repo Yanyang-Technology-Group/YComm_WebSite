@@ -20,6 +20,8 @@ interface Profile {
   email: string;
   inviteBound: boolean;
   inviteCode: string | null;
+  /** 是否设置了密码；GitHub 登录创建的账号没有密码，不能改密。 */
+  hasPassword: boolean;
 }
 
 interface MyTopic {
@@ -214,17 +216,29 @@ export function DashboardPanel() {
         {staff && (
           <div className="dashboard-nav-group">
             <p className="dashboard-nav-title">管理</p>
+            <Link href="/admin" className="dashboard-nav-link">
+              管理后台
+            </Link>
             <Link href="/admin/users" className="dashboard-nav-link">
               用户管理
             </Link>
             <Link href="/admin/boards" className="dashboard-nav-link">
               版块管理
             </Link>
+            <Link href="/admin/cards" className="dashboard-nav-link">
+              下载区卡片
+            </Link>
             <Link href="/admin/moderation" className="dashboard-nav-link">
               审核队列
             </Link>
             <Link href="/admin/resources" className="dashboard-nav-link">
               资源管理
+            </Link>
+            <Link href="/admin/audit" className="dashboard-nav-link">
+              操作日志
+            </Link>
+            <Link href="/admin/settings" className="dashboard-nav-link">
+              违禁词与注册码
             </Link>
           </div>
         )}
@@ -346,22 +360,34 @@ export function DashboardPanel() {
 
         {section === 'security' && (
           <div style={{ display: 'grid', gap: '1rem', maxWidth: 520 }}>
-            <form onSubmit={submitPassword} className="panel" style={{ marginBottom: 0 }}>
-              <p className="panel-title">修改密码</p>
-              <div style={{ display: 'grid', gap: '0.5rem' }}>
-                <input name="currentPassword" type="password" placeholder="当前密码" required />
-                <input
-                  name="newPassword"
-                  type="password"
-                  placeholder={`新密码（${REGISTRATION.passwordHint}）`}
-                  required
-                  minLength={REGISTRATION.minPasswordLength}
-                />
-                <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
-                  修改密码
-                </button>
+            {profile.hasPassword ? (
+              <form onSubmit={submitPassword} className="panel" style={{ marginBottom: 0 }}>
+                <p className="panel-title">修改密码</p>
+                <div style={{ display: 'grid', gap: '0.5rem' }}>
+                  <input name="currentPassword" type="password" placeholder="当前密码" required />
+                  <input
+                    name="newPassword"
+                    type="password"
+                    placeholder={`新密码（${REGISTRATION.passwordHint}）`}
+                    required
+                    minLength={REGISTRATION.minPasswordLength}
+                  />
+                  <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
+                    修改密码
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="panel" style={{ marginBottom: 0 }}>
+                <p className="panel-title">修改密码</p>
+                <p style={{ margin: 0 }}>
+                  你的账号是通过 <strong>GitHub 登录</strong>创建的，没有设置密码，因此无法修改密码。
+                </p>
+                <p className="muted" style={{ margin: '0.5rem 0 0' }}>
+                  请继续使用 GitHub 登录；想用密码登录请先退出，再用注册功能创建带密码的账号。
+                </p>
               </div>
-            </form>
+            )}
 
             <div className="panel" style={{ marginBottom: 0 }}>
               <p className="panel-title">注销账号</p>

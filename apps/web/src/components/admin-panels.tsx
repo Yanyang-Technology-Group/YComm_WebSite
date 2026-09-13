@@ -3,9 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { apiFetch } from '../lib/api';
-
-/** 禁言时长单位：小时 / 天 / 永久。 */
-type MuteUnit = 'hour' | 'day' | 'forever';
+import { remainingLabel, SanctionDialog, type SanctionKind } from './sanction-dialog';
 
 const row: React.CSSProperties = {
   border: '1px solid #e4e4e7',
@@ -24,38 +22,37 @@ export interface AdminUser {
   state: string;
   level: number;
   createdAt: string;
+  /** 封禁/禁言到期时间；null = 永久或未生效。 */
+  mutedUntil?: string | null;
+  bannedUntil?: string | null;
+  muteReason?: string | null;
+  banReason?: string | null;
+}
+
+/** 已生效的封禁/禁言剩余时间文案，未生效返回 null。 */
+function sanctionRemaining(user: AdminUser): string | null {
+  if (user.state === 'banned') return `封禁${remainingLabel(user.bannedUntil ?? null)}`;
+  if (user.state === 'muted') return `禁言${remainingLabel(user.mutedUntil ?? null)}`;
+  return null;
 }
 
 export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: number } }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** 每个用户的禁言时长草稿：数值 + 单位（小时/天/永久）。 */
-  const [muteDrafts, setMuteDrafts] = useState<Record<string, { amount: string; unit: MuteUnit }>>({});
+  /** 正在弹窗设置时长的目标：封禁或禁言。 */
+  const [dialog, setDialog] = useState<{ kind: SanctionKind; user: AdminUser } | null>(null);
 
-  function muteDraft(user: AdminUser): { amount: string; unit: MuteUnit } {
-    return muteDrafts[user.id] ?? { amount: '7', unit: 'day' };
-  }
-
-  /** 按自定义时长禁言；「永久」发送 until: null。 */
-  async function muteUser(user: AdminUser, draft: { amount: string; unit: MuteUnit }) {
-    const amount = Math.max(1, Number.parseInt(draft.amount, 10) || 1);
-    const until =
-      draft.unit === 'forever'
-        ? null
-        : new Date(Date.now() + amount * (draft.unit === 'hour' ? 3_600_000 : 86_400_000)).toISOString();
-    await act(user, '/mute', { until, reason: '由管理员禁言' });
-  }
-
-  async function act(user: AdminUser, path: string, body?: unknown) {
+  async function act(user: AdminUser, path: string, body?: unknown, method: 'PATCH' | 'POST' = 'POST') {
     setBusy(user.id);
     setError(null);
     try {
       await apiFetch(`/api/admin/users/${user.id}${path}`, {
-        method: 'PATCH',
+        method,
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body ?? {}),
       });
+      setDialog(null);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '操作失败');
@@ -82,85 +79,79 @@ export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: 
   return (
     <div>
       {error && <p style={{ color: '#dc2626' }}>{error}</p>}
-      {initial.users.map((user) => (
-        <div key={user.id} style={row}>
-          <strong>{user.displayName}</strong> <span style={{ color: '#71717a' }}>@{user.username}</span>{' '}
-          <span style={{ color: '#71717a' }}>{user.email}</span>
-          <span style={{ marginLeft: '0.5rem' }}>
-            [{user.role} · {user.state} · Lv{user.level}]
-          </span>
-          <div style={{ marginTop: '0.4rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-            {user.role !== 'admin' && (
-              <button disabled={busy === user.id} onClick={() => void act(user, '/role', { role: 'admin' })}>
-                设为管理员
-              </button>
+      {initial.users.map((user) => {
+        const remaining = sanctionRemaining(user);
+        return (
+          <div key={user.id} style={row}>
+            <strong>{user.displayName}</strong> <span style={{ color: '#71717a' }}>@{user.username}</span>{' '}
+            <span style={{ color: '#71717a' }}>{user.email}</span>
+            <span style={{ marginLeft: '0.5rem' }}>
+              [{user.role} · {user.state} · Lv{user.level}]
+            </span>
+            {remaining && (
+              <span style={{ marginLeft: '0.5rem', color: '#dc2626' }}>
+                {remaining}
+                {user.banReason || user.muteReason ? `（${user.banReason || user.muteReason}）` : ''}
+              </span>
             )}
-            {user.role === 'admin' && (
-              <button disabled={busy === user.id} onClick={() => void act(user, '/role', { role: 'member' })}>
-                取消管理员
-              </button>
-            )}
-            {user.state !== 'banned' ? (
-              <button disabled={busy === user.id} onClick={() => void act(user, '/ban', { reason: '由管理员封禁' })}>
-                封禁
-              </button>
-            ) : (
-              <button disabled={busy === user.id} onClick={() => void act(user, '/unban')}>
-                解封
-              </button>
-            )}
-            {user.state !== 'muted' ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-                <input
-                  type="number"
-                  min={1}
-                  value={muteDraft(user).amount}
-                  onChange={(event) =>
-                    setMuteDrafts({ ...muteDrafts, [user.id]: { ...muteDraft(user), amount: event.target.value } })
-                  }
-                  style={{ width: 64, padding: '0.3rem 0.4rem' }}
-                  aria-label="禁言时长"
-                />
-                <select
-                  value={muteDraft(user).unit}
-                  onChange={(event) =>
-                    setMuteDrafts({
-                      ...muteDrafts,
-                      [user.id]: { ...muteDraft(user), unit: event.target.value as MuteUnit },
-                    })
-                  }
-                  style={{ padding: '0.3rem 0.4rem' }}
-                  aria-label="时长单位"
-                >
-                  <option value="hour">小时</option>
-                  <option value="day">天</option>
-                  <option value="forever">永久</option>
-                </select>
+            <div style={{ marginTop: '0.4rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+              {user.role !== 'admin' && (
+                <button disabled={busy === user.id} onClick={() => void act(user, '/role', { role: 'admin' }, 'PATCH')}>
+                  设为管理员
+                </button>
+              )}
+              {user.role === 'admin' && (
+                <button disabled={busy === user.id} onClick={() => void act(user, '/role', { role: 'member' }, 'PATCH')}>
+                  取消管理员
+                </button>
+              )}
+              {user.state !== 'banned' ? (
+                <button disabled={busy === user.id} onClick={() => setDialog({ kind: 'ban', user })}>
+                  封禁…
+                </button>
+              ) : (
+                <button disabled={busy === user.id} onClick={() => void act(user, '/unban')}>
+                  解封
+                </button>
+              )}
+              {user.state !== 'muted' && user.state !== 'banned' ? (
+                <button disabled={busy === user.id} onClick={() => setDialog({ kind: 'mute', user })}>
+                  禁言…
+                </button>
+              ) : (
+                user.state === 'muted' && (
+                  <button disabled={busy === user.id} onClick={() => void act(user, '/unmute')}>
+                    解除禁言
+                  </button>
+                )
+              )}
+              {user.role !== 'owner' && user.state !== 'deleted' && (
                 <button
                   disabled={busy === user.id}
-                  onClick={() => void muteUser(user, muteDraft(user))}
+                  onClick={() => void removeAccount(user)}
+                  style={{ color: '#dc2626' }}
                 >
-                  禁言
+                  注销
                 </button>
-              </span>
-            ) : (
-              <button disabled={busy === user.id} onClick={() => void act(user, '/unmute')}>
-                解除禁言
-              </button>
-            )}
-            {user.role !== 'owner' && user.state !== 'deleted' && (
-              <button
-                disabled={busy === user.id}
-                onClick={() => void removeAccount(user)}
-                style={{ color: '#dc2626' }}
-              >
-                注销
-              </button>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
       <p style={{ color: '#71717a' }}>共 {initial.total} 位用户（本页 {initial.users.length}）</p>
+
+      {dialog && (
+        <SanctionDialog
+          kind={dialog.kind}
+          target={dialog.user}
+          busy={busy === dialog.user.id}
+          error={error}
+          onClose={() => setDialog(null)}
+          onSubmit={({ until, reason }) =>
+            void act(dialog.user, dialog.kind === 'ban' ? '/ban' : '/mute', { until, reason })
+          }
+        />
+      )}
     </div>
   );
 }
@@ -231,7 +222,6 @@ export interface AdminResource {
   createdAt: string;
 }
 
-/** 违禁词管理：管理员维护，含违禁词的内容在发布时被拦截。 */
 export interface InviteCodeItem {
   id: string;
   name: string | null;
@@ -370,6 +360,7 @@ export function InviteCodesPanel() {
 const thStyle: React.CSSProperties = { textAlign: 'left', padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border)' };
 const tdStyle: React.CSSProperties = { padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border)' };
 
+/** 违禁词管理：管理员维护，含违禁词的内容在发布时被拦截。 */
 export function BannedWordsPanel() {
   const router = useRouter();
   const [value, setValue] = useState('');

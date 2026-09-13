@@ -7,12 +7,16 @@ import { errors } from '@ycomm/kernel';
 import {
   adminCreateInviteCode,
   assertAccountCanAct,
+  banUser,
   createInviteCode,
   createSession,
+  deleteAccountNow,
   deleteInviteCode,
+  expireSanctions,
   findSessionByToken,
   hashPassword,
   listInviteCodes,
+  listUsers,
   register,
   requestPasswordReset,
   resetPassword,
@@ -362,5 +366,80 @@ describe('account gates', () => {
     expect(view).not.toHaveProperty('email');
     expect(view).not.toHaveProperty('password_hash');
     expect(view.username).toBe('public-view');
+    expect(view.hasPassword).toBe(true);
+  });
+
+  it('expireSanctions lifts a timed ban once it is over', async () => {
+    const ownerId = await seedOwner();
+    const [target] = await handle.db
+      .insert(schema.users)
+      .values({
+        username: 'timed-ban',
+        email: 'timed-ban@example.com',
+        password_hash: 'x',
+        state: 'active',
+        display_name: 'timed-ban',
+      })
+      .returning();
+    if (!target) throw new Error('no user');
+
+    // 未来 1 小时封禁：仍然拦截。
+    const stillBanned = await banUser(
+      handle.db,
+      { id: ownerId, role: 'owner' },
+      target.id,
+      { reason: '限时封禁', until: new Date(Date.now() + 3_600_000) },
+    );
+    expect(stillBanned.state).toBe('banned');
+    expect(stillBanned.banned_until).not.toBeNull();
+    expect(await expireSanctions(handle.db, stillBanned)).toMatchObject({ state: 'banned' });
+
+    // 已过期封禁：解析会话时自动解除。
+    const expired = await banUser(
+      handle.db,
+      { id: ownerId, role: 'owner' },
+      target.id,
+      { reason: '限时封禁', until: new Date(Date.now() - 1000) },
+    );
+    const lifted = await expireSanctions(handle.db, expired);
+    expect(lifted.state).toBe('active');
+    expect(lifted.banned_until).toBeNull();
+    expect(lifted.ban_reason).toBeNull();
+
+    // 永久封禁（until = null）不会被解除。
+    const permanent = await banUser(handle.db, { id: ownerId, role: 'owner' }, target.id, {
+      reason: '永久封禁',
+      until: null,
+    });
+    expect(permanent.banned_until).toBeNull();
+    expect((await expireSanctions(handle.db, permanent)).state).toBe('banned');
+  });
+
+  it('注销后的账号从用户列表消失，但仍留在库里', async () => {
+    await seedOwner();
+    const [doomed] = await handle.db
+      .insert(schema.users)
+      .values({
+        username: 'doomed',
+        email: 'doomed@example.com',
+        password_hash: 'x',
+        state: 'active',
+        display_name: 'doomed',
+      })
+      .returning();
+    if (!doomed) throw new Error('no user');
+
+    const before = await listUsers(handle.db, {});
+    expect(before.users.map((user) => user.id)).toContain(doomed.id);
+
+    await deleteAccountNow(handle.db, doomed.id);
+
+    const after = await listUsers(handle.db, {});
+    expect(after.users.map((user) => user.id)).not.toContain(doomed.id);
+    expect(after.total).toBe(before.total - 1);
+
+    // 数据仍在（审计/追溯需要），只是 state 变成 deleted。
+    const [row] = await handle.db.select().from(schema.users).where(eq(schema.users.id, doomed.id));
+    expect(row?.state).toBe('deleted');
   });
 });

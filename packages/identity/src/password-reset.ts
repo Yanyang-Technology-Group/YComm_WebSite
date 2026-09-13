@@ -23,6 +23,8 @@ export async function requestPasswordReset(db: Db, emailInput: string): Promise<
   if (!user) return;
   // Nobody gets a reset link for a deleted or banned account.
   if (user.state === 'deleted' || user.state === 'banned') return;
+  // GitHub 登录创建的账号没有密码，也不允许通过重置「创造」一个密码。
+  if (!user.password_hash) return;
 
   const token = newToken(32);
   await db.insert(schema.emailTokens).values({

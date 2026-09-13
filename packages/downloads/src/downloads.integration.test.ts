@@ -9,9 +9,11 @@ import type { AccessSubject } from '@ycomm/access';
 import {
   addLink,
   authorizedFetch,
+  createCard,
   createResource,
   getResource,
   listPublishedResources,
+  listVisibleCards,
   registerDownloadDeciders,
   reportDeadLinkByResource,
   updateResourceMetadata,
@@ -43,6 +45,7 @@ afterEach(async () => {
     schema.downloadLinks,
     schema.downloadResources,
     schema.downloadCategories,
+    schema.downloadCards,
     schema.moderationItems,
     schema.users,
   ]) {
@@ -323,5 +326,38 @@ describe('dead-link reports', () => {
       .from(schema.moderationItems)
       .where(eq(schema.moderationItems.reason, 'dead_link_review'));
     expect(items.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('card portal nesting', () => {
+  it('returns every level so child cards can be opened, and hides staff cards from guests', async () => {
+    const root = await createCard(handle.db, { parentId: null, title: '工具', kind: 'container' });
+    const child = await createCard(handle.db, { parentId: root.id, title: '网络工具', kind: 'container' });
+    const grandChild = await createCard(handle.db, {
+      parentId: child.id,
+      title: '代理工具',
+      kind: 'resources',
+    });
+    const staffOnly = await createCard(handle.db, {
+      parentId: root.id,
+      title: '内部资料',
+      kind: 'container',
+      visibility: 'staff',
+    });
+
+    // 访客：看得到公开卡片（含嵌套层级），看不到 staff 卡片。
+    const guestCards = await listVisibleCards(handle.db, null);
+    const guestIds = guestCards.map((card) => card.id);
+    expect(guestIds).toContain(root.id);
+    expect(guestIds).toContain(child.id);
+    expect(guestIds).toContain(grandChild.id);
+    expect(guestIds).not.toContain(staffOnly.id);
+
+    // 子卡片的 parentId 必须保留，前台才能组树（否则「进入子卡片」永远是空的）。
+    expect(guestCards.find((card) => card.id === grandChild.id)?.parent_id).toBe(child.id);
+
+    // 管理员：staff 卡片可见。
+    const adminIds = (await listVisibleCards(handle.db, subject({ role: 'admin' }))).map((card) => card.id);
+    expect(adminIds).toContain(staffOnly.id);
   });
 });

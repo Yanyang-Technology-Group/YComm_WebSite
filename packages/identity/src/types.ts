@@ -15,6 +15,8 @@ export interface PublicUser {
   state: string;
   avatarPath: string | null;
   bio: string;
+  /** 是否设置了密码；GitHub 等第三方登录创建的账号为 false。 */
+  hasPassword: boolean;
   createdAt: Date;
 }
 
