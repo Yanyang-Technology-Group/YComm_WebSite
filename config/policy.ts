@@ -148,10 +148,9 @@ export const REGISTRATION = {
 export const MODERATION = {
   /**
    * Posts by a member whose post count is below this value go to the review
-   * queue. There are no per-board moderators in this deployment, so this is the
-   * only thing standing between a fresh account and the front page.
+   * queue. 0 表示关闭「新人前几帖审核」，所有内容直接发布。
    */
-  newMemberReviewPostCount: 3,
+  newMemberReviewPostCount: 0,
   /** How long the author may still edit their own post without a moderator. */
   selfEditWindowMinutes: 60,
   /** Soft-deleted content is purged this many days after deletion. */

@@ -45,9 +45,12 @@ export function SessionNav() {
     );
   }
 
+  // 已登录：隐藏登录/注册，换成最右侧的头像图标（点击进控制台 /dashboard）
   return (
     <>
-      <span className="nav-user">{user.username}</span>
+      <Link href="/dashboard" className="nav-avatar" title="控制台" aria-label="控制台">
+        <span className="nav-avatar-initial">{user.username.slice(0, 1).toUpperCase()}</span>
+      </Link>
       <LogoutButton />
     </>
   );

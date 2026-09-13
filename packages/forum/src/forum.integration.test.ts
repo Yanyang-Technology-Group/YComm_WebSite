@@ -71,7 +71,7 @@ afterEach(async () => {
 });
 
 describe('topics', () => {
-  it('new members’ first topics go to the review queue, active members publish directly', async () => {
+  it('new members publish directly (new-member review queue disabled)', async () => {
     const boardId = await seedBoard();
     const newbie = await seedUser('newbie');
     const active = await seedUser('active', { postCount: 5 });
@@ -84,14 +84,15 @@ describe('topics', () => {
       title: '新人第一帖',
       contentMd: '大家好',
     });
-    expect(result.needsReview).toBe(true);
-    expect(result.topic.status).toBe('pending');
+    // MODERATION.newMemberReviewPostCount = 0：新成员同样直接发布，不进审核队列。
+    expect(result.needsReview).toBe(false);
+    expect(result.topic.status).toBe('published');
 
     const items = await handle.db
       .select()
       .from(schema.moderationItems)
       .where(eq(schema.moderationItems.reason, 'new_user_review'));
-    expect(items).toHaveLength(1);
+    expect(items).toHaveLength(0);
 
     const direct = await createTopic(handle.db, {
       boardId,

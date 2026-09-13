@@ -235,6 +235,121 @@ a:hover {
   font-weight: 600;
 }
 
+/* 已登录头像入口（最右侧，进 /dashboard） */
+.nav-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+  transition: filter 0.15s ease;
+}
+
+.nav-avatar:hover {
+  filter: brightness(1.08);
+  opacity: 1;
+}
+
+.nav-avatar-initial {
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+/* ===== 控制台（dashboard）：左导航 + 右内容，类 wiki ===== */
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 2.5rem;
+  align-items: start;
+}
+
+.dashboard-nav {
+  position: sticky;
+  top: 5.25rem;
+  border-right: 1px solid var(--border);
+  padding-right: 1.5rem;
+}
+
+.dashboard-nav-group {
+  margin-bottom: 1.75rem;
+}
+
+.dashboard-nav-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+
+.dashboard-nav-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 0.15rem;
+}
+
+.dashboard-nav-link:hover {
+  background: var(--accent-soft);
+}
+
+.dashboard-nav-link.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.dashboard-content {
+  min-width: 0;
+  max-width: 720px;
+}
+
+@media (max-width: 760px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .dashboard-nav {
+    position: static;
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    border-right: none;
+    padding: 0 0 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dashboard-nav-group {
+    margin-bottom: 0;
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .dashboard-nav-title {
+    display: none;
+  }
+
+  .dashboard-nav-link {
+    white-space: nowrap;
+    padding: 0.4rem 0.7rem;
+  }
+}
+
 /* ===== 主体居中 ===== */
 .site-main {
   max-width: 1120px;
