@@ -51,3 +51,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/console', label: '控制台', requiresAuth: true },
   { href: '/admin', label: '管理', requiresAuth: true },
 ] as const;
+
+/** 注册/登录时必须勾选同意的法律文书。 */
+export const LEGAL_DOCS = [
+  { label: '《软件许可及服务协议》', href: 'https://docs.qq.com/pdf/DQXpNU2NUcWxERWxP' },
+  { label: '《儿童个人信息保护规则》', href: 'https://docs.qq.com/doc/DQUN1b0tycXRGdXdn' },
+] as const;

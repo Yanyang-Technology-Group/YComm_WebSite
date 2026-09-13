@@ -3,9 +3,39 @@
 import { useRouter } from 'next/navigation';
 import { useTransition, useState, type FormEvent } from 'react';
 import type { CaptchaConfig } from '@ycomm/kernel';
+import { LEGAL_DOCS } from '@ycomm/config';
 import { CaptchaField } from './captcha-field';
 
 export type AuthFormKind = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
+
+/** 注册/登录必须勾选的协议（服务端同样强制）。 */
+function TermsAgreement() {
+  return (
+    <label
+      style={{
+        display: 'flex',
+        gap: '0.5rem',
+        alignItems: 'flex-start',
+        fontSize: '0.85rem',
+        color: 'var(--muted)',
+        lineHeight: 1.6,
+      }}
+    >
+      <input type="checkbox" name="agreeTerms" required style={{ marginTop: '0.25rem' }} />
+      <span>
+        我已阅读并同意{' '}
+        {LEGAL_DOCS.map((doc, index) => (
+          <span key={doc.href}>
+            {index > 0 && ' 及 '}
+            <a href={doc.href} target="_blank" rel="noopener noreferrer">
+              {doc.label}
+            </a>
+          </span>
+        ))}
+      </span>
+    </label>
+  );
+}
 
 interface ApiError {
   code?: string;
@@ -67,11 +97,15 @@ export function AuthForm({
     setError(null);
     setNotice(null);
     const form = new FormData(event.currentTarget);
-    const payload: Record<string, string> = {};
+    const payload: Record<string, string | boolean> = {};
     for (const [key, value] of form.entries()) {
       if (typeof value === 'string') payload[key] = value;
     }
     if (token) payload.token = token;
+    // 登录/注册：把 checkbox 勾选状态转成布尔送服务端二次校验。
+    if (kind === 'login' || kind === 'register') {
+      payload.agreeTerms = form.get('agreeTerms') === 'on';
+    }
 
     const path =
       kind === 'login'
@@ -137,6 +171,7 @@ export function AuthForm({
             required
             autoComplete="current-password"
           />
+          <TermsAgreement />
         </>
       )}
 
@@ -152,6 +187,7 @@ export function AuthForm({
             autoComplete="new-password"
           />
           <input name="inviteCode" placeholder="邀请码（可选）" autoComplete="off" />
+          <TermsAgreement />
         </>
       )}
 

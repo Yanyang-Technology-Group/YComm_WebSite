@@ -56,12 +56,14 @@ const registerSchema = z.object({
   password: z.string().min(1).max(200),
   inviteCode: z.string().trim().min(1).optional(),
   captchaToken: z.string().min(1).optional(),
+  agreeTerms: z.boolean().optional(),
 });
 
 const loginSchema = z.object({
   login: z.string().min(1).max(255),
   password: z.string().min(1).max(200),
   captchaToken: z.string().min(1).optional(),
+  agreeTerms: z.boolean().optional(),
 });
 
 const emailSchema = z.object({ email: z.string().trim().min(3).max(255), captchaToken: z.string().min(1).optional() });
@@ -116,6 +118,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const body = await parseBody(c, registerSchema);
     const handle = await getDb();
 
+    requireAgreeTerms(body.agreeTerms);
     await verifyCaptcha(body.captchaToken);
 
     const result = await register(handle.db, {
@@ -173,6 +176,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const body = await parseBody(c, loginSchema);
     const handle = await getDb();
 
+    requireAgreeTerms(body.agreeTerms);
     await verifyCaptcha(body.captchaToken);
 
     let user = await findUserByLogin(handle.db, body.login);
@@ -472,6 +476,20 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   });
 
   return router;
+}
+
+/** 注册/登录必须勾选同意协议（服务端强制，防止绕过前端）。 */
+function requireAgreeTerms(agreed: boolean | undefined): void {
+  if (agreed !== true) {
+    throw errors.validation({
+      issues: [
+        {
+          path: 'agreeTerms',
+          message: '请阅读并勾选同意《软件许可及服务协议》和《儿童个人信息保护规则》',
+        },
+      ],
+    });
+  }
 }
 
 /**
