@@ -78,7 +78,7 @@ export default async function BoardPage({
       {topics.length === 0 && <p className="muted">还没有主题，点右下角「发新主题」来发第一帖吧。</p>}
       {topics.map((topic) => (
         <Link key={topic.id} href={`/forum/${slug}/${topic.id}`} className="topic-block">
-          {/* 发布者头像 + 名字放在标题上方 */}
+          {/* 发布者头像 + 名字（点名字进主页）在标题上方 */}
           {topic.preview.firstPost && (
             <div className="topic-block-post topic-block-author-row">
               <Avatar
@@ -86,9 +86,17 @@ export default async function BoardPage({
                 name={topic.preview.firstPost.authorDisplayName}
                 small
               />
-              <span className="topic-block-author">
-                {topic.preview.firstPost.authorDisplayName ?? '访客'}
-              </span>
+              {topic.preview.firstPost.authorUsername ? (
+                <Link
+                  className="uname"
+                  href={`/users/${encodeURIComponent(topic.preview.firstPost.authorUsername)}`}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {topic.preview.firstPost.authorDisplayName ?? topic.preview.firstPost.authorUsername}
+                </Link>
+              ) : (
+                <span className="uname">{topic.preview.firstPost.authorDisplayName ?? '访客'}</span>
+              )}
             </div>
           )}
 
@@ -106,13 +114,34 @@ export default async function BoardPage({
             <div key={index} className="topic-block-post topic-block-reply">
               <span className="topic-block-likes">♥ {reply.likeCount}</span>
               <Avatar path={reply.authorAvatarPath} name={reply.authorDisplayName} small />
-              <span className="topic-block-author">{reply.authorDisplayName ?? '访客'}</span>
+              {reply.authorUsername ? (
+                <Link
+                  className="uname"
+                  href={`/users/${encodeURIComponent(reply.authorUsername)}`}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {reply.authorDisplayName ?? reply.authorUsername}
+                </Link>
+              ) : (
+                <span className="uname">{reply.authorDisplayName ?? '访客'}</span>
+              )}
               <span className="topic-block-text">{excerpt(reply.contentExcerpt)}</span>
             </div>
           ))}
 
           <div className="topic-block-meta muted">
-            {topic.authorDisplayName ?? '访客'} 发帖 · {topic.reply_count} 回复 · {topic.view_count} 浏览
+            {topic.authorUsername ? (
+              <Link
+                className="uname"
+                href={`/users/${encodeURIComponent(topic.authorUsername)}`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {topic.authorDisplayName ?? topic.authorUsername}
+              </Link>
+            ) : (
+              <span className="uname">{topic.authorDisplayName ?? '访客'}</span>
+            )}{' '}
+            发帖 · {topic.reply_count} 回复 · {topic.view_count} 浏览
           </div>
         </Link>
       ))}

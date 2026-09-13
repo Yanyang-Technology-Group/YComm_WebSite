@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
-import { getDb, type Db } from '@ycomm/db';
+import { eq } from 'drizzle-orm';
+import { getDb, schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import { PERMISSION, parseAccessPolicy } from '@ycomm/config';
 import { assertPermission } from '@ycomm/access';
@@ -376,6 +377,35 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       targetId: inviteId,
     });
     return c.json({ ok: true, data: null });
+  });
+
+  /** 使用了某个注册码的用户列表（注册码列表点「已用/上限」弹窗看）。 */
+  router.get('/invites/:inviteId/uses', requirePermission(PERMISSION.INVITE_CREATE), async (c) => {
+    const handle = await getDb();
+    const rows = await handle.db
+      .select({
+        userId: schema.users.id,
+        username: schema.users.username,
+        displayName: schema.users.display_name,
+        avatarPath: schema.users.avatar_path,
+        role: schema.users.role,
+        state: schema.users.state,
+        usedAt: schema.inviteCodeUses.used_at,
+      })
+      .from(schema.inviteCodeUses)
+      .innerJoin(schema.users, eq(schema.inviteCodeUses.user_id, schema.users.id))
+      .where(eq(schema.inviteCodeUses.invite_code_id, c.req.param('inviteId')))
+      .orderBy(schema.inviteCodeUses.used_at);
+    const userList = rows.map((row) => ({
+      userId: row.userId,
+      username: row.username,
+      displayName: row.displayName,
+      avatarPath: row.avatarPath,
+      role: row.role,
+      state: row.state,
+      usedAt: row.usedAt?.toISOString() ?? null,
+    }));
+    return c.json({ ok: true, data: { users: userList } });
   });
 
   // ---- 下载区卡片门户（管理员增删改） ---------------------------------

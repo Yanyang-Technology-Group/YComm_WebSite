@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { CaptchaConfig } from '@ycomm/kernel';
@@ -401,6 +402,16 @@ export interface InviteCodeItem {
   revokedAt: string | null;
 }
 
+interface InviteUseUser {
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarPath: string | null;
+  role: string;
+  state: string;
+  usedAt: string | null;
+}
+
 /** 注册码管理：管理员创建（名称 + 注册码 ≤10 位）、查看列表、删除。 */
 /** 注册码使用量着色：没怎么用 = 浅绿，完全用完 = 深红，中间连续渐变。 */
 function usageStyle(used: number, max: number | null | undefined): React.CSSProperties {
@@ -424,6 +435,26 @@ export function InviteCodesPanel() {
   const [maxUses, setMaxUses] = useState('1');
   const [busy, setBusy] = useState<string | false>(false);
   const [message, setMessage] = useState<string | null>(null);
+  /** 弹窗：查看使用某注册码的用户。 */
+  const [usesFor, setUsesFor] = useState<InviteCodeItem | null>(null);
+  const [uses, setUses] = useState<InviteUseUser[] | null>(null);
+  const [usesLoading, setUsesLoading] = useState(false);
+  const [usesError, setUsesError] = useState<string | null>(null);
+
+  async function openUses(entry: InviteCodeItem) {
+    setUsesFor(entry);
+    setUses(null);
+    setUsesError(null);
+    setUsesLoading(true);
+    try {
+      const data = await apiFetch<{ users: InviteUseUser[] }>(`/api/admin/invites/${entry.id}/uses`);
+      setUses(data.users);
+    } catch (caught) {
+      setUsesError(caught instanceof Error ? caught.message : '加载失败');
+    } finally {
+      setUsesLoading(false);
+    }
+  }
 
   useEffect(() => {
     void (async () => {
@@ -525,9 +556,15 @@ export function InviteCodesPanel() {
                   <td style={tdStyle}>{entry.name ?? '—'}</td>
                   <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{entry.code}</td>
                   <td style={tdStyle}>
-                    <span className="badge" style={usageStyle(entry.usedCount, entry.maxUses)}>
+                    <button
+                      type="button"
+                      className="badge"
+                      style={{ ...usageStyle(entry.usedCount, entry.maxUses), border: 'none', cursor: 'pointer' }}
+                      title="点开查看使用了这个注册码的用户"
+                      onClick={() => void openUses(entry)}
+                    >
                       {entry.usedCount}/{entry.maxUses ?? '∞'}
-                    </span>
+                    </button>
                   </td>
                   <td style={tdStyle}>{new Date(entry.createdAt).toLocaleString('zh-CN')}</td>
                   <td style={tdStyle}>
@@ -539,6 +576,57 @@ export function InviteCodesPanel() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {usesFor && (
+        <div className="modal-backdrop" onClick={() => setUsesFor(null)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <p className="modal-title">
+              注册码「{usesFor.code}」的使用者
+              <span className="muted" style={{ fontWeight: 400, fontSize: '0.9rem' }}>
+                {' '}
+                · {usesFor.usedCount} 人
+              </span>
+            </p>
+            {usesLoading && <p className="muted">加载中…</p>}
+            {usesError && <p style={{ color: '#dc2626' }}>{usesError}</p>}
+            {!usesLoading && !usesError && uses && (
+              uses.length === 0 ? (
+                <p className="muted">还没有人使用这个注册码。</p>
+              ) : (
+                <div style={{ display: 'grid', gap: '0.45rem', maxHeight: 320, overflowY: 'auto' }}>
+                  {uses.map((user) => (
+                    <div key={user.userId} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      {user.avatarPath ? (
+                        <img src={user.avatarPath} alt={user.displayName} className="avatar avatar-sm" loading="lazy" />
+                      ) : (
+                        <span className="avatar avatar-sm avatar-fallback">
+                          {(user.displayName || user.username).slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                      <span>
+                        <Link className="uname" href={`/users/${encodeURIComponent(user.username)}`}>
+                          {user.displayName || user.username}
+                        </Link>
+                        <span className="muted" style={{ fontSize: '0.82rem' }}>
+                          {' '}
+                          @{user.username}
+                          {user.usedAt ? ` · ${new Date(user.usedAt).toLocaleString('zh-CN')}` : ''}
+                          {user.state === 'deleted' ? ' · 已注销' : ''}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+            <div style={{ marginTop: '1rem' }}>
+              <button type="button" onClick={() => setUsesFor(null)}>
+                关闭
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

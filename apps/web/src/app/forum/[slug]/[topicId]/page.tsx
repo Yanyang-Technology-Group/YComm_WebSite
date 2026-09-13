@@ -103,7 +103,16 @@ export default async function TopicPage({
                 </span>
               )}
               <span className="post-author-name">
-                {post.authorDisplayName ?? '访客'}
+                {post.authorUsername ? (
+                  <Link
+                    className="uname"
+                    href={`/users/${encodeURIComponent(post.authorUsername)}`}
+                  >
+                    {post.authorDisplayName ?? post.authorUsername}
+                  </Link>
+                ) : (
+                  <span className="uname">{post.authorDisplayName ?? '访客'}</span>
+                )}
                 {post.position === 1 && <span className="badge badge-role-owner">楼主</span>}
                 <span className="muted" style={{ fontWeight: 400 }}>
                   {post.position > 1 ? `#${post.position}` : ''} ·{' '}
@@ -116,12 +125,16 @@ export default async function TopicPage({
             <div className="post-actions">
               <LikeButton postId={post.id} initialLiked={liked.includes(post.id)} />
               <ShareButton />
+              <DeletePostButton postId={post.id} authorId={post.author_id} />
+            </div>
+
+            {/* 封禁/禁言统一放在帖子最底部管理行 */}
+            <div className="post-manage">
               <AuthorSanctions
                 userId={post.author_id}
                 username={post.authorUsername}
                 displayName={post.authorDisplayName}
               />
-              <DeletePostButton postId={post.id} authorId={post.author_id} />
             </div>
           </div>
         </div>
