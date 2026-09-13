@@ -10,6 +10,7 @@ import { AppNav } from './app-nav';
 import { ThemePicker } from './theme-toggle';
 import { ImagePicker } from './image-picker';
 import { CaptchaGateModal } from './captcha-gate-modal';
+import { MarkdownContent } from './markdown-content';
 import { remainingLabel } from './sanction-dialog';
 
 interface Profile {
@@ -30,8 +31,10 @@ interface Profile {
   oauthProviders?: string[];
   /** 主页 Markdown 内容。 */
   homepageMd?: string;
-  /** 关注/粉丝列表可见度：'public' | 'mutual' | 'private'。 */
-  socialVisibility?: string;
+  /** 关注 / 粉丝 / 主页列表可见度（隐私设置）。 */
+  followingVisibility?: string;
+  followersVisibility?: string;
+  homepageVisibility?: string;
   /** 封禁/禁言信息：处罚期间不允许自助注销。 */
   mutedUntil?: string | null;
   muteReason?: string | null;
@@ -67,11 +70,11 @@ interface MyResource {
   created_at: string;
 }
 
-type Section = 'profile' | 'content' | 'security' | 'appearance';
+type Section = 'profile' | 'content' | 'security' | 'privacy' | 'appearance';
 
-const SECTIONS: readonly Section[] = ['profile', 'content', 'security', 'appearance'];
+const SECTIONS: readonly Section[] = ['profile', 'content', 'security', 'privacy', 'appearance'];
 
-const SOCIAL_VISIBILITY_OPTIONS = [
+const VISIBILITY_OPTIONS = [
   { value: 'public', label: '公开（所有人可见）' },
   { value: 'mutual', label: '互关可见' },
   { value: 'private', label: '仅自己可见' },
@@ -97,6 +100,7 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
   const [resources, setResources] = useState<MyResource[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [avatarPath, setAvatarPath] = useState('');
+  const [homepageMd, setHomepageMd] = useState('');
   const [deletePrompt, setDeletePrompt] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -120,6 +124,7 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
       if (!user) throw new Error('no user');
       setProfile(user);
       setAvatarPath(user.avatarPath ?? '');
+      setHomepageMd(user.homepageMd ?? '');
       setStatus('ready');
       await loadContent();
     } catch {
@@ -174,11 +179,38 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
             bio: String(fd.get('bio') ?? ''),
             avatarPath: avatarPath || null,
             homepageMd: String(fd.get('homepageMd') ?? ''),
-            socialVisibility: String(fd.get('socialVisibility') ?? 'public'),
           }),
         }),
       '资料已保存',
     );
+  }
+
+  /** 隐私设置：关注 / 粉丝 / 主页可见度分开保存。 */
+  function submitPrivacy(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    void run(
+      () =>
+        apiFetch('/api/auth/profile', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            followingVisibility: String(fd.get('followingVisibility') ?? 'public'),
+            followersVisibility: String(fd.get('followersVisibility') ?? 'public'),
+            homepageVisibility: String(fd.get('homepageVisibility') ?? 'public'),
+          }),
+        }),
+      '隐私设置已保存',
+    );
+  }
+
+  function homepageVisibilityLabel(user: Profile): string {
+    const map: Record<string, string> = {
+      public: '（公开）',
+      mutual: '（仅互关可见）',
+      private: '（仅自己可见）',
+    };
+    return map[user.homepageVisibility ?? 'public'] ?? '';
   }
 
   function submitPassword(e: FormEvent<HTMLFormElement>) {
@@ -358,26 +390,37 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
                 />
                 <ImagePicker label="🖼 上传头像" onPicked={setAvatarPath} />
                 <textarea name="bio" defaultValue={profile.bio} placeholder="签名 / 简介" rows={2} maxLength={500} />
-                <label style={{ fontSize: '0.85rem' }}>
+                <label style={{ fontSize: '0.85rem', display: 'grid', gap: '0.3rem' }}>
                   主页内容（Markdown，显示在你的公开主页上）
                   <textarea
                     name="homepageMd"
-                    defaultValue={profile.homepageMd ?? ''}
+                    value={homepageMd}
+                    onChange={(event) => setHomepageMd(event.target.value)}
                     placeholder={"支持 Markdown：# 标题、**加粗**、- 列表、![](图片链接) 等"}
                     rows={8}
                     maxLength={8000}
                   />
                 </label>
-                <label style={{ fontSize: '0.85rem' }}>
-                  关注 / 粉丝列表可见度
-                  <select name="socialVisibility" defaultValue={profile.socialVisibility ?? 'public'}>
-                    {SOCIAL_VISIBILITY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {/* 提前预览：边写边看渲染效果 */}
+                <div style={{ fontSize: '0.85rem' }}>
+                  <p className="muted" style={{ margin: '0 0 0.3rem' }}>
+                    提前预览{homepageVisibilityLabel(profile)}：
+                  </p>
+                  <div
+                    className="panel"
+                    style={{
+                      marginBottom: 0,
+                      background: 'color-mix(in srgb, var(--accent) 4%, var(--surface))',
+                      minHeight: 40,
+                    }}
+                  >
+                    {homepageMd.trim() ? (
+                      <MarkdownContent text={homepageMd} />
+                    ) : (
+                      <span className="muted">（还没写内容）</span>
+                    )}
+                  </div>
+                </div>
                 <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
                   保存资料
                 </button>
@@ -565,6 +608,50 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
               )}
             </div>
           </div>
+        )}
+
+        {section === 'privacy' && (
+          <form onSubmit={submitPrivacy} className="panel" style={{ maxWidth: 560 }}>
+            <p className="panel-title">隐私设置</p>
+            <p className="muted" style={{ margin: '0 0 1rem', fontSize: '0.85rem' }}>
+              三个可见度分开设置：谁可以看到你的关注列表、粉丝列表，以及主页内容。
+            </p>
+            <div style={{ display: 'grid', gap: '0.8rem' }}>
+              <label style={{ display: 'grid', gap: '0.3rem', fontSize: '0.9rem' }}>
+                关注列表可见度
+                <select name="followingVisibility" defaultValue={profile.followingVisibility ?? 'public'}>
+                  {VISIBILITY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: '0.3rem', fontSize: '0.9rem' }}>
+                粉丝列表可见度
+                <select name="followersVisibility" defaultValue={profile.followersVisibility ?? 'public'}>
+                  {VISIBILITY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: '0.3rem', fontSize: '0.9rem' }}>
+                主页可见度
+                <select name="homepageVisibility" defaultValue={profile.homepageVisibility ?? 'public'}>
+                  {VISIBILITY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
+                保存隐私设置
+              </button>
+            </div>
+          </form>
         )}
 
         {section === 'appearance' && (

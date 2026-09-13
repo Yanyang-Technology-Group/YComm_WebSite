@@ -292,6 +292,29 @@ a:hover {
   opacity: 1;
 }
 
+/* 头像专用入口：圆形，指向我的主页；控制台单独一个「控制台」按钮 */
+.nav-console-avatar {
+  padding: 0.2rem;
+  border-radius: 999px;
+  line-height: 0;
+}
+
+.nav-console-avatar .nav-avatar-img {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.nav-console-avatar .nav-avatar-initial {
+  width: 2rem;
+  height: 2rem;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
 /* GitHub 回调失败提示 */
 .oauth-alert {
   margin: 0 0 1.25rem;

@@ -50,6 +50,13 @@
       "when": 1789334839763,
       "tag": "0006_stale_king_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789337326916,
+      "tag": "0007_right_skin",
+      "breakpoints": true
     }
   ]
 }

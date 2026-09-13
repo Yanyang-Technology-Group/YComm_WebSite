@@ -50,7 +50,7 @@ export function usersRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
     const auth = c.get('auth');
     const target = await resolveUsername(handle.db, c.req.param('username'));
-    const visible = (await getPublicProfile(handle.db, target.id, auth?.userId ?? null)).listsVisible;
+    const visible = (await getPublicProfile(handle.db, target.id, auth?.userId ?? null)).followingListVisible;
     if (!visible) throw errors.forbidden('对方设置了关注列表可见度，暂不可见');
     const items: FollowedUserView[] = await listFollowingUsers(handle.db, target.id, auth?.userId ?? null);
     return c.json({ ok: true, data: { items } });
@@ -60,7 +60,7 @@ export function usersRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
     const auth = c.get('auth');
     const target = await resolveUsername(handle.db, c.req.param('username'));
-    const visible = (await getPublicProfile(handle.db, target.id, auth?.userId ?? null)).listsVisible;
+    const visible = (await getPublicProfile(handle.db, target.id, auth?.userId ?? null)).followersListVisible;
     if (!visible) throw errors.forbidden('对方设置了粉丝列表可见度，暂不可见');
     const items: FollowedUserView[] = await listFollowerUsers(handle.db, target.id, auth?.userId ?? null);
     return c.json({ ok: true, data: { items } });

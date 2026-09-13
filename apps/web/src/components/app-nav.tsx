@@ -15,6 +15,7 @@ import { getSession } from '../lib/session';
 const PERSONAL_LINKS = [
   { section: 'profile', href: '/dashboard', label: '个人资料' },
   { section: 'content', href: '/dashboard?section=content', label: '我的内容' },
+  { section: 'privacy', href: '/dashboard?section=privacy', label: '隐私设置' },
   { section: 'security', href: '/dashboard?section=security', label: '账号安全' },
   { section: 'appearance', href: '/dashboard?section=appearance', label: '外观主题' },
 ] as const;

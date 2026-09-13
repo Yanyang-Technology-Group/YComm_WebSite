@@ -87,6 +87,10 @@ const profileSchema = z.object({
   displayName: z.string().max(40).optional(),
   bio: z.string().max(500).optional(),
   avatarPath: z.string().max(2000).nullable().optional(),
+  homepageMd: z.string().max(8000).optional(),
+  followingVisibility: z.enum(['public', 'mutual', 'private']).optional(),
+  followersVisibility: z.enum(['public', 'mutual', 'private']).optional(),
+  homepageVisibility: z.enum(['public', 'mutual', 'private']).optional(),
 });
 
 const changePasswordSchema = z.object({
@@ -326,9 +330,11 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
           inviteCode: binding.code,
           // 绑定过的第三方登录来源（用于控制台展示「已绑定 GitHub」）。
           oauthProviders,
-          // 主页内容与关注列表可见度（控制台「个人资料」里编辑）。
+          // 主页内容与可见度（控制台「资料/隐私」里编辑）。
           homepageMd: user.homepage_md,
-          socialVisibility: user.social_visibility,
+          followingVisibility: user.following_visibility,
+          followersVisibility: user.followers_visibility,
+          homepageVisibility: user.homepage_visibility,
           // 处罚状态：控制台据此提示「封禁/禁言期间不能注销」。
           mutedUntil: user.muted_until,
           muteReason: user.mute_reason,
@@ -348,6 +354,10 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       displayName: body.displayName,
       bio: body.bio,
       avatarPath: body.avatarPath,
+      homepageMd: body.homepageMd,
+      followingVisibility: body.followingVisibility,
+      followersVisibility: body.followersVisibility,
+      homepageVisibility: body.homepageVisibility,
     });
     return c.json({ ok: true, data: { user: toPublicUser(updated) } });
   });

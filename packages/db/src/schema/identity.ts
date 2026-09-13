@@ -46,15 +46,22 @@ export const users = pgTable(
     banned_until: timestamp('banned_until', { withTimezone: true, mode: 'date' }),
     /** 注销时间：self-deleting 进入冷静期的时间戳；owner 直接注销同样落这里（无冷静期）。 */
     deleted_at: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-    /** 个人主页自定内容（Markdown），公开显示在 /users/<username>。 */
+    /** 主页内容（Markdown），显示在公开主页上，按 homepage_visibility 控制可见。 */
     homepage_md: text('homepage_md').notNull().default(''),
-    /**
-     * 关注/粉丝列表可见度：
-     * - public  公开（所有人可看）
-     * - mutual  互关可见（只有互相关注的人能看）
-     * - private 仅自己可见
-     */
+    /** 遗留字段：已拆分为 following/followers/homepage 三个可见度，不再使用。 */
     social_visibility: varchar('social_visibility', { length: 16 }).notNull().default('public'),
+    /**
+     * 关注列表可见度：public 公开 / mutual 互关可见 / private 仅自己。
+     */
+    following_visibility: varchar('following_visibility', { length: 16 }).notNull().default('public'),
+    /**
+     * 粉丝列表可见度：public 公开 / mutual 互关可见 / private 仅自己。
+     */
+    followers_visibility: varchar('followers_visibility', { length: 16 }).notNull().default('public'),
+    /**
+     * 主页可见度：public 公开 / mutual 互关可见 / private 仅自己。
+     */
+    homepage_visibility: varchar('homepage_visibility', { length: 16 }).notNull().default('public'),
     created_at: createdAtColumn(),
     updated_at: updatedAtColumn(),
     last_seen_at: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }),

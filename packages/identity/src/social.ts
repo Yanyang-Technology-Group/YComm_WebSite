@@ -14,6 +14,9 @@ import type { UserRecord } from './types';
  * - private  仅自己可见
  */
 
+/** 列表类型：关注列表 / 粉丝列表 / 主页。 */
+export type VisibilityKind = 'following' | 'followers' | 'homepage';
+
 export type SocialVisibility = 'public' | 'mutual' | 'private';
 
 export const SOCIAL_VISIBILITIES: readonly SocialVisibility[] = ['public', 'mutual', 'private'];
@@ -30,6 +33,16 @@ export function parseSocialVisibility(value: string | null | undefined): SocialV
 
 export function isSocialVisibility(value: string): value is SocialVisibility {
   return value === 'public' || value === 'mutual' || value === 'private';
+}
+
+/** 某个目标的某项可见性设置值。 */
+export function visibilityOf(
+  target: UserRecord,
+  kind: VisibilityKind,
+): SocialVisibility {
+  if (kind === 'following') return parseSocialVisibility(target.following_visibility);
+  if (kind === 'followers') return parseSocialVisibility(target.followers_visibility);
+  return parseSocialVisibility(target.homepage_visibility);
 }
 
 /** follower 是否正在关注 target。 */
@@ -62,19 +75,29 @@ async function areMutual(db: Db, aId: string, bId: string): Promise<boolean> {
   return isFollowing(db, bId, aId);
 }
 
-/** target 的关注/粉丝列表对 viewer（可能为 null=游客）是否可见。 */
+/** target 的关注/粉丝/主页 对 viewer（可能为 null=游客）是否可见。 */
 export async function listsVisibleTo(
   db: Db,
   target: UserRecord,
   viewerId: string | null,
+  kind: VisibilityKind,
 ): Promise<boolean> {
-  const visibility = parseSocialVisibility(target.social_visibility);
+  const visibility = visibilityOf(target, kind);
   if (visibility === 'public') return true;
   if (viewerId === null) return false;
   if (viewerId === target.id) return true; // 本人永远可见
   if (visibility === 'private') return false;
   // mutual：需要互关
   return areMutual(db, viewerId, target.id);
+}
+
+/** 主页内容对 viewer 是否可见（与列表可见性同一套规则）。 */
+export async function homepageVisibleTo(
+  db: Db,
+  target: UserRecord,
+  viewerId: string | null,
+): Promise<boolean> {
+  return listsVisibleTo(db, target, viewerId, 'homepage');
 }
 
 /** 公开主页视图（不含邮箱等敏感字段）。 */
@@ -97,9 +120,14 @@ export interface UserProfileView {
   viewerFollowsTarget: boolean;
   /** target 是否关注了 viewer。 */
   targetFollowsViewer: boolean;
-  /** 关注/粉丝列表对 viewer 是否可见。 */
-  listsVisible: boolean;
-  socialVisibility: SocialVisibility;
+  /** 关注 / 粉丝 / 主页的可见度设置值。 */
+  followingVisibility: SocialVisibility;
+  followersVisibility: SocialVisibility;
+  homepageVisibility: SocialVisibility;
+  /** 关注 / 粉丝 / 主页对 viewer 是否可见（已按关系算好）。 */
+  followingListVisible: boolean;
+  followersListVisible: boolean;
+  homepageVisible: boolean;
   isSelf: boolean;
 }
 
@@ -144,8 +172,12 @@ export async function getPublicProfile(
     followingCount: followingCount?.n ?? 0,
     viewerFollowsTarget: viewerId ? await isFollowing(db, viewerId, user.id) : false,
     targetFollowsViewer: viewerId ? await isFollowing(db, user.id, viewerId) : false,
-    listsVisible: await listsVisibleTo(db, user, viewerId),
-    socialVisibility: parseSocialVisibility(user.social_visibility),
+    followingVisibility: visibilityOf(user, 'following'),
+    followersVisibility: visibilityOf(user, 'followers'),
+    homepageVisibility: visibilityOf(user, 'homepage'),
+    followingListVisible: await listsVisibleTo(db, user, viewerId, 'following'),
+    followersListVisible: await listsVisibleTo(db, user, viewerId, 'followers'),
+    homepageVisible: await listsVisibleTo(db, user, viewerId, 'homepage'),
     isSelf: viewerId === user.id,
   };
 }

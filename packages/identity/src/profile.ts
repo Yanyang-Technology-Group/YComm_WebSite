@@ -19,13 +19,20 @@ export interface UpdateProfileInput {
   avatarPath?: string | null;
   /** 个人主页内容（Markdown）。 */
   homepageMd?: string;
-  /** 关注/粉丝列表可见度。 */
-  socialVisibility?: SocialVisibility;
+  /** 关注列表可见度。 */
+  followingVisibility?: SocialVisibility;
+  /** 粉丝列表可见度。 */
+  followersVisibility?: SocialVisibility;
+  /** 主页可见度。 */
+  homepageVisibility?: SocialVisibility;
 }
 
 export async function updateProfile(db: Db, userId: string, input: UpdateProfileInput): Promise<UserRecord> {
-  if (input.socialVisibility !== undefined && !isSocialVisibility(input.socialVisibility)) {
-    throw errors.validation({ issues: [{ path: 'socialVisibility', message: '可见度取值无效' }] });
+  for (const key of ['followingVisibility', 'followersVisibility', 'homepageVisibility'] as const) {
+    const value = input[key];
+    if (value !== undefined && !isSocialVisibility(value)) {
+      throw errors.validation({ issues: [{ path: key, message: '可见度取值无效' }] });
+    }
   }
   const [updated] = await db
     .update(schema.users)
@@ -34,7 +41,9 @@ export async function updateProfile(db: Db, userId: string, input: UpdateProfile
       ...(input.bio !== undefined ? { bio: input.bio.slice(0, 500) } : {}),
       ...(input.avatarPath !== undefined ? { avatar_path: input.avatarPath } : {}),
       ...(input.homepageMd !== undefined ? { homepage_md: input.homepageMd.slice(0, 8000) } : {}),
-      ...(input.socialVisibility !== undefined ? { social_visibility: input.socialVisibility } : {}),
+      ...(input.followingVisibility !== undefined ? { following_visibility: input.followingVisibility } : {}),
+      ...(input.followersVisibility !== undefined ? { followers_visibility: input.followersVisibility } : {}),
+      ...(input.homepageVisibility !== undefined ? { homepage_visibility: input.homepageVisibility } : {}),
       updated_at: new Date(),
     })
     .where(eq(schema.users.id, userId))

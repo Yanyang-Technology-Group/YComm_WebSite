@@ -23,13 +23,15 @@ type Kind = 'following' | 'followers';
  */
 export function FollowSections({
   username,
-  initialVisible,
+  followingVisible,
+  followersVisible,
   followerCount,
   followingCount,
   isSelf,
 }: {
   username: string;
-  initialVisible: boolean;
+  followingVisible: boolean;
+  followersVisible: boolean;
   followerCount: number;
   followingCount: number;
   isSelf: boolean;
@@ -39,8 +41,10 @@ export function FollowSections({
   const [loading, setLoading] = useState(false);
   const [forbidden, setForbidden] = useState(false);
 
+  const visibleFor = (key: Kind): boolean => (key === 'following' ? followingVisible : followersVisible);
+
   useEffect(() => {
-    if (!initialVisible || forbidden) return;
+    if (!visibleFor(kind) || forbidden) return;
     setLoading(true);
     setItems(null);
     void apiFetch<{ items: FollowedUser[] }>(`/api/users/${encodeURIComponent(username)}/${kind}`)
@@ -50,7 +54,7 @@ export function FollowSections({
       })
       .catch(() => setForbidden(true))
       .finally(() => setLoading(false));
-  }, [kind, username, initialVisible, forbidden]);
+  }, [kind, username, followingVisible, followersVisible, forbidden]);
 
   const counts: Record<Kind, number> = { following: followingCount, followers: followerCount };
 
@@ -81,7 +85,7 @@ export function FollowSections({
         )}
       </div>
 
-      {!initialVisible ? (
+      {!visibleFor(kind) ? (
         <p className="muted" style={{ margin: '0.75rem 0 0' }}>
           对方将{kind === 'following' ? '关注' : '粉丝'}列表设置为仅自己/互关可见，当前不可查看。
         </p>

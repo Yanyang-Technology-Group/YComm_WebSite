@@ -571,7 +571,7 @@ describe('social / follows', () => {
     expect(view.followerCount).toBe(1);
     expect(view.followingCount).toBe(0);
     expect(view.homepageMd).toBe('');
-    expect(view.listsVisible).toBe(true); // 默认 public
+    expect(view.followingListVisible).toBe(true); // 默认 public
 
     // 不能关注自己。
     await expect(followUser(handle.db, alice.id, alice.id)).rejects.toMatchObject({
@@ -601,33 +601,55 @@ describe('social / follows', () => {
     // private：只有本人能看。
     await handle.db
       .update(schema.users)
-      .set({ social_visibility: 'private' })
+      .set({ followers_visibility: 'private' })
       .where(eq(schema.users.id, target.id));
     const privateTarget = (await handle.db.select().from(schema.users).where(eq(schema.users.id, target.id)).limit(1))[0]!;
-    expect(await listsVisibleTo(handle.db, privateTarget, viewer.id)).toBe(false);
-    expect(await listsVisibleTo(handle.db, privateTarget, null)).toBe(false);
-    expect(await listsVisibleTo(handle.db, privateTarget, target.id)).toBe(true);
-    expect((await getPublicProfile(handle.db, target.username, viewer.id)).listsVisible).toBe(false);
+    expect(await listsVisibleTo(handle.db, privateTarget, viewer.id, 'followers')).toBe(false);
+    expect(await listsVisibleTo(handle.db, privateTarget, null, 'followers')).toBe(false);
+    expect(await listsVisibleTo(handle.db, privateTarget, target.id, 'followers')).toBe(true);
+    expect((await getPublicProfile(handle.db, target.username, viewer.id)).followersListVisible).toBe(false);
 
     // public：游客也能看。
     await handle.db
       .update(schema.users)
-      .set({ social_visibility: 'public' })
+      .set({ followers_visibility: 'public' })
       .where(eq(schema.users.id, target.id));
     const publicTarget = (await handle.db.select().from(schema.users).where(eq(schema.users.id, target.id)).limit(1))[0]!;
-    expect(await listsVisibleTo(handle.db, publicTarget, null)).toBe(true);
+    expect(await listsVisibleTo(handle.db, publicTarget, null, 'followers')).toBe(true);
 
     // mutual：需要互关。
     await handle.db
       .update(schema.users)
-      .set({ social_visibility: 'mutual' })
+      .set({ followers_visibility: 'mutual' })
       .where(eq(schema.users.id, target.id));
     const mutualTarget = (await handle.db.select().from(schema.users).where(eq(schema.users.id, target.id)).limit(1))[0]!;
     await followUser(handle.db, viewer.id, target.id);
-    expect(await listsVisibleTo(handle.db, mutualTarget, viewer.id)).toBe(false); // 单向关注不可见
+    expect(await listsVisibleTo(handle.db, mutualTarget, viewer.id, 'followers')).toBe(false); // 单向关注不可见
     await followUser(handle.db, target.id, viewer.id);
-    expect(await listsVisibleTo(handle.db, mutualTarget, viewer.id)).toBe(true); // 互关可见
-    expect(await listsVisibleTo(handle.db, mutualTarget, stranger.id)).toBe(false);
+    expect(await listsVisibleTo(handle.db, mutualTarget, viewer.id, 'followers')).toBe(true); // 互关可见
+    expect(await listsVisibleTo(handle.db, mutualTarget, stranger.id, 'followers')).toBe(false);
+
+    // 关注列表和粉丝列表分开设置：关注列表保持 public，粉丝列表 private。
+    await handle.db
+      .update(schema.users)
+      .set({ following_visibility: 'public', followers_visibility: 'private' })
+      .where(eq(schema.users.id, target.id));
+    const split = (await handle.db.select().from(schema.users).where(eq(schema.users.id, target.id)).limit(1))[0]!;
+    expect(await listsVisibleTo(handle.db, split, stranger.id, 'following')).toBe(true);
+    expect(await listsVisibleTo(handle.db, split, stranger.id, 'followers')).toBe(false);
+  });
+
+  it('主页可见度：private 时游客看不到主页内容', async () => {
+    const owner = await makeUser('homepage-owner');
+    await handle.db
+      .update(schema.users)
+      .set({ homepage_md: '# 我的主页', homepage_visibility: 'private' })
+      .where(eq(schema.users.id, owner.id));
+    const privateHome = (await handle.db.select().from(schema.users).where(eq(schema.users.id, owner.id)).limit(1))[0]!;
+    expect(await listsVisibleTo(handle.db, privateHome, null, 'homepage')).toBe(false);
+    expect(await listsVisibleTo(handle.db, privateHome, owner.id, 'homepage')).toBe(true);
+    expect((await getPublicProfile(handle.db, owner.username, null)).homepageVisible).toBe(false);
+    expect((await getPublicProfile(handle.db, owner.username, owner.id)).homepageVisible).toBe(true);
   });
 
   it('设置密码：GitHub 账号创建密码；站长重置任意用户密码（只有 owner）', async () => {

@@ -8,7 +8,7 @@ import { LogoutButton } from './logout-button';
 
 /**
  * 头部登录状态（经 getSession 去重缓存，整页只请求一次 /me）：
- * 未登录 → 登录 / 注册；已登录 → 最右侧「控制台」按钮 + 退出。
+ * 未登录 → 登录 / 注册；已登录 → 头像（我的主页）＋「控制台」＋退出。
  */
 export function SessionNav() {
   const pathname = usePathname();
@@ -43,15 +43,24 @@ export function SessionNav() {
     );
   }
 
+  const homeHref = `/users/${encodeURIComponent(user.username)}`;
+
   return (
     <>
-      <Link href="/dashboard" className="nav-console" title="进入控制台">
+      <Link
+        href={homeHref}
+        className="nav-console nav-console-avatar"
+        title="我的主页"
+        aria-label="我的主页"
+      >
         {user.avatarPath ? (
           <img src={user.avatarPath} alt={user.username} className="nav-avatar-img" />
         ) : (
           <span className="nav-avatar-initial">{user.username.slice(0, 1).toUpperCase()}</span>
         )}
-        <span>控制台</span>
+      </Link>
+      <Link href="/dashboard" className="nav-console" title="进入控制台">
+        控制台
       </Link>
       <LogoutButton />
     </>

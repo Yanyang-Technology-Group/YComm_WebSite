@@ -25,8 +25,12 @@ interface UserProfileView {
   followingCount: number;
   viewerFollowsTarget: boolean;
   targetFollowsViewer: boolean;
-  listsVisible: boolean;
-  socialVisibility: 'public' | 'mutual' | 'private';
+  followingVisibility: 'public' | 'mutual' | 'private';
+  followersVisibility: 'public' | 'mutual' | 'private';
+  homepageVisibility: 'public' | 'mutual' | 'private';
+  followingListVisible: boolean;
+  followersListVisible: boolean;
+  homepageVisible: boolean;
   isSelf: boolean;
 }
 
@@ -95,17 +99,24 @@ export default async function UserPage({ params }: { params: Promise<{ username:
 
       <FollowSections
         username={profile.username}
-        initialVisible={profile.listsVisible}
+        followingVisible={profile.followingListVisible}
+        followersVisible={profile.followersListVisible}
         followerCount={profile.followerCount}
         followingCount={profile.followingCount}
         isSelf={profile.isSelf}
       />
 
       {profile.homepageMd.trim() ? (
-        <div className="panel" style={{ marginBottom: '1.5rem' }}>
-          <p className="panel-title">主页</p>
-          <MarkdownContent text={profile.homepageMd} />
-        </div>
+        profile.homepageVisible ? (
+          <div className="panel" style={{ marginBottom: '1.5rem' }}>
+            <p className="panel-title">主页</p>
+            <MarkdownContent text={profile.homepageMd} />
+          </div>
+        ) : (
+          <p className="muted" style={{ margin: '0 0 1rem' }}>
+            对方设置了主页可见度，暂不可见。
+          </p>
+        )
       ) : (
         <p className="muted" style={{ margin: '0 0 1rem' }}>
           这个用户还没有填写主页内容。
