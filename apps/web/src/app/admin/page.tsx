@@ -6,42 +6,45 @@ import { CardsPanel } from '../../components/card-editor';
 export const metadata: Metadata = { title: '管理后台' };
 export const dynamic = 'force-dynamic';
 
+const MENU = [
+  { href: '/admin/users', title: '用户管理', desc: '角色授予 / 封禁 / 禁言 / 注销' },
+  { href: '/admin/boards', title: '版块管理', desc: '新增版块 / 删除归档 / 访问设置' },
+  { href: '/admin/moderation', title: '审核队列', desc: '论坛内容 / 下载资源 / 失效链接' },
+  { href: '/admin/resources', title: '资源管理', desc: '发布上传 / 状态查看' },
+] as const;
+
 export default function AdminPage() {
   return (
-    <div style={{ maxWidth: 640 }}>
+    <div style={{ maxWidth: 760 }}>
       <h1>管理后台</h1>
-      <div style={{ display: 'grid', gap: '0.6rem', maxWidth: 480 }}>
-        <Link href="/admin/users" style={cardStyle}>
-          用户管理（角色 / 封禁 / 禁言）
-        </Link>
-        <Link href="/admin/boards" style={cardStyle}>
-          版块管理（新增 / 删除 / 访问设置）
-        </Link>
-        <Link href="/admin/moderation" style={cardStyle}>
-          审核队列（论坛内容 / 下载资源 / 失效链接）
-        </Link>
-        <Link href="/admin/resources" style={cardStyle}>
-          资源管理（发布上传 / 状态查看）
-        </Link>
-      </div>
-      <div style={{ marginTop: '1.5rem', display: 'grid', gap: '1rem' }}>
+      <p className="muted" style={{ marginTop: 0 }}>
+        站务入口与快捷设置
+      </p>
+
+      <section>
+        {MENU.map((item) => (
+          <Link key={item.href} href={item.href} className="admin-menu-row">
+            <span className="admin-menu-title">{item.title}</span>
+            <span className="admin-menu-desc">{item.desc}</span>
+            <span className="admin-menu-arrow" aria-hidden="true">
+              →
+            </span>
+          </Link>
+        ))}
+      </section>
+
+      <h2 className="section-title" style={{ marginTop: '2.25rem' }}>
+        快捷设置
+      </h2>
+      <div style={{ display: 'grid', gap: '1.5rem' }}>
         <CardsPanel />
         <InviteCodesPanel />
         <BannedWordsPanel />
       </div>
-      <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '1.5rem' }}>
-        提示：资源审核与失效链接处理统一走“审核队列”，站长执行最终审批。
+
+      <p className="muted" style={{ marginTop: '1.5rem' }}>
+        提示：资源审核与失效链接处理统一走「审核队列」，由站长执行最终审批。
       </p>
     </div>
   );
 }
-
-const cardStyle: React.CSSProperties = {
-  display: 'block',
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  background: 'var(--surface)',
-  padding: '0.9rem 1.1rem',
-  color: 'var(--text)',
-  textDecoration: 'none',
-};

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { apiGet } from '../../../../lib/server-api';
-import { LikeButton, ReplyForm } from '../../../../components/forum-form';
+import { DeletePostButton, DeleteTopicButton, LikeButton, ReplyForm } from '../../../../components/forum-form';
 
 export const metadata: Metadata = { title: '主题' };
 export const dynamic = 'force-dynamic';
@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 interface Topic {
   id: string;
   title: string;
+  author_id: string | null;
   is_locked: boolean;
   reply_count: number;
   view_count: number;
@@ -17,6 +18,7 @@ interface Topic {
 
 interface Post {
   id: string;
+  author_id: string | null;
   authorUsername: string | null;
   authorDisplayName: string | null;
   position: number;
@@ -65,6 +67,9 @@ export default async function TopicPage({
       <p className="muted" style={{ marginTop: 0 }}>
         {topic.reply_count} 回复 · {topic.view_count} 浏览{topic.is_locked ? ' · 已锁定' : ''}
       </p>
+      <p style={{ marginTop: '0.5rem' }}>
+        <DeleteTopicButton topicId={topic.id} authorId={topic.author_id} boardSlug={slug} />
+      </p>
 
       {posts.map((post) => (
         <div key={post.id} className="post-item">
@@ -74,8 +79,9 @@ export default async function TopicPage({
             {post.edited_at ? ' · 已编辑' : ''}
           </div>
           <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{post.content_md}</div>
-          <div style={{ marginTop: '0.5rem' }}>
+          <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.75rem' }}>
             <LikeButton postId={post.id} initialLiked={liked.includes(post.id)} />
+            <DeletePostButton postId={post.id} authorId={post.author_id} />
           </div>
         </div>
       ))}

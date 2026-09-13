@@ -416,12 +416,13 @@ select:focus {
 
 /* ===== 卡片 / 文本：边界清楚、间距从容 ===== */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 1.25rem 1.5rem;
-  margin-bottom: 1.25rem;
-  box-shadow: var(--shadow-sm);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 1.25rem 0;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
 }
 
 .topic-link {
@@ -430,12 +431,13 @@ select:focus {
 }
 
 .post-item {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 1.5rem 1.75rem;
-  margin-bottom: 1.5rem;
-  box-shadow: var(--shadow-sm);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 1.5rem 0;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
 }
 
 .page-title {
@@ -496,12 +498,13 @@ select:focus {
 }
 
 .panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 1.25rem 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: var(--shadow-sm);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 1.25rem 0;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
 }
 
 .panel-title {
@@ -573,24 +576,17 @@ select:focus {
 .card-tile {
   display: block;
   position: relative;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
   padding: 1.25rem;
   color: var(--text);
-  box-shadow: var(--shadow-sm);
   overflow: hidden;
-  transition:
-    transform 0.12s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: background 0.15s ease;
 }
 
 .card-tile:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
-  box-shadow: var(--shadow);
-  opacity: 1;
+  background: var(--accent-soft);
 }
 
 .card-tile-title {
@@ -906,4 +902,121 @@ html[data-anim='theme'] .page-anim > * {
   .page-anim > * {
     animation: none !important;
   }
+}
+
+/* ===== 论坛：占满屏幕 + 话题预览块 ===== */
+/* 带论坛三栏布局的页面突破 1120px 限制，往左右撑开 */
+.site-main:has(.forum-layout) {
+  max-width: none;
+}
+
+/* 话题预览块（无框，分隔线 + hover 浅色底） */
+.topic-block {
+  display: block;
+  color: var(--text);
+  padding: 1.25rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s ease;
+}
+
+.topic-block:hover {
+  background: var(--accent-soft);
+  opacity: 1;
+}
+
+.topic-block-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.4rem;
+}
+
+.topic-block-post {
+  display: flex;
+  gap: 0.55rem;
+  align-items: baseline;
+  margin-top: 0.2rem;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.topic-block-reply {
+  padding-left: 0.75rem;
+}
+
+.topic-block-likes {
+  color: var(--accent-strong);
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+
+.topic-block-author {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.topic-block-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topic-block-meta {
+  margin-top: 0.45rem;
+}
+
+/* 左下角「发新主题」浮钮 */
+.fab-bottom-left {
+  position: fixed;
+  left: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 60;
+  background: var(--accent-strong);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.65rem 1.1rem;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.fab-bottom-left:hover {
+  background: var(--accent);
+}
+
+/* ===== 管理后台：功能入口行 ===== */
+.admin-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.95rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  transition: background 0.15s ease;
+}
+
+.admin-menu-row:hover {
+  opacity: 1;
+  color: var(--text);
+}
+
+.admin-menu-title {
+  font-weight: 700;
+  width: 7.5rem;
+  flex-shrink: 0;
+}
+
+.admin-menu-desc {
+  color: var(--muted);
+  font-size: 0.9rem;
+  flex: 1;
+}
+
+.admin-menu-arrow {
+  color: var(--muted);
 }

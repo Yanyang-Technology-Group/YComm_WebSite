@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import { MODERATION } from '@ycomm/config';
@@ -95,6 +95,104 @@ export async function createPost(db: Db, input: CreatePostInput): Promise<PostRo
 export async function getPostById(db: Db, postId: string): Promise<PostRow | null> {
   const rows = await db.select().from(schema.posts).where(eq(schema.posts.id, postId)).limit(1);
   return rows[0] ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// 版块列表的「话题预览」：首楼摘要 + 点赞最高的前 2 条回复
+// ---------------------------------------------------------------------------
+
+export interface TopicPostPreview {
+  topicId: string;
+  contentExcerpt: string;
+  authorUsername: string | null;
+  authorDisplayName: string | null;
+  likeCount: number;
+}
+
+export interface TopicPreview {
+  firstPost: TopicPostPreview | null;
+  topReplies: TopicPostPreview[];
+}
+
+/** 每个话题：取首楼（position=1）内容与作者，以及回复中点赞最高的前 2 条。 */
+export async function listTopicPreviews(db: Db, topicIds: string[]): Promise<Map<string, TopicPreview>> {
+  const previews = new Map<string, TopicPreview>();
+  if (topicIds.length === 0) return previews;
+  for (const id of topicIds) previews.set(id, { firstPost: null, topReplies: [] });
+
+  // 首楼
+  const firstRows = await db
+    .select({
+      topic_id: schema.posts.topic_id,
+      content_md: schema.posts.content_md,
+      authorUsername: schema.users.username,
+      authorDisplayName: schema.users.display_name,
+    })
+    .from(schema.posts)
+    .leftJoin(schema.users, eq(schema.posts.author_id, schema.users.id))
+    .where(
+      and(
+        inArray(schema.posts.topic_id, topicIds),
+        eq(schema.posts.position, 1),
+        eq(schema.posts.status, 'published'),
+      ),
+    );
+  for (const row of firstRows) {
+    const preview = previews.get(row.topic_id);
+    if (preview) {
+      preview.firstPost = {
+        topicId: row.topic_id,
+        contentExcerpt: row.content_md,
+        authorUsername: row.authorUsername,
+        authorDisplayName: row.authorDisplayName,
+        likeCount: 0,
+      };
+    }
+  }
+
+  // 回复的点赞数
+  const likeCounts = db
+    .select({ targetId: schema.reactions.target_id, count: sql<number>`count(*)::int` })
+    .from(schema.reactions)
+    .where(eq(schema.reactions.target_type, 'post'))
+    .groupBy(schema.reactions.target_id)
+    .as('like_counts');
+
+  // 每条话题点赞最高的前 2 条回复（window function 排名，JS 里截断）
+  const replyRows = await db
+    .select({
+      topic_id: schema.posts.topic_id,
+      content_md: schema.posts.content_md,
+      authorUsername: schema.users.username,
+      authorDisplayName: schema.users.display_name,
+      likeCount: sql<number>`coalesce(${likeCounts.count}, 0)`,
+      rank: sql<number>`(row_number() over (partition by ${schema.posts.topic_id} order by coalesce(${likeCounts.count}, 0) desc, ${schema.posts.position} asc))::int`,
+    })
+    .from(schema.posts)
+    .leftJoin(schema.users, eq(schema.posts.author_id, schema.users.id))
+    .leftJoin(likeCounts, eq(likeCounts.targetId, schema.posts.id))
+    .where(
+      and(
+        inArray(schema.posts.topic_id, topicIds),
+        gt(schema.posts.position, 1),
+        eq(schema.posts.status, 'published'),
+      ),
+    );
+
+  for (const row of replyRows) {
+    if (row.rank > 2) continue;
+    const preview = previews.get(row.topic_id);
+    if (!preview) continue;
+    preview.topReplies.push({
+      topicId: row.topic_id,
+      contentExcerpt: row.content_md,
+      authorUsername: row.authorUsername,
+      authorDisplayName: row.authorDisplayName,
+      likeCount: row.likeCount,
+    });
+  }
+
+  return previews;
 }
 
 export async function listPosts(

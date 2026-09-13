@@ -31,10 +31,13 @@ export {
   likePost,
   listPostRevisions,
   listPosts,
+  listTopicPreviews,
   unlikePost,
   type CreatePostInput,
   type PostRow,
   type PostWithAuthor,
+  type TopicPostPreview,
+  type TopicPreview,
 } from './posts';
 export { newTopicSlug } from './slug';
 export {

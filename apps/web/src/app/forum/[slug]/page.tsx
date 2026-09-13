@@ -1,10 +1,17 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { apiGet } from '../../../lib/server-api';
-import { NewTopicForm } from '../../../components/forum-form';
+import { NewTopicFab } from '../../../components/forum-form';
 
 export const metadata: Metadata = { title: '版块' };
 export const dynamic = 'force-dynamic';
+
+interface PreviewPost {
+  contentExcerpt: string;
+  authorUsername: string | null;
+  authorDisplayName: string | null;
+  likeCount: number;
+}
 
 interface Topic {
   id: string;
@@ -16,13 +23,18 @@ interface Topic {
   is_pinned: boolean;
   is_locked: boolean;
   created_at: string;
-  last_post_at: string | null;
+  preview: { firstPost: PreviewPost | null; topReplies: PreviewPost[] };
 }
 
 interface BoardDetail {
   slug: string;
   name: string;
   description: string;
+}
+
+function excerpt(text: string): string {
+  const oneLine = text.replace(/\s+/g, ' ').trim();
+  return oneLine.length > 140 ? `${oneLine.slice(0, 140)}…` : oneLine;
 }
 
 export default async function BoardPage({
@@ -49,25 +61,41 @@ export default async function BoardPage({
       <h1 className="page-title">{board?.name ?? slug}</h1>
       {board && <p className="muted">{board.description}</p>}
 
-      <h2 className="section-title">主题</h2>
-      {topics.length === 0 && <p className="muted">还没有主题，来发第一帖吧。</p>}
+      {topics.length === 0 && <p className="muted">还没有主题，点右下角「发新主题」来发第一帖吧。</p>}
       {topics.map((topic) => (
-        <Link key={topic.id} href={`/forum/${slug}/${topic.id}`} className="card topic-link">
-          <strong>
+        <Link key={topic.id} href={`/forum/${slug}/${topic.id}`} className="topic-block">
+          <div className="topic-block-title">
             {topic.is_pinned && '📌 '}
             {topic.is_locked && '🔒 '}
             {topic.title}
-          </strong>
-          <span className="muted" style={{ marginLeft: '0.6rem' }}>
-            {topic.authorDisplayName ?? '访客'} · {topic.reply_count} 回复 · {topic.view_count} 浏览
-          </span>
+          </div>
+
+          {topic.preview.firstPost && (
+            <div className="topic-block-post">
+              <span className="topic-block-author">
+                {topic.preview.firstPost.authorDisplayName ?? '访客'}
+              </span>
+              <span className="topic-block-text">
+                {excerpt(topic.preview.firstPost.contentExcerpt)}
+              </span>
+            </div>
+          )}
+
+          {topic.preview.topReplies.map((reply, index) => (
+            <div key={index} className="topic-block-post topic-block-reply">
+              <span className="topic-block-likes">♥ {reply.likeCount}</span>
+              <span className="topic-block-author">{reply.authorDisplayName ?? '访客'}</span>
+              <span className="topic-block-text">{excerpt(reply.contentExcerpt)}</span>
+            </div>
+          ))}
+
+          <div className="topic-block-meta muted">
+            {topic.authorDisplayName ?? '访客'} 发帖 · {topic.reply_count} 回复 · {topic.view_count} 浏览
+          </div>
         </Link>
       ))}
 
-      <h2 className="section-title" style={{ marginTop: '2rem' }}>
-        发新主题
-      </h2>
-      <NewTopicForm boardSlug={slug} />
+      <NewTopicFab boardSlug={slug} />
     </div>
   );
 }

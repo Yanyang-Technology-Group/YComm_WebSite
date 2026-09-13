@@ -20,6 +20,7 @@ import {
   listBoards,
   listPosts,
   listTopics,
+  listTopicPreviews,
   moderateTopic,
   searchTopics,
   unlikePost,
@@ -83,7 +84,20 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
     const offset = Number.parseInt(c.req.query('offset') ?? '0', 10) || 0;
     const limit = Math.min(Number.parseInt(c.req.query('limit') ?? '20', 10) || 20, 100);
     const result = await listTopics(handle.db, { boardId: board.id, offset, limit });
-    return c.json({ ok: true, data: result });
+    const previews = await listTopicPreviews(
+      handle.db,
+      result.topics.map((topic) => topic.id),
+    );
+    return c.json({
+      ok: true,
+      data: {
+        total: result.total,
+        topics: result.topics.map((topic) => ({
+          ...topic,
+          preview: previews.get(topic.id) ?? { firstPost: null, topReplies: [] },
+        })),
+      },
+    });
   });
 
   // ---- create topic ----------------------------------------------------
