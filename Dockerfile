@@ -25,6 +25,14 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/kernel/package.json packages/kernel/
 COPY packages/db/package.json packages/db/
+COPY packages/access/package.json packages/access/
+COPY packages/audit/package.json packages/audit/
+COPY packages/downloads/package.json packages/downloads/
+COPY packages/forum/package.json packages/forum/
+COPY packages/identity/package.json packages/identity/
+COPY packages/jobs/package.json packages/jobs/
+COPY packages/moderation/package.json packages/moderation/
+COPY packages/notify/package.json packages/notify/
 RUN npm ci --ignore-scripts --no-audit --no-fund
 
 # Build the Next.js production bundle (turbopack).
