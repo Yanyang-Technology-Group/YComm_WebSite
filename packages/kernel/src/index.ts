@@ -14,6 +14,7 @@ export {
   enabledOAuthProviders,
   envSchema,
   getEnv,
+  hasResend,
   hasSmtp,
   isProduction,
   loadEnv,

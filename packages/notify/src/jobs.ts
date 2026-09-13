@@ -14,7 +14,7 @@ export function registerMailJobHandler(): void {
     const result = await sendMail({ db, to, template, subject, text, html });
     if (result === 'failed') {
       // Already recorded in email_logs; throw so the queue retries with backoff.
-      throw new Error(`SMTP send failed for ${template} to ${to}`);
+      throw new Error(`mail send failed for ${template} to ${to}`);
     }
   });
 }

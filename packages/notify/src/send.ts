@@ -1,5 +1,5 @@
 import { schema, type Db } from '@ycomm/db';
-import { getEnv, hasSmtp, logger } from '@ycomm/kernel';
+import { getEnv, hasResend, hasSmtp, logger } from '@ycomm/kernel';
 import { createMailTransport, type MailMessage } from './transport';
 
 export interface SendMailInput extends MailMessage {
@@ -13,7 +13,7 @@ export type SendMailResult = 'sent' | 'skipped' | 'failed';
 /**
  * Send one email and record it in `email_logs` — the permanent audit trail.
  *
- * - No SMTP configured → `skipped` (console transport logs the content).
+ * - No mail provider (Resend or SMTP) → `skipped` (console transport logs it).
  * - Transport failure → record `failed` and THROW, so the job queue retries.
  *
  * `email_logs` is the only place where "user says they never got it" can be
@@ -22,7 +22,7 @@ export type SendMailResult = 'sent' | 'skipped' | 'failed';
 export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
   const env = getEnv();
 
-  if (!hasSmtp(env)) {
+  if (!hasResend(env) && !hasSmtp(env)) {
     await input.db.insert(schema.emailLogs).values({
       to_email: input.to,
       template: input.template,

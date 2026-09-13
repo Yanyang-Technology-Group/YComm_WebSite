@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadEnv, resetEnvCache } from './env';
+import { hasResend, hasSmtp, loadEnv, resetEnvCache } from './env';
 
 function source(overrides: Record<string, string | undefined> = {}): Record<string, string | undefined> {
   return {
@@ -54,6 +54,19 @@ describe('loadEnv', () => {
     expect(() =>
       loadEnv(source({ SMTP_HOST: 'smtp.example.com', SMTP_USER: 'u' })),
     ).toThrowError(/MAIL_FROM/);
+  });
+
+  it('requires MAIL_FROM when Resend is configured', () => {
+    expect(() => loadEnv(source({ RESEND_API_KEY: 're_xxx' }))).toThrowError(/MAIL_FROM/);
+  });
+
+  it('detects the configured mail provider', () => {
+    expect(
+      hasSmtp(loadEnv(source({ SMTP_HOST: 'smtp.example.com', SMTP_USER: 'u', MAIL_FROM: 'a@b.c' }))),
+    ).toBe(true);
+    expect(hasResend(loadEnv(source({ RESEND_API_KEY: 're_xxx', MAIL_FROM: 'a@b.c' })))).toBe(true);
+    expect(hasSmtp(loadEnv(source()))).toBe(false);
+    expect(hasResend(loadEnv(source()))).toBe(false);
   });
 
   it('rejects OAuth providers configured with only one credential half', () => {

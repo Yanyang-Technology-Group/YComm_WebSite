@@ -52,12 +52,30 @@ npm run owner:create -- --username owner --email you@example.com --password <sec
 npm run dev                 # http://localhost:3000
 ```
 
-首次进入站点：注册 → 邮箱验证（无 SMTP 时控制台打印验证链接）→ 登录。
+首次进入站点：注册 → 邮箱验证（未配置邮件服务时控制台打印验证链接）→ 登录。
 完整校验：`npm run verify`（lint + typecheck + test + license 检查）。
+
+## 角色与权限
+
+四种角色，权限矩阵统一由 `config/roles.ts` 定义：
+
+| 角色 | 说明 | 如何获得 |
+|---|---|---|
+| `owner`（站长） | 全部权限，唯一，负责资源审核、角色授予、站点维护 | 建站时 `npm run owner:create`（或容器 `YCOMM_OWNER_*` 引导）；**全站仅一个** |
+| `admin`（管理员） | 论坛/下载内容管理、用户管理、站点设置 | 站长在后台授予 |
+| `member`（会员） | 发帖、上传资源、下载 | 注册并通过邮箱验证后默认 |
+| `guest`（访客） | 只读公开内容 | 未登录 |
+
+**把某个用户设为管理员：** 站长登录 → 顶栏「管理」→「用户」→ 找到该用户 → 授予 `admin` 角色。
+
+- 只有站长能授予/撤销角色（`USER_ROLE_ASSIGN`），防止管理员自行提权；管理员之间也不能互相操作。
+- 站长身份不可通过角色授予产生，只能由现任站长走「转移站长身份」（`SYSTEM_OWNER_TRANSFER`）流程移交。
+- 站长密码丢失：用 `npm run owner:recover -- --password <新密码>` 在服务器控制台重置（无需邮件、无需 Web 会话），同时撤销其全部会话。详见 [docs/DATABASE.md](docs/DATABASE.md)。
 
 ## 文档
 
 - 部署与运维：[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- 数据库命令（迁移/种子/站长引导/救急重置）：[docs/DATABASE.md](docs/DATABASE.md)
 - 贡献指南（DCO 与提交规范）：[CONTRIBUTING.md](CONTRIBUTING.md)
 - 安全政策：[SECURITY.md](SECURITY.md)
 

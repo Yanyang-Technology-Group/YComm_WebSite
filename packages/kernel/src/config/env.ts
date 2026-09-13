@@ -81,6 +81,8 @@ export const envSchema = z
     SMTP_PASSWORD: optionalText,
     SMTP_SECURE: booleanFromEnv(false),
     MAIL_FROM: optionalText,
+    /** Resend HTTP API key (https://resend.com). Takes priority over SMTP when set. */
+    RESEND_API_KEY: optionalText,
 
     // ---- OAuth providers (optional adapters, hidden when unconfigured) ---
     OAUTH_GITHUB_CLIENT_ID: optionalText,
@@ -128,11 +130,13 @@ export const envSchema = z
         message: 'SMTP_HOST and SMTP_USER must be configured together',
       });
     }
-    if (value.SMTP_HOST !== undefined && value.MAIL_FROM === undefined) {
+    const mailProviderConfigured =
+      value.SMTP_HOST !== undefined || value.RESEND_API_KEY !== undefined;
+    if (mailProviderConfigured && value.MAIL_FROM === undefined) {
       ctx.addIssue({
         code: 'custom',
         path: ['MAIL_FROM'],
-        message: 'is required when SMTP_HOST is configured',
+        message: 'is required when SMTP_HOST or RESEND_API_KEY is configured',
       });
     }
 
@@ -239,4 +243,9 @@ export function captchaConfig(env: Env = getEnv()): CaptchaConfig | null {
 /** True when a real SMTP transport is configured; otherwise mail is logged instead of sent. */
 export function hasSmtp(env: Env = getEnv()): boolean {
   return env.SMTP_HOST !== undefined;
+}
+
+/** True when the Resend HTTP transport is configured; it takes priority over SMTP. */
+export function hasResend(env: Env = getEnv()): boolean {
+  return env.RESEND_API_KEY !== undefined;
 }
