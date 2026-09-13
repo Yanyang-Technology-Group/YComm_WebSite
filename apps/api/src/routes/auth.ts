@@ -307,6 +307,11 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
           email: user.email,
           inviteBound: binding.bound,
           inviteCode: binding.code,
+          // 处罚状态：控制台据此提示「封禁/禁言期间不能注销」。
+          mutedUntil: user.muted_until,
+          muteReason: user.mute_reason,
+          bannedUntil: user.banned_until,
+          banReason: user.ban_reason,
         },
       },
     });

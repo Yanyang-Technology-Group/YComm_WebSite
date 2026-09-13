@@ -17,12 +17,16 @@ import {
   hashPassword,
   listInviteCodes,
   listUsers,
+  muteUser,
   register,
+  requestAccountDeletion,
   requestPasswordReset,
   resetPassword,
   revokeAllSessionsForUser,
   revokeSession,
   toPublicUser,
+  unbanUser,
+  unmuteUser,
   verifyEmail,
   verifyPassword,
   type UserRecord,
@@ -161,6 +165,60 @@ describe('register', () => {
     await expect(register(handle.db, { ...NEW_USER, username: 'admin' })).rejects.toMatchObject({
       code: errors.conflict().code,
     });
+  });
+
+  it('注销后可以用同样的用户名和邮箱重新注册', async () => {
+    await seedOwner();
+    const first = await register(handle.db, NEW_USER);
+
+    await deleteAccountNow(handle.db, first.user.id);
+
+    // 旧行保留（审计/帖子作者仍引用），但用户名/邮箱已经释放并匿名化。
+    const [old] = await handle.db.select().from(schema.users).where(eq(schema.users.id, first.user.id));
+    expect(old?.state).toBe('deleted');
+    expect(old?.username).not.toBe(NEW_USER.username);
+    expect(old?.email).not.toBe(NEW_USER.email);
+    expect(old?.display_name).toBe('已注销用户');
+
+    // 同名同邮箱再次注册：应当真的建号，而不是「邮箱已存在」的假成功。
+    const second = await register(handle.db, NEW_USER);
+    expect(second.alreadyRegistered).toBe(false);
+    expect(second.user.id).not.toBe(first.user.id);
+    expect(second.user.username).toBe(NEW_USER.username);
+    expect(second.user.email).toBe(NEW_USER.email);
+  });
+
+  it('封禁 / 禁言期间不能申请注销账号', async () => {
+    const ownerId = await seedOwner();
+    const [target] = await handle.db
+      .insert(schema.users)
+      .values({
+        username: 'sanctioned',
+        email: 'sanctioned@example.com',
+        password_hash: 'x',
+        state: 'active',
+        display_name: 'sanctioned',
+      })
+      .returning();
+    if (!target) throw new Error('no user');
+
+    await banUser(handle.db, { id: ownerId, role: 'owner' }, target.id, { reason: 'spam' });
+    await expect(requestAccountDeletion(handle.db, target.id)).rejects.toMatchObject({
+      code: errors.forbidden().code,
+    });
+
+    await unbanUser(handle.db, { id: ownerId, role: 'owner' }, target.id);
+    await muteUser(handle.db, { id: ownerId, role: 'owner' }, target.id, {
+      until: null,
+      reason: 'flood',
+    });
+    await expect(requestAccountDeletion(handle.db, target.id)).rejects.toMatchObject({
+      code: errors.forbidden().code,
+    });
+
+    // 解除处罚后恢复正常（请求注销 = 排一封确认邮件）。
+    await unmuteUser(handle.db, { id: ownerId, role: 'owner' }, target.id);
+    await expect(requestAccountDeletion(handle.db, target.id)).resolves.toBeUndefined();
   });
 
   it('invite codes are consumed exactly once when max_uses=1 under concurrency', async () => {

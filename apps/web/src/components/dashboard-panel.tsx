@@ -7,6 +7,7 @@ import { REGISTRATION } from '@ycomm/config';
 import { apiFetch } from '../lib/api';
 import { ThemePicker } from './theme-toggle';
 import { ImagePicker } from './image-picker';
+import { remainingLabel } from './sanction-dialog';
 
 interface Profile {
   id: string;
@@ -22,6 +23,11 @@ interface Profile {
   inviteCode: string | null;
   /** 是否设置了密码；GitHub 登录创建的账号没有密码，不能改密。 */
   hasPassword: boolean;
+  /** 封禁/禁言信息：处罚期间不允许自助注销。 */
+  mutedUntil?: string | null;
+  muteReason?: string | null;
+  bannedUntil?: string | null;
+  banReason?: string | null;
 }
 
 interface MyTopic {
@@ -391,7 +397,24 @@ export function DashboardPanel() {
 
             <div className="panel" style={{ marginBottom: 0 }}>
               <p className="panel-title">注销账号</p>
-              {profile.state === 'deleting' ? (
+              {profile.state === 'banned' || profile.state === 'muted' ? (
+                <>
+                  <p style={{ margin: '0 0 0.5rem', color: '#dc2626' }}>
+                    {profile.state === 'banned' ? '账号处于封禁状态' : '账号处于禁言状态'}
+                    {remainingLabel(
+                      profile.state === 'banned' ? profile.bannedUntil ?? null : profile.mutedUntil ?? null,
+                    )
+                      ? `（${remainingLabel(
+                          profile.state === 'banned' ? profile.bannedUntil ?? null : profile.mutedUntil ?? null,
+                        )}）`
+                      : ''}
+                    ，暂时无法注销账号。
+                  </p>
+                  <p className="muted" style={{ margin: 0 }}>
+                    处罚原因：{profile.banReason || profile.muteReason || '未填写'}。处罚结束后就可以正常申请注销了。
+                  </p>
+                </>
+              ) : profile.state === 'deleting' ? (
                 <>
                   <p style={{ margin: '0 0 0.5rem' }}>
                     账号正在<strong>注销冷静期</strong>：到期未取消将永久注销，且无法恢复。

@@ -1,6 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
+import { releaseDeletedIdentity } from './account-deletion';
 import type { UserRecord } from './types';
 
 export interface OAuthProfile {
@@ -17,6 +18,9 @@ export interface OAuthProfile {
  * 1) 该 provider 账号已关联 → 直接返回其用户；
  * 2) 邮箱匹配到既有账号 → 关联上去；
  * 3) 否则新建用户（OAuth 视为已验证，state=active）。
+ *
+ * 已注销的账号按「不存在」处理：释放它占用的用户名/邮箱并断开 OAuth 关联，
+ * 这样用户注销之后还能用同一个 GitHub 账号重新注册。
  */
 export async function findOrCreateOAuthUser(db: Db, profile: OAuthProfile): Promise<UserRecord> {
   const linked = await db
@@ -29,9 +33,12 @@ export async function findOrCreateOAuthUser(db: Db, profile: OAuthProfile): Prom
       ),
     )
     .limit(1);
+
+  let staleLinkUserId: string | null = null;
   if (linked[0]) {
     const [user] = await db.select().from(schema.users).where(eq(schema.users.id, linked[0].user_id)).limit(1);
-    if (user) return user;
+    if (user && user.state !== 'deleted') return user;
+    if (user) staleLinkUserId = user.id;
   }
 
   let user: UserRecord | null = null;
@@ -42,7 +49,25 @@ export async function findOrCreateOAuthUser(db: Db, profile: OAuthProfile): Prom
       .from(schema.users)
       .where(eq(sql`lower(${schema.users.email})`, email))
       .limit(1);
-    user = byEmail ?? null;
+    if (byEmail && byEmail.state !== 'deleted') {
+      user = byEmail;
+    } else if (byEmail) {
+      await releaseDeletedIdentity(db, byEmail.id);
+    }
+  }
+
+  if (staleLinkUserId) {
+    await releaseDeletedIdentity(db, staleLinkUserId);
+    // 断开指向已注销账号的关联，否则每次登录都会再建一个新号。
+    await db
+      .delete(schema.oauthAccounts)
+      .where(
+        and(
+          eq(schema.oauthAccounts.provider, profile.provider),
+          eq(schema.oauthAccounts.provider_account_id, profile.providerAccountId),
+          eq(schema.oauthAccounts.user_id, staleLinkUserId),
+        ),
+      );
   }
 
   if (!user) {

@@ -7,6 +7,7 @@ import { renderVerifyEmail } from '@ycomm/notify';
 import { hashPassword } from './password';
 import { consumeInviteCode } from './invites';
 import { findUserByEmail, hasAnyUser } from './account';
+import { releaseDeletedIdentity } from './account-deletion';
 import type { UserRecord } from './types';
 import { getSetting } from '@ycomm/db';
 
@@ -66,17 +67,28 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
   }
 
   const usernameTaken = await db
-    .select({ id: schema.users.id })
+    .select()
     .from(schema.users)
     .where(eq(sql`lower(${schema.users.username})`, username.toLowerCase()))
     .limit(1);
-  if (usernameTaken.length > 0) {
-    throw errors.conflict('该用户名已被别人用了，换一个吧', { field: 'username' });
+  const existingUsername = usernameTaken[0];
+  if (existingUsername) {
+    if (existingUsername.state === 'deleted') {
+      // 已注销的旧账号：释放它占用的用户名，本人可以继续用同名重新注册。
+      await releaseDeletedIdentity(db, existingUsername.id);
+    } else {
+      throw errors.conflict('该用户名已被别人用了，换一个吧', { field: 'username' });
+    }
   }
 
   const existingByEmail = await findUserByEmail(db, email);
   if (existingByEmail) {
-    return { user: existingByEmail, needsVerification: false, alreadyRegistered: true };
+    if (existingByEmail.state === 'deleted') {
+      // 同上：注销后邮箱也要能重新注册（历史数据兜底）。
+      await releaseDeletedIdentity(db, existingByEmail.id);
+    } else {
+      return { user: existingByEmail, needsVerification: false, alreadyRegistered: true };
+    }
   }
 
   if (REGISTRATION.requireInviteByDefault && !input.inviteCode) {
