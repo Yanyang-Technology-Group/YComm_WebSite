@@ -88,6 +88,11 @@ export const envSchema = z
     OAUTH_GOOGLE_CLIENT_ID: optionalText,
     OAUTH_GOOGLE_CLIENT_SECRET: optionalText,
 
+    // ---- 注册人机验证（Cap.js PoW + 自托管 cap-worker，可选） -----------
+    CAPTCHA_ENDPOINT: optionalText,
+    CAPTCHA_SITE_KEY: optionalText,
+    CAPTCHA_SCRIPT: optionalText,
+
     /** Trust `CF-Connecting-IP` / `X-Forwarded-For` when behind a reverse proxy. */
     TRUST_PROXY_HEADERS: booleanFromEnv(true),
   })
@@ -213,6 +218,22 @@ export function enabledOAuthProviders(env: Env = getEnv()): readonly ('github' |
   if (env.OAUTH_GITHUB_CLIENT_ID !== undefined) providers.push('github');
   if (env.OAUTH_GOOGLE_CLIENT_ID !== undefined) providers.push('google');
   return providers;
+}
+
+export interface CaptchaConfig {
+  endpoint: string;
+  siteKey: string;
+  script: string;
+}
+
+/** 注册验证码配置；未配置 CAPTCHA_ENDPOINT + CAPTCHA_SITE_KEY 时返回 null（即关闭）。 */
+export function captchaConfig(env: Env = getEnv()): CaptchaConfig | null {
+  if (!env.CAPTCHA_ENDPOINT || !env.CAPTCHA_SITE_KEY) return null;
+  return {
+    endpoint: env.CAPTCHA_ENDPOINT.replace(/\/$/, ''),
+    siteKey: env.CAPTCHA_SITE_KEY,
+    script: env.CAPTCHA_SCRIPT ?? 'https://cdn.jsdelivr.net/npm/@cap.js/captcha@1/dist/captcha.min.js',
+  };
 }
 
 /** True when a real SMTP transport is configured; otherwise mail is logged instead of sent. */

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { randomUUID } from 'node:crypto';
 import { getDb } from '@ycomm/db';
-import { errors, getEnv, siteUrl } from '@ycomm/kernel';
+import { errors, getEnv, siteUrl, captchaConfig } from '@ycomm/kernel';
 import {
   bindInviteCode,
   changeEmail,
@@ -51,6 +51,7 @@ const registerSchema = z.object({
   email: z.string().trim().min(3).max(255),
   password: z.string().min(1).max(200),
   inviteCode: z.string().trim().min(1).optional(),
+  captchaToken: z.string().min(1).optional(),
 });
 
 const loginSchema = z.object({
@@ -108,6 +109,9 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   router.post('/register', rateLimitByIp('register'), async (c) => {
     const body = await parseBody(c, registerSchema);
     const handle = await getDb();
+
+    await verifyCaptcha(body.captchaToken);
+
     const result = await register(handle.db, {
       username: body.username,
       email: body.email,
@@ -405,4 +409,22 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   });
 
   return router;
+}
+
+/** 注册人机验证：未配置 CAPTCHA_ENDPOINT 时跳过；否则校验 Cap PoW token。 */
+async function verifyCaptcha(token: string | undefined): Promise<void> {
+  const cfg = captchaConfig();
+  if (!cfg) return;
+  if (!token) {
+    throw errors.validation({ issues: [{ path: 'captchaToken', message: '请完成人机验证' }] });
+  }
+  const response = await fetch(`${cfg.endpoint}/verify`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token, siteKey: cfg.siteKey }),
+  });
+  const json = (await response.json().catch(() => ({}))) as { success?: boolean; valid?: boolean };
+  if (!json.success && !json.valid) {
+    throw errors.validation({ issues: [{ path: 'captchaToken', message: '人机验证失败，请重试' }] });
+  }
 }

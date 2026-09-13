@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useTransition, useState, type FormEvent } from 'react';
+import type { CaptchaConfig } from '@ycomm/kernel';
+import { CaptchaField } from './captcha-field';
 
 export type AuthFormKind = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
 
@@ -20,9 +22,11 @@ interface ApiError {
 export function AuthForm({
   kind,
   token,
+  captcha,
 }: {
   kind: AuthFormKind;
   token?: string;
+  captcha?: CaptchaConfig | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -148,6 +152,7 @@ export function AuthForm({
             autoComplete="new-password"
           />
           <input name="inviteCode" placeholder="邀请码（可选）" autoComplete="off" />
+          {captcha && <CaptchaField script={captcha.script} siteKey={captcha.siteKey} endpoint={captcha.endpoint} />}
         </>
       )}
 
