@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { eq } from 'drizzle-orm';
 import { createInMemoryDb, schema, type DatabaseHandle } from '@ycomm/db';
-import { hashPassword } from '@ycomm/identity';
+import { consumeInviteCode, createInviteCode, hashPassword } from '@ycomm/identity';
 import { errors } from '@ycomm/kernel';
 import type { AccessSubject } from '@ycomm/access';
 import {
@@ -16,6 +16,7 @@ import {
   listVisibleCards,
   registerDownloadDeciders,
   reportDeadLinkByResource,
+  updateCard,
   updateResourceMetadata,
 } from './index';
 
@@ -46,6 +47,8 @@ afterEach(async () => {
     schema.downloadResources,
     schema.downloadCategories,
     schema.downloadCards,
+    schema.inviteCodeUses,
+    schema.inviteCodes,
     schema.moderationItems,
     schema.users,
   ]) {
@@ -359,5 +362,49 @@ describe('card portal nesting', () => {
     // 管理员：staff 卡片可见。
     const adminIds = (await listVisibleCards(handle.db, subject({ role: 'admin' }))).map((card) => card.id);
     expect(adminIds).toContain(staffOnly.id);
+  });
+
+  it('invite visibility needs a bound 注册码 (staff exempt)', async () => {
+    const inviteOnly = await createCard(handle.db, {
+      parentId: null,
+      title: '会员专区',
+      kind: 'container',
+      visibility: 'invite',
+    });
+
+    // 访客：看不到。
+    expect((await listVisibleCards(handle.db, null)).map((card) => card.id)).not.toContain(inviteOnly.id);
+
+    // 已登录但没绑定注册码：看不到。
+    expect((await listVisibleCards(handle.db, subject())).map((card) => card.id)).not.toContain(inviteOnly.id);
+
+    // 绑定注册码后可见。
+    const owner = await seedUser('invite-owner', 'owner');
+    const code = await createInviteCode(handle.db, { createdBy: owner, maxUses: 1 });
+    await consumeInviteCode(handle.db, code, memberId);
+    expect((await listVisibleCards(handle.db, subject())).map((card) => card.id)).toContain(inviteOnly.id);
+
+    // 管理员/站长不受限。
+    const adminIds = (await listVisibleCards(handle.db, subject({ role: 'admin' }))).map((card) => card.id);
+    expect(adminIds).toContain(inviteOnly.id);
+  });
+
+  it('已有的卡片可以移动进另一张卡片（真正的套娃开关）', async () => {
+    const parent = await createCard(handle.db, { parentId: null, title: '父卡片', kind: 'container' });
+    const loose = await createCard(handle.db, { parentId: null, title: '散着的卡片', kind: 'container' });
+
+    // 一开始是根层。
+    expect((await listVisibleCards(handle.db, null)).find((card) => card.id === loose.id)?.parent_id).toBeNull();
+
+    await updateCard(handle.db, loose.id, { parentId: parent.id });
+
+    const moved = (await listVisibleCards(handle.db, null)).find((card) => card.id === loose.id);
+    expect(moved?.parent_id).toBe(parent.id);
+    // 前台按 parentId 组树后，它出现在父卡片的子层级里。
+    expect((await listVisibleCards(handle.db, null)).filter((card) => card.parent_id === parent.id)).toHaveLength(1);
+
+    // 尺寸也可以单独改（编辑框里的宽/高）。
+    const resized = await updateCard(handle.db, loose.id, { w: 3, h: 2 });
+    expect([resized.w, resized.h]).toEqual([3, 2]);
   });
 });

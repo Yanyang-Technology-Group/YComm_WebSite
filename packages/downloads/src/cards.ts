@@ -5,14 +5,37 @@ import type { AccessSubject } from '@ycomm/access';
 
 export type CardRow = typeof schema.downloadCards.$inferSelect;
 export type CardKind = CardRow['kind'];
-export type CardVisibility = 'public' | 'login' | 'staff';
+export type CardVisibility = 'public' | 'login' | 'invite' | 'staff';
 
-/** 卡片可见性：public=访客可见 / login=需登录 / staff=仅管理员/站长。 */
-function canSee(subject: AccessSubject | null, visibility: string): boolean {
+/**
+ * 卡片可见性：
+ * - public 访客可见
+ * - login  需要登录
+ * - invite 需要账号绑定过注册码（站长/管理员不受限）
+ * - staff  仅管理员/站长
+ */
+function canSee(
+  subject: AccessSubject | null,
+  visibility: string,
+  inviteBound: boolean,
+): boolean {
   if (visibility === 'public') return true;
-  if (visibility === 'login') return subject != null;
-  if (visibility === 'staff') return subject?.role === 'admin' || subject?.role === 'owner';
+  if (!subject) return false;
+  const staff = subject.role === 'admin' || subject.role === 'owner';
+  if (visibility === 'staff') return staff;
+  if (visibility === 'invite') return staff || inviteBound;
+  if (visibility === 'login') return true;
   return false;
+}
+
+/** 该账号是否绑定/兑换过注册码（绑定后才能看到「需注册码」的卡片）。 */
+async function hasInviteBinding(db: Db, userId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: schema.inviteCodeUses.id })
+    .from(schema.inviteCodeUses)
+    .where(eq(schema.inviteCodeUses.user_id, userId))
+    .limit(1);
+  return rows.length > 0;
 }
 
 /** 某层级（parentId 为 null 表示根层）下按可见性过滤后的卡片列表。 */
@@ -30,7 +53,8 @@ export async function listCards(
         : eq(schema.downloadCards.parent_id, parentId),
     )
     .orderBy(asc(schema.downloadCards.position), asc(schema.downloadCards.created_at));
-  return rows.filter((row) => canSee(subject, row.visibility));
+  const inviteBound = subject ? await hasInviteBinding(db, subject.id) : false;
+  return rows.filter((row) => canSee(subject, row.visibility, inviteBound));
 }
 
 /** 全部卡片（不做可见性过滤，供后台编辑用）。 */
@@ -52,7 +76,8 @@ export async function listVisibleCards(
   subject: AccessSubject | null,
 ): Promise<CardRow[]> {
   const rows = await listAllCards(db);
-  return rows.filter((row) => canSee(subject, row.visibility));
+  const inviteBound = subject ? await hasInviteBinding(db, subject.id) : false;
+  return rows.filter((row) => canSee(subject, row.visibility, inviteBound));
 }
 
 export async function getCard(db: Db, cardId: string): Promise<CardRow | null> {

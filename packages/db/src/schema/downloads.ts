@@ -166,7 +166,7 @@ export const downloadCardKindEnum = pgEnum('download_card_kind', ['container', '
  * - kind=redirect   → 点进去重定向到 redirect_url
  * - kind=resources  → 点进去显示资源列表（走现有下载逻辑）
  * - w/h 是网格单位尺寸（后台可视化拖拽缩放）
- * - visibility：public=访客可见 / login=需登录 / staff=仅管理员/站长
+ * - visibility：public=访客可见 / login=需登录 / invite=需绑定过注册码 / staff=仅管理员/站长
  */
 export const downloadCards = pgTable(
   'download_cards',

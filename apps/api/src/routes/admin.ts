@@ -85,7 +85,7 @@ const cardCreateSchema = z.object({
   redirectUrl: z.string().max(2000).nullable().optional(),
   w: z.number().int().min(1).max(6).optional(),
   h: z.number().int().min(1).max(6).optional(),
-  visibility: z.enum(['public', 'login', 'staff']).default('public'),
+  visibility: z.enum(['public', 'login', 'invite', 'staff']).default('public'),
   position: z.number().int().optional(),
 });
 
@@ -97,7 +97,7 @@ const cardUpdateSchema = z.object({
   redirectUrl: z.string().max(2000).nullable().optional(),
   w: z.number().int().min(1).max(6).optional(),
   h: z.number().int().min(1).max(6).optional(),
-  visibility: z.enum(['public', 'login', 'staff']).optional(),
+  visibility: z.enum(['public', 'login', 'invite', 'staff']).optional(),
   position: z.number().int().optional(),
 });
 

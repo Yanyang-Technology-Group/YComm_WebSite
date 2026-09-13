@@ -886,14 +886,48 @@ select:focus {
   margin-top: 0.25rem;
 }
 
+/* 套娃层级标题 + 「+ 子卡片」快捷按钮 */
+.card-editor-level-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-strong);
+  border-left: 3px solid var(--accent);
+  padding-left: 0.5rem;
+}
+
+.card-editor-tile .ct-add-child {
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.card-editor-tile .ct-add-child:hover {
+  color: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
 .resize-handle {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   background: var(--accent-strong);
   border: 2px solid #fff;
   border-radius: 999px;
   z-index: 5;
+  /* 触屏/触控板拖动不被浏览器手势抢走 */
+  touch-action: none;
+}
+
+.card-editor-tile.resizing {
+  outline: 2px dashed var(--accent-strong);
+  outline-offset: 2px;
 }
 
 .handle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
