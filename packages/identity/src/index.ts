@@ -17,6 +17,7 @@ export {
   type NewInviteCodeInput,
 } from './invites';
 export { hashPassword, verifyPassword } from './password';
+export { findOrCreateOAuthUser, type OAuthProfile } from './oauth';
 export {
   bindInviteCode,
   changeEmail,

@@ -3,12 +3,13 @@ import { z } from 'zod';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { randomUUID } from 'node:crypto';
 import { getDb } from '@ycomm/db';
-import { errors, getEnv } from '@ycomm/kernel';
+import { errors, getEnv, siteUrl } from '@ycomm/kernel';
 import {
   bindInviteCode,
   changeEmail,
   changePassword,
   createSession,
+  findOrCreateOAuthUser,
   findUserByLogin,
   getInviteBinding,
   getUserById,
@@ -306,6 +307,86 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
     const resources = await listResourcesByAuthor(handle.db, auth.userId);
     return c.json({ ok: true, data: { resources } });
+  });
+
+  // ---- GitHub OAuth -----------------------------------------------------
+  router.get('/github', async (c) => {
+    const env = getEnv();
+    if (!env.OAUTH_GITHUB_CLIENT_ID) throw errors.notFound('GitHub 登录未配置');
+    const state = randomUUID();
+    setCookie(c, 'oauth_state', state, { httpOnly: true, secure: true, sameSite: 'Lax', path: '/', maxAge: 600 });
+    const redirectUri = `${siteUrl(env)}/api/auth/github/callback`;
+    const url =
+      'https://github.com/login/oauth/authorize' +
+      `?client_id=${encodeURIComponent(env.OAUTH_GITHUB_CLIENT_ID)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&scope=${encodeURIComponent('read:user user:email')}` +
+      `&state=${encodeURIComponent(state)}`;
+    return c.redirect(url, 302);
+  });
+
+  router.get('/github/callback', async (c) => {
+    const env = getEnv();
+    const code = c.req.query('code');
+    const state = c.req.query('state');
+    const savedState = getCookie(c, 'oauth_state');
+    deleteCookie(c, 'oauth_state', { httpOnly: true, secure: true, sameSite: 'Lax', path: '/' });
+    if (!code || !state || state !== savedState) throw errors.forbidden('OAuth 状态校验失败');
+
+    const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        client_id: env.OAUTH_GITHUB_CLIENT_ID,
+        client_secret: env.OAUTH_GITHUB_CLIENT_SECRET,
+        code,
+      }),
+    });
+    const tokenJson = (await tokenRes.json().catch(() => ({}))) as { access_token?: string };
+    if (!tokenJson.access_token) throw errors.forbidden('GitHub 授权失败');
+
+    const ghHeaders = { authorization: `Bearer ${tokenJson.access_token}`, 'user-agent': 'ycomm' };
+    const userRes = await fetch('https://api.github.com/user', { headers: ghHeaders });
+    const ghUser = (await userRes.json().catch(() => ({}))) as {
+      id?: number;
+      login?: string;
+      name?: string | null;
+      avatar_url?: string | null;
+    };
+    if (!ghUser.id || !ghUser.login) throw errors.forbidden('GitHub 用户信息获取失败');
+
+    const emailsRes = await fetch('https://api.github.com/user/emails', { headers: ghHeaders });
+    const emails = (await emailsRes.json().catch(() => [])) as { email: string; primary: boolean; verified: boolean }[];
+    const primaryEmail =
+      emails.find((e) => e.primary && e.verified)?.email ?? emails.find((e) => e.verified)?.email ?? null;
+
+    const handle = await getDb();
+    const user = await findOrCreateOAuthUser(handle.db, {
+      provider: 'github',
+      providerAccountId: String(ghUser.id),
+      username: ghUser.login,
+      email: primaryEmail,
+      displayName: ghUser.name ?? null,
+      avatarUrl: ghUser.avatar_url ?? null,
+    });
+
+    const session = await createSession(handle.db, {
+      userId: user.id,
+      ip: clientIp(c),
+      userAgent: c.req.header('user-agent'),
+    });
+    setCookie(c, env.SESSION_COOKIE_NAME, session.rawToken, sessionCookieOptions(env));
+
+    await logAudit(handle.db, {
+      actorId: user.id,
+      actorIp: clientIp(c),
+      action: 'auth.oauth_login',
+      targetType: 'user',
+      targetId: user.id,
+      meta: { provider: 'github' },
+    });
+
+    return c.redirect('/', 302);
   });
 
   // ---- password reset ---------------------------------------------------
