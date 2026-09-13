@@ -25,8 +25,34 @@
 
 - **Release**：push 到 master 自动跑 构建→测试→许可门禁 → 构建 GHCR 镜像 → 打
   `vYYYY.MM.DD.<提交数>` 标签 → 发布 GitHub Release（与 Yanyang_WebSite 同版本格式）。
-- **部署**：Coolify 托管。用 GHCR 镜像（`ghcr.io/yanyang-technology-group/ycomm-web:latest`）
-  在 Coolify 建一个 “Docker Registry Image” 应用，挂上 `ycomm-db` 即可；具体步骤见部署教程。
+- **自动部署**：push 到 master 在发布后自动部署到北京服务器——GitHub Actions 从国内
+  镜像源拉取 GHCR 镜像（默认 `ghcr.nju.edu.cn`，可用仓库变量 `GHCR_MIRROR` 覆盖），
+  SSH 到服务器 `docker run` 进 `coolify` 网络（Postgres 由 Coolify 托管）。
+
+### 部署所需 Secrets
+
+在仓库 **Settings → Secrets and variables → Actions → New repository secret** 添加：
+
+| Secret | 说明 |
+|---|---|
+| `SERVER_HOST` | 北京服务器 SSH 地址（IP 或域名） |
+| `SERVER_SSH_USER` | SSH 用户名 |
+| `SERVER_SSH_KEY` | SSH 私钥（`BEGIN OPENSSH PRIVATE KEY` 格式；公钥加到服务器 `authorized_keys`） |
+| `SERVER_PORT` | SSH 端口，默认 22（可省略） |
+| `DB_HOST` | Coolify 里 Postgres 的地址（容器名或内网 IP） |
+| `DB_PASSWORD` | Postgres 密码 |
+| `SESSION_SECRET` | 会话密钥，≥32 字符（`openssl rand -base64 48`） |
+| `SITE_URL` | `https://community.yanyn.cn` |
+| `SITE_NAME` | 站点名（可选） |
+| `YCOMM_OWNER_USERNAME` / `YCOMM_OWNER_EMAIL` / `YCOMM_OWNER_PASSWORD` | 可选；首启自动建站长 |
+
+### 部署前置条件（一次性）
+
+1. **GHCR 包设为 Public**：镜像源只能拉公共镜像。GitHub 仓库 → Packages → `ycomm-web` →
+   Package settings → Change visibility → **Public**。
+2. **服务器能访问镜像源**：先在服务器 `docker pull ghcr.nju.edu.cn/<org>/ycomm-web:latest`
+   验证；不通就换源，并在仓库 **Variables** 里设 `GHCR_MIRROR`。
+3. **服务器装好 Docker**，且部署公钥已加入目标用户的 `authorized_keys`。
 
 ## 快速开始（生产，Docker + Postgres）
 
