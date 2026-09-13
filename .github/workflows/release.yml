@@ -113,6 +113,9 @@ jobs:
           tags: |
             ${{ steps.image.outputs.image }}:${{ steps.resolve.outputs.version }}
             ${{ steps.image.outputs.image }}:latest
+          # 把版本号注入镜像，footer 会展示 yyyy.mm.dd.commits。
+          build-args: |
+            APP_VERSION=${{ steps.resolve.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

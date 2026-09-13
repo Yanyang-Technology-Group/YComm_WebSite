@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { playAnim } from '../lib/anim';
 
 export const THEMES = [
   { id: 'azure', label: '晏阳蓝', swatch: '#5da4fa', desc: '默认 · 清爽通透' },
@@ -48,6 +49,7 @@ export function ThemePicker() {
   }, []);
 
   function choose(next: ThemeId) {
+    if (next !== theme) playAnim('theme');
     applyTheme(next);
     setTheme(next);
   }

@@ -36,6 +36,11 @@ COPY packages/notify/package.json packages/notify/
 RUN npm ci --ignore-scripts --no-audit --no-fund
 
 # Build the Next.js production bundle (turbopack).
+#
+# 版本号由 release workflow 传入（镜像里没有 .git，无法自己数提交数）；
+# 未传时 next.config.ts 会退化成「日期」而不报错。
+ARG APP_VERSION=
+ENV NEXT_PUBLIC_APP_VERSION=$APP_VERSION
 COPY . .
 RUN npm run build
 

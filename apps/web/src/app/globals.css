@@ -96,6 +96,7 @@ body {
 
 body {
   font-family:
+    var(--font-noto),
     system-ui,
     -apple-system,
     'Segoe UI',
@@ -246,10 +247,34 @@ a:hover {
 .site-footer {
   border-top: 1px solid var(--border);
   padding: 2.5rem 1.5rem 3rem;
-  text-align: center;
   color: var(--muted);
   font-size: 0.85rem;
   letter-spacing: 0.02em;
+}
+
+.site-footer-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.footer-sep {
+  opacity: 0.5;
+}
+
+.footer-version {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
 }
 
 /* ===== 首页 hero：一个焦点 + 克制配饰 ===== */
@@ -795,4 +820,137 @@ select:focus {
 .theme-desc {
   font-size: 0.78rem;
   color: var(--muted);
+}
+
+/* =============================================================
+   切换动效：渐变幕布 + 组件「坠落又弹回」
+   - 路由切换：<html data-anim="route">（PageTransition 触发）
+   - 主题切换：<html data-anim="theme">（主题选择器触发）
+   都由 CSS 完成，JS 只切标记；颜色取自当前主题的 --accent。
+   ============================================================= */
+
+/* 幕布：一层主题色渐变扫过全屏 */
+.anim-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--accent) 24%, transparent) 45%,
+    color-mix(in srgb, var(--accent) 38%, transparent) 55%,
+    transparent 100%
+  );
+}
+
+/* 路由：自上而下扫过 */
+html[data-anim='route'] .anim-veil {
+  animation: veil-sweep-down 0.75s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* 主题：斜向扫过，和路由区分开 */
+html[data-anim='theme'] .anim-veil {
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    color-mix(in srgb, var(--accent) 22%, transparent) 38%,
+    color-mix(in srgb, var(--accent) 40%, transparent) 50%,
+    color-mix(in srgb, var(--accent) 22%, transparent) 62%,
+    transparent 100%
+  );
+  animation: veil-sweep-across 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes veil-sweep-down {
+  0% {
+    opacity: 0.9;
+    transform: translateY(-100%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+@keyframes veil-sweep-across {
+  0% {
+    opacity: 0.95;
+    transform: translateX(-100%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* 组件坠落 → 触底回弹 → 归位 */
+@keyframes drop-bounce {
+  0% {
+    opacity: 0;
+    transform: translateY(-26px) scale(0.985);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(7px) scale(1.003);
+  }
+  75% {
+    transform: translateY(-3px) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 每次进入页面，顶层区块依次坠落（轻微错峰，看起来更「弹」） */
+.page-anim > * {
+  animation: drop-bounce 0.62s cubic-bezier(0.22, 1.15, 0.36, 1) both;
+}
+
+.page-anim > *:nth-child(1) {
+  animation-delay: 0.02s;
+}
+.page-anim > *:nth-child(2) {
+  animation-delay: 0.07s;
+}
+.page-anim > *:nth-child(3) {
+  animation-delay: 0.12s;
+}
+.page-anim > *:nth-child(4) {
+  animation-delay: 0.17s;
+}
+.page-anim > *:nth-child(5) {
+  animation-delay: 0.22s;
+}
+.page-anim > *:nth-child(n + 6) {
+  animation-delay: 0.26s;
+}
+
+/* 改主题时整页再落一次，并让背景轻轻呼吸一下，掩盖配色的瞬间跳变 */
+html[data-anim='theme'] .page-anim > * {
+  animation: drop-bounce 0.7s cubic-bezier(0.22, 1.15, 0.36, 1) both;
+}
+
+html[data-anim='theme'] body {
+  animation: theme-pulse 0.85s ease both;
+}
+
+@keyframes theme-pulse {
+  0% {
+    filter: brightness(1.05) saturate(1.1);
+  }
+  100% {
+    filter: brightness(1) saturate(1);
+  }
+}
+
+/* 系统开启「减少动态效果」时全部关闭 */
+@media (prefers-reduced-motion: reduce) {
+  .anim-veil,
+  .page-anim > *,
+  html[data-anim='theme'] body {
+    animation: none !important;
+  }
 }

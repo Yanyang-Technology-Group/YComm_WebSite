@@ -24,7 +24,7 @@ export const SITE_DEFAULTS: SiteBranding = {
   tagline: '论坛讨论 · 资源下载',
   description: '晏阳社区 —— 一个自托管的社区平台，包含论坛讨论与资源下载区。',
   icp: '',
-  sourceUrl: '',
+  sourceUrl: 'https://github.com/Yanyang-Technology-Group/YComm_WebSite',
 } as const;
 
 export function getSiteBranding(env: Env = getEnv()): SiteBranding {
