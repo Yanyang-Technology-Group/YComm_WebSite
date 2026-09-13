@@ -46,5 +46,8 @@ Thumbs.db
 # 本地部署脚本（含服务器/数据库机密，绝不入库）
 /deploy.sh
 /deploy.bat
+# 手动触发布署脚本（含 Coolify API token，绝不入库）
+/redeploy.sh
+/redeploy.bat
 # 站点图标的本地源目录（成品已入库：apps/web/public/logo.png + apps/web/src/app/icon.png）
 /logo/
