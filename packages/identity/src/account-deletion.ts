@@ -55,6 +55,36 @@ export async function releaseDeletedIdentity(db: Db, userId: string): Promise<vo
 }
 
 /**
+ * 这个老账号是否已经「不再占用」用户名/邮箱（注销完成）？
+ *
+ * - `deleted`：已完成注销，直接释放（顺手兼容历史数据）。
+ * - `deleting` 且冷静期已过：即使没人再登录触发转正，也按永久注销处理并释放，
+ *   否则冷静期一过没人登录，用户名/邮箱就被无限期占着。
+ *
+ * 返回 true 表示调用方可以继续用它注册新账号；false 表示该用户名/邮箱仍属于
+ * 一个有效账号（deleting 冷静期内也算有效，因为登录可以复活）。
+ */
+export async function releaseIdentityIfDeletionDone(db: Db, user: UserRecord): Promise<boolean> {
+  if (user.state === 'deleted') {
+    await releaseDeletedIdentity(db, user.id);
+    return true;
+  }
+  if (
+    user.state === 'deleting' &&
+    user.deleted_at !== null &&
+    Date.now() - user.deleted_at.getTime() > GRACE_MS
+  ) {
+    await db
+      .update(schema.users)
+      .set({ state: 'deleted', ...releasedIdentity(user), updated_at: new Date() })
+      .where(eq(schema.users.id, user.id));
+    await revokeAllSessionsForUser(db, user.id);
+    return true;
+  }
+  return false;
+}
+
+/**
  * 第一步：给用户邮箱发注销确认邮件（含一次性 token 链接）。
  * 枚举安全：不存在 / 已注销 / 已在冷静期的账号一律无差别「成功」。
  * 封禁/禁言则明确拒绝——这是已登录用户操作自己的账号，不存在枚举风险。

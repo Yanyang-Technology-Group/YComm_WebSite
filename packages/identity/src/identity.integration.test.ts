@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { eq } from 'drizzle-orm';
 import { createInMemoryDb, schema, type DatabaseHandle } from '@ycomm/db';
+import { AUTH } from '@ycomm/config';
 import { errors } from '@ycomm/kernel';
 import {
   adminCreateInviteCode,
@@ -188,8 +189,7 @@ describe('register', () => {
     expect(second.user.email).toBe(NEW_USER.email);
   });
 
-  it('封禁 / 禁言期间不能申请注销账号', async () => {
-    const ownerId = await seedOwner();
+  it('封禁 / 禁言期间不能申请注销账号', async () => {    const ownerId = await seedOwner();
     const [target] = await handle.db
       .insert(schema.users)
       .values({
@@ -219,6 +219,39 @@ describe('register', () => {
     // 解除处罚后恢复正常（请求注销 = 排一封确认邮件）。
     await unmuteUser(handle.db, { id: ownerId, role: 'owner' }, target.id);
     await expect(requestAccountDeletion(handle.db, target.id)).resolves.toBeUndefined();
+  });
+
+  it('冷静期已过但没人登录的 deleting 账号，也要让出用户名/邮箱', async () => {
+    await seedOwner();
+    // 直接造一个「冷静期早就过了」的账号（现实中是确认注销后一直没再登录）。
+    const expiredAt = new Date(Date.now() - (AUTH.accountDeletionGraceDays + 1) * 86400_000);
+    await handle.db.insert(schema.users).values({
+      username: 'ghost',
+      email: 'ghost@example.com',
+      password_hash: 'x',
+      state: 'deleting',
+      deleted_at: expiredAt,
+      display_name: 'ghost',
+    });
+
+    const again = await register(handle.db, {
+      username: 'ghost',
+      email: 'ghost@example.com',
+      password: 'Secret-12345',
+    });
+    expect(again.alreadyRegistered).toBe(false);
+    expect(again.user.username).toBe('ghost');
+
+    // 老账号被转成永久注销并匿名化；新账号拿到原来的用户名/邮箱。
+    const rows = await handle.db.select().from(schema.users);
+    const ghosts = rows.filter((row) => row.username === 'ghost');
+    expect(ghosts).toHaveLength(1);
+    expect(ghosts[0]?.email).toBe('ghost@example.com');
+    expect(ghosts[0]?.state).toBe('unverified');
+    const released = rows.filter((row) => row.state === 'deleted' && row.display_name === '已注销用户');
+    expect(released).toHaveLength(1);
+    expect(released[0]?.username).not.toBe('ghost');
+    expect(released[0]?.email).not.toBe('ghost@example.com');
   });
 
   it('invite codes are consumed exactly once when max_uses=1 under concurrency', async () => {

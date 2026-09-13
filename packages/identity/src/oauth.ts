@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
-import { releaseDeletedIdentity } from './account-deletion';
+import { releaseDeletedIdentity, releaseIdentityIfDeletionDone } from './account-deletion';
 import type { UserRecord } from './types';
 
 export interface OAuthProfile {
@@ -37,7 +37,7 @@ export async function findOrCreateOAuthUser(db: Db, profile: OAuthProfile): Prom
   let staleLinkUserId: string | null = null;
   if (linked[0]) {
     const [user] = await db.select().from(schema.users).where(eq(schema.users.id, linked[0].user_id)).limit(1);
-    if (user && user.state !== 'deleted') return user;
+    if (user && !(await releaseIdentityIfDeletionDone(db, user))) return user;
     if (user) staleLinkUserId = user.id;
   }
 
@@ -49,10 +49,8 @@ export async function findOrCreateOAuthUser(db: Db, profile: OAuthProfile): Prom
       .from(schema.users)
       .where(eq(sql`lower(${schema.users.email})`, email))
       .limit(1);
-    if (byEmail && byEmail.state !== 'deleted') {
+    if (byEmail && !(await releaseIdentityIfDeletionDone(db, byEmail))) {
       user = byEmail;
-    } else if (byEmail) {
-      await releaseDeletedIdentity(db, byEmail.id);
     }
   }
 
