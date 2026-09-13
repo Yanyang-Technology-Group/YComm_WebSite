@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { cookies } from 'next/headers';
 import localFont from 'next/font/local';
-import { NAV_ITEMS, getSiteBranding } from '@ycomm/config';
-import { app } from '@ycomm/api';
+import { getSiteBranding } from '@ycomm/config';
 import { SessionNav } from '../components/session-nav';
+import { SiteNav } from '../components/site-nav';
 import { GuestPrompt } from '../components/guest-prompt';
 import { PageTransition } from '../components/page-transition';
 import './globals.css';
@@ -39,23 +38,8 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-async function isSignedIn(): Promise<boolean> {
-  try {
-    const cookieHeader = (await cookies()).toString();
-    const response = await app.request('/api/auth/me', {
-      headers: cookieHeader ? { cookie: cookieHeader } : {},
-    });
-    if (!response.ok) return false;
-    const json = (await response.json()) as { user?: unknown };
-    return json.user != null;
-  } catch {
-    return false;
-  }
-}
-
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const branding = getSiteBranding();
-  const signedIn = await isSignedIn();
 
   return (
     <html lang="zh-CN" data-theme="azure" className={noto.variable}>
@@ -68,13 +52,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <img src="/logo.png" alt={branding.name} className="logo" />
               <span className="brand-name">{branding.name}</span>
             </Link>
-            <nav className="site-nav">
-              {NAV_ITEMS.filter((item) => !item.requiresAuth || signedIn).map((item) => (
-                <Link key={item.href} href={item.href} className="nav-link">
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+            {/* 导航与登录态都由客户端直连 /api/auth/me 判定，保证与真实会话一致 */}
+            <SiteNav />
             <span className="flex-spacer" />
             <nav className="site-actions">
               <SessionNav />
@@ -113,7 +92,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             ) : null}
           </div>
         </footer>
-        {!signedIn && <GuestPrompt siteName={branding.name} />}
+        {/* 弹窗自身会先自检登录态（客户端），已登录不显示 */}
+        <GuestPrompt siteName={branding.name} />
       </body>
     </html>
   );

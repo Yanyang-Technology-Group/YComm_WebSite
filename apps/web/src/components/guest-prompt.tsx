@@ -4,13 +4,31 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 /**
- * 未登录访客每次进站弹一次登录/注册提示框（可关闭）。
+ * 未登录访客的登录/注册提示框。
+ *
+ * 客户端自检 `/api/auth/me`：已登录绝不弹；未登录每个浏览器会话（tab 生命周期）
+ * 最多弹一次（sessionStorage 记录），避免每个页面都弹。
  */
 export function GuestPrompt({ siteName }: { siteName: string }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    setOpen(true);
+    let active = true;
+    (async () => {
+      try {
+        const response = await fetch('/api/auth/me', { cache: 'no-store' });
+        if (!active) return;
+        if (response.ok) return; // 已登录：不弹
+        if (sessionStorage.getItem('guest_prompt_seen')) return;
+        sessionStorage.setItem('guest_prompt_seen', '1');
+        setOpen(true);
+      } catch {
+        /* 请求失败不弹窗，避免打扰 */
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   if (!open) return null;
