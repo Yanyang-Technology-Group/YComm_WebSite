@@ -90,8 +90,11 @@ export default async function TopicPage({
               </span>
             )}
             <span className="muted">
-              #{post.position} · {post.authorDisplayName ?? '访客'} ·{' '}
-              {new Date(post.created_at).toLocaleString('zh-CN')}
+              <span className={post.position === 1 ? 'badge badge-role-owner' : undefined}>
+                {post.position === 1 ? '楼主' : `#${post.position}`}
+              </span>
+              {' · '}
+              {post.authorDisplayName ?? '访客'} · {new Date(post.created_at).toLocaleString('zh-CN')}
               {post.edited_at ? ' · 已编辑' : ''}
             </span>
             <AuthorSanctions

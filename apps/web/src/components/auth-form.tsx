@@ -109,6 +109,9 @@ export function AuthForm({
     if (kind === 'login' || kind === 'register') {
       payload.agreeTerms = form.get('agreeTerms') === 'on';
     }
+    if (kind === 'login') {
+      payload.rememberMe = form.get('rememberMe') === 'on';
+    }
 
     const path =
       kind === 'login'
@@ -174,6 +177,10 @@ export function AuthForm({
             required
             autoComplete="current-password"
           />
+          <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.85rem', color: 'var(--muted)' }}>
+            <input type="checkbox" name="rememberMe" />
+            <span>15 天内免登录（不勾选则关闭浏览器后需要重新登录）</span>
+          </label>
           <TermsAgreement />
         </>
       )}

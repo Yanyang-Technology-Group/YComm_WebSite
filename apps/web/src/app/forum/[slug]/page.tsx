@@ -78,14 +78,9 @@ export default async function BoardPage({
       {topics.length === 0 && <p className="muted">还没有主题，点右下角「发新主题」来发第一帖吧。</p>}
       {topics.map((topic) => (
         <Link key={topic.id} href={`/forum/${slug}/${topic.id}`} className="topic-block">
-          <div className="topic-block-title">
-            {topic.is_pinned && '📌 '}
-            {topic.is_locked && '🔒 '}
-            {topic.title}
-          </div>
-
+          {/* 发布者头像 + 名字放在标题上方 */}
           {topic.preview.firstPost && (
-            <div className="topic-block-post">
+            <div className="topic-block-post topic-block-author-row">
               <Avatar
                 path={topic.preview.firstPost.authorAvatarPath}
                 name={topic.preview.firstPost.authorDisplayName}
@@ -94,10 +89,17 @@ export default async function BoardPage({
               <span className="topic-block-author">
                 {topic.preview.firstPost.authorDisplayName ?? '访客'}
               </span>
-              <span className="topic-block-text">
-                {excerpt(topic.preview.firstPost.contentExcerpt)}
-              </span>
             </div>
+          )}
+
+          <div className="topic-block-title">
+            {topic.is_pinned && '📌 '}
+            {topic.is_locked && '🔒 '}
+            {topic.title}
+          </div>
+
+          {topic.preview.firstPost && (
+            <div className="topic-block-text">{excerpt(topic.preview.firstPost.contentExcerpt)}</div>
           )}
 
           {topic.preview.topReplies.map((reply, index) => (

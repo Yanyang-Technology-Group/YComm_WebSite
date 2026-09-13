@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { captchaConfig } from '@ycomm/kernel';
 import { apiGet } from '../../../lib/server-api';
 import { UsersPanel, type AdminUser } from '../../../components/admin-panels';
 
@@ -20,7 +21,10 @@ export default async function AdminUsersPage() {
   return (
     <div>
       <h1>用户管理</h1>
-      <UsersPanel initial={{ users: result.data?.users ?? [], total: result.data?.total ?? 0 }} />
+      <UsersPanel
+        captcha={captchaConfig()}
+        initial={{ users: result.data?.users ?? [], total: result.data?.total ?? 0 }}
+      />
     </div>
   );
 }

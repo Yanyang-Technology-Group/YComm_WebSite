@@ -96,6 +96,48 @@ export async function findOrCreateOAuthUser(db: Db, profile: OAuthProfile): Prom
   return user;
 }
 
+/**
+ * 把第三方账号绑定到当前登录用户（控制台「绑定 GitHub」）。
+ * - 该 provider 账号已经被别人绑了 → 冲突；
+ * - 已经绑给本人 → 幂等成功。
+ */
+export async function linkOAuthAccount(
+  db: Db,
+  userId: string,
+  provider: string,
+  providerAccountId: string,
+): Promise<void> {
+  const links = await db
+    .select({ user_id: schema.oauthAccounts.user_id })
+    .from(schema.oauthAccounts)
+    .where(
+      and(
+        eq(schema.oauthAccounts.provider, provider),
+        eq(schema.oauthAccounts.provider_account_id, providerAccountId),
+      ),
+    )
+    .limit(1);
+  if (links[0]) {
+    if (links[0].user_id === userId) return; // 已经绑给自己
+    throw errors.conflict('这个 GitHub 账号已经绑定到其他用户了', { field: 'providerAccountId' });
+  }
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user) throw errors.notFound('用户不存在');
+  await db
+    .insert(schema.oauthAccounts)
+    .values({ provider, provider_account_id: providerAccountId, user_id: userId })
+    .onConflictDoNothing();
+}
+
+/** 某用户绑定过的第三方登录来源（provider 名列表）。 */
+export async function listOAuthProviders(db: Db, userId: string): Promise<string[]> {
+  const rows = await db
+    .select({ provider: schema.oauthAccounts.provider })
+    .from(schema.oauthAccounts)
+    .where(eq(schema.oauthAccounts.user_id, userId));
+  return rows.map((row) => row.provider);
+}
+
 function sanitizeUsername(username: string): string {
   const cleaned = username.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20);
   return cleaned || `user${Math.random().toString(36).slice(2, 8)}`;

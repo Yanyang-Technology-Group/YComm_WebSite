@@ -9,7 +9,16 @@ import { useEffect, useRef, useState } from 'react';
  * 用户完成解题后收到 `solve` 事件 → 把 `e.detail.token` 写入隐藏字段
  * captchaToken；服务端再调 `${endpoint}/api/validate` 做一次性核验。
  */
-export function CaptchaField({ script, widgetApi }: { script: string; widgetApi: string }) {
+export function CaptchaField({
+  script,
+  widgetApi,
+  onToken,
+}: {
+  script: string;
+  widgetApi: string;
+  /** 解出 token 后回调（普通表单用隐藏字段，弹窗等场景用回调）。 */
+  onToken?: (token: string) => void;
+}) {
   const [ready, setReady] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState(false);
@@ -41,6 +50,7 @@ export function CaptchaField({ script, widgetApi }: { script: string; widgetApi:
       if (detail?.token) {
         setToken(detail.token);
         setDone(true);
+        onToken?.(detail.token);
       }
     }
     host.addEventListener('solve', onSolve);

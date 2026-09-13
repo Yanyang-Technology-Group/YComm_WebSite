@@ -15,18 +15,27 @@ import {
   deleteInviteCode,
   expireSanctions,
   findSessionByToken,
+  followUser,
+  getPublicProfile,
   hashPassword,
+  listFollowerUsers,
+  listFollowingUsers,
   listInviteCodes,
   listUsers,
+  listsVisibleTo,
+  changePassword,
   muteUser,
   register,
   requestAccountDeletion,
   requestPasswordReset,
   resetPassword,
+  resetUserPassword,
   revokeAllSessionsForUser,
   revokeSession,
+  setPassword,
   toPublicUser,
   unbanUser,
+  unfollowUser,
   unmuteUser,
   verifyEmail,
   verifyPassword,
@@ -532,5 +541,130 @@ describe('account gates', () => {
     // 数据仍在（审计/追溯需要），只是 state 变成 deleted。
     const [row] = await handle.db.select().from(schema.users).where(eq(schema.users.id, doomed.id));
     expect(row?.state).toBe('deleted');
+  });
+});
+
+describe('social / follows', () => {
+  async function makeUser(username: string): Promise<UserRecord> {
+    const [row] = await handle.db
+      .insert(schema.users)
+      .values({
+        username,
+        email: `${username}@example.com`,
+        password_hash: 'x',
+        state: 'active',
+        display_name: username,
+      })
+      .returning();
+    if (!row) throw new Error('no user');
+    return row;
+  }
+
+  it('关注 / 取关 + 主页公开资料与计数', async () => {
+    const alice = await makeUser('alice-social');
+    const bob = await makeUser('bob-social');
+
+    // 主动关注 + 主页视图能看到关注状态与计数。
+    await followUser(handle.db, alice.id, bob.id);
+    const view = await getPublicProfile(handle.db, 'bob-social', alice.id);
+    expect(view.viewerFollowsTarget).toBe(true);
+    expect(view.followerCount).toBe(1);
+    expect(view.followingCount).toBe(0);
+    expect(view.homepageMd).toBe('');
+    expect(view.listsVisible).toBe(true); // 默认 public
+
+    // 不能关注自己。
+    await expect(followUser(handle.db, alice.id, alice.id)).rejects.toMatchObject({
+      code: errors.forbidden().code,
+    });
+
+    // 互关后 targetFollowsViewer 为真。
+    await followUser(handle.db, bob.id, alice.id);
+    const mutual = await getPublicProfile(handle.db, 'bob-social', alice.id);
+    expect(mutual.targetFollowsViewer).toBe(true);
+
+    // 关注 / 粉丝列表按方向返回。
+    const following = await listFollowingUsers(handle.db, alice.id, null);
+    expect(following.map((item) => item.username)).toEqual(['bob-social']);
+    const followers = await listFollowerUsers(handle.db, bob.id, null);
+    expect(followers.map((item) => item.username)).toEqual(['alice-social']);
+
+    await unfollowUser(handle.db, alice.id, bob.id);
+    expect((await getPublicProfile(handle.db, 'bob-social', alice.id)).viewerFollowsTarget).toBe(false);
+  });
+
+  it('关注列表可见度：仅自己/互关/公开', async () => {
+    const target = await makeUser('target-vis');
+    const viewer = await makeUser('viewer-vis');
+    const stranger = await makeUser('stranger-vis');
+
+    // private：只有本人能看。
+    await handle.db
+      .update(schema.users)
+      .set({ social_visibility: 'private' })
+      .where(eq(schema.users.id, target.id));
+    const privateTarget = (await handle.db.select().from(schema.users).where(eq(schema.users.id, target.id)).limit(1))[0]!;
+    expect(await listsVisibleTo(handle.db, privateTarget, viewer.id)).toBe(false);
+    expect(await listsVisibleTo(handle.db, privateTarget, null)).toBe(false);
+    expect(await listsVisibleTo(handle.db, privateTarget, target.id)).toBe(true);
+    expect((await getPublicProfile(handle.db, target.username, viewer.id)).listsVisible).toBe(false);
+
+    // public：游客也能看。
+    await handle.db
+      .update(schema.users)
+      .set({ social_visibility: 'public' })
+      .where(eq(schema.users.id, target.id));
+    const publicTarget = (await handle.db.select().from(schema.users).where(eq(schema.users.id, target.id)).limit(1))[0]!;
+    expect(await listsVisibleTo(handle.db, publicTarget, null)).toBe(true);
+
+    // mutual：需要互关。
+    await handle.db
+      .update(schema.users)
+      .set({ social_visibility: 'mutual' })
+      .where(eq(schema.users.id, target.id));
+    const mutualTarget = (await handle.db.select().from(schema.users).where(eq(schema.users.id, target.id)).limit(1))[0]!;
+    await followUser(handle.db, viewer.id, target.id);
+    expect(await listsVisibleTo(handle.db, mutualTarget, viewer.id)).toBe(false); // 单向关注不可见
+    await followUser(handle.db, target.id, viewer.id);
+    expect(await listsVisibleTo(handle.db, mutualTarget, viewer.id)).toBe(true); // 互关可见
+    expect(await listsVisibleTo(handle.db, mutualTarget, stranger.id)).toBe(false);
+  });
+
+  it('设置密码：GitHub 账号创建密码；站长重置任意用户密码（只有 owner）', async () => {
+    const ownerId = await seedOwner();
+    // GitHub 账号特征：没有密码哈希。
+    const [oauthUser] = await handle.db
+      .insert(schema.users)
+      .values({ username: 'oauth-nopw', email: 'oauth-nopw@example.com', password_hash: null, state: 'active', display_name: 'oauth-nopw' })
+      .returning();
+    if (!oauthUser) throw new Error('no user');
+    // 没有密码时 changePassword 走不通，只能 setPassword。
+    await expect(changePassword(handle.db, oauthUser.id, 'Secret-12345', 'New-Password-123')).rejects.toMatchObject(
+      { code: errors.validation().code },
+    );
+
+    await setPassword(handle.db, oauthUser.id, 'New-Password-123');
+    const [withHash] = await handle.db
+      .select({ password_hash: schema.users.password_hash })
+      .from(schema.users)
+      .where(eq(schema.users.id, oauthUser.id));
+    expect(withHash?.password_hash).not.toBeNull();
+    // 已有密码后不能再走 setPassword。
+    await expect(setPassword(handle.db, oauthUser.id, 'Another-Pass-1')).rejects.toMatchObject({
+      code: errors.validation().code,
+    });
+
+    // 站长重置密码：管理员不行，站长行，且被重置者其他密码登录被吊销（这里只验证落库）。
+    const [member] = await handle.db
+      .insert(schema.users)
+      .values({ username: 'pw-member', email: 'pw-member@example.com', password_hash: 'x', state: 'active', display_name: 'pw-member' })
+      .returning();
+    if (!member) throw new Error('no user');
+    await expect(
+      resetUserPassword(handle.db, { id: oauthUser.id, role: 'member' }, member.id, 'Reset-Pass-1'),
+    ).rejects.toMatchObject({ code: errors.forbidden().code });
+    const after = await resetUserPassword(handle.db, { id: ownerId, role: 'owner' }, member.id, 'Reset-Pass-1');
+    expect(after.password_hash).not.toBe('x');
+    expect(after.password_hash).not.toBeNull();
   });
 });

@@ -18,8 +18,8 @@ export default function RegisterPage() {
         <div style={{ marginTop: '1rem' }}>
           <GitHubLoginButton />
           <p className="muted" style={{ margin: '0.5rem 0 0', fontSize: '0.85rem' }}>
-            注意：用 GitHub 登录创建的账号<strong>没有密码</strong>，之后无法修改密码，只能继续用 GitHub 登录。
-            想用密码登录请在左侧表单注册。
+            用 GitHub 登录创建的账号<strong>没有密码</strong>，注册后可在控制台「账号安全」里创建密码，
+            之后就能用账号密码登录；不创建密码的话继续用 GitHub 登录即可。
           </p>
         </div>
       )}

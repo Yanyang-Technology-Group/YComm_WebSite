@@ -16,6 +16,7 @@ import {
   listVisibleCards,
   registerDownloadDeciders,
   reportDeadLinkByResource,
+  reviewCard,
   updateCard,
   updateResourceMetadata,
 } from './index';
@@ -70,6 +71,13 @@ async function seedUser(username: string, role: 'member' | 'admin' | 'owner'): P
     .returning({ id: schema.users.id });
   if (!row) throw new Error('no user');
   return row.id;
+}
+
+/** 测试里默认以站长身份建卡片（自动通过审核、对外可见）。 */
+function seedCard(
+  input: Parameters<typeof createCard>[1],
+): Promise<Awaited<ReturnType<typeof createCard>>> {
+  return createCard(handle.db, input, 'owner');
 }
 
 async function seedCategory(): Promise<string> {
@@ -334,14 +342,14 @@ describe('dead-link reports', () => {
 
 describe('card portal nesting', () => {
   it('returns every level so child cards can be opened, and hides staff cards from guests', async () => {
-    const root = await createCard(handle.db, { parentId: null, title: '工具', kind: 'container' });
-    const child = await createCard(handle.db, { parentId: root.id, title: '网络工具', kind: 'container' });
-    const grandChild = await createCard(handle.db, {
+    const root = await seedCard({ parentId: null, title: '工具', kind: 'container' });
+    const child = await seedCard({ parentId: root.id, title: '网络工具', kind: 'container' });
+    const grandChild = await seedCard({
       parentId: child.id,
       title: '代理工具',
       kind: 'resources',
     });
-    const staffOnly = await createCard(handle.db, {
+    const staffOnly = await seedCard({
       parentId: root.id,
       title: '内部资料',
       kind: 'container',
@@ -365,7 +373,7 @@ describe('card portal nesting', () => {
   });
 
   it('invite visibility needs a bound 注册码 (staff exempt)', async () => {
-    const inviteOnly = await createCard(handle.db, {
+    const inviteOnly = await seedCard({
       parentId: null,
       title: '会员专区',
       kind: 'container',
@@ -390,8 +398,8 @@ describe('card portal nesting', () => {
   });
 
   it('已有的卡片可以移动进另一张卡片（真正的套娃开关）', async () => {
-    const parent = await createCard(handle.db, { parentId: null, title: '父卡片', kind: 'container' });
-    const loose = await createCard(handle.db, { parentId: null, title: '散着的卡片', kind: 'container' });
+    const parent = await seedCard({ parentId: null, title: '父卡片', kind: 'container' });
+    const loose = await seedCard({ parentId: null, title: '散着的卡片', kind: 'container' });
 
     // 一开始是根层。
     expect((await listVisibleCards(handle.db, null)).find((card) => card.id === loose.id)?.parent_id).toBeNull();
@@ -406,5 +414,33 @@ describe('card portal nesting', () => {
     // 尺寸也可以单独改（编辑框里的宽/高）。
     const resized = await updateCard(handle.db, loose.id, { w: 3, h: 2 });
     expect([resized.w, resized.h]).toEqual([3, 2]);
+  });
+
+  it('下载卡片要站长审核：管理员建的默认待审核，站长通过后才可见', async () => {
+    // 管理员建卡 → pending，前台不可见。
+    const adminSubmitted = await createCard(
+      handle.db,
+      { parentId: null, title: '待审核卡片', kind: 'resources' },
+      'admin',
+    );
+    expect(adminSubmitted.status).toBe('pending');
+    expect((await listVisibleCards(handle.db, null)).map((card) => card.id)).not.toContain(adminSubmitted.id);
+
+    // 站长审核通过 → 可见。
+    await reviewCard(handle.db, adminSubmitted.id, 'approve');
+    expect((await listVisibleCards(handle.db, null)).map((card) => card.id)).toContain(adminSubmitted.id);
+
+    // 站长拒绝 → 保持不可见。
+    const rejected = await createCard(
+      handle.db,
+      { parentId: null, title: '被拒卡片', kind: 'resources' },
+      'admin',
+    );
+    await reviewCard(handle.db, rejected.id, 'reject');
+    expect(rejected.status).toBe('pending');
+    const cards = await listVisibleCards(handle.db, null);
+    expect(cards.map((card) => card.id)).not.toContain(rejected.id);
+    // 已通过的卡片仍然可见。
+    expect(cards.map((card) => card.id)).toContain(adminSubmitted.id);
   });
 });

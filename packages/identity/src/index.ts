@@ -24,13 +24,14 @@ export {
   type NewInviteCodeInput,
 } from './invites';
 export { hashPassword, verifyPassword } from './password';
-export { findOrCreateOAuthUser, type OAuthProfile } from './oauth';
+export { findOrCreateOAuthUser, linkOAuthAccount, listOAuthProviders, type OAuthProfile } from './oauth';
 export {
   bindInviteCode,
   changeEmail,
   changePassword,
   getInviteBinding,
   getUserById,
+  setPassword,
   updateProfile,
   type InviteBindingView,
   type UpdateProfileInput,
@@ -54,6 +55,7 @@ export {
   listRuntimeSettings,
   listUsers,
   muteUser,
+  resetUserPassword,
   setRuntimeSetting,
   setUserRole,
   unbanUser,
@@ -61,4 +63,19 @@ export {
   type AdminActor,
   type UserListResult,
 } from './admin';
+export {
+  followUser,
+  getPublicProfile,
+  isFollowing,
+  listFollowerUsers,
+  listFollowingUsers,
+  listsVisibleTo,
+  parseSocialVisibility,
+  SOCIAL_VISIBILITIES,
+  SOCIAL_VISIBILITY_LABELS,
+  unfollowUser,
+  type FollowedUserView,
+  type SocialVisibility,
+  type UserProfileView,
+} from './social';
 export type { PublicUser, SessionWithUser, UserRecord } from './types';

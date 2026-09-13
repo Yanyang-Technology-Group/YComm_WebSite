@@ -2,15 +2,36 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
+import type { CaptchaConfig } from '@ycomm/kernel';
+import { REGISTRATION } from '@ycomm/config';
 import { apiFetch } from '../lib/api';
+import { getSession } from '../lib/session';
+import { CaptchaField } from './captcha-field';
+import { CaptchaGateModal } from './captcha-gate-modal';
 import { remainingLabel, SanctionDialog, type SanctionKind } from './sanction-dialog';
 
 const row: React.CSSProperties = {
   border: '1px solid #e4e4e7',
-  borderRadius: 8,
+  borderRadius: 10,
   padding: '0.75rem 1rem',
   marginBottom: '0.5rem',
   background: '#fff',
+};
+
+/** 角色徽章：颜色一眼分清。 */
+const ROLE_META: Record<string, { label: string; className: string }> = {
+  member: { label: '成员', className: 'badge-role-member' },
+  admin: { label: '管理员', className: 'badge-role-admin' },
+  owner: { label: '站长', className: 'badge-role-owner' },
+};
+
+const STATE_META: Record<string, { label: string; className: string }> = {
+  active: { label: '正常', className: 'badge-state-active' },
+  unverified: { label: '未验证邮箱', className: 'badge-state-unverified' },
+  muted: { label: '禁言中', className: 'badge-state-muted' },
+  banned: { label: '封禁中', className: 'badge-state-banned' },
+  deleting: { label: '注销确认中', className: 'badge-state-deleting' },
+  deleted: { label: '已注销', className: 'badge-state-deleted' },
 };
 
 export interface AdminUser {
@@ -36,12 +57,33 @@ function sanctionRemaining(user: AdminUser): string | null {
   return null;
 }
 
-export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: number } }) {
+/**
+ * 用户列表：角色/状态用彩色徽章；只有站长能管理管理员（改角色/禁言/封禁/注销/改密码），
+ * 且注销、改密码都需要人机验证。
+ */
+export function UsersPanel({
+  initial,
+  captcha,
+}: {
+  initial: { users: AdminUser[]; total: number };
+  captcha: CaptchaConfig | null;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [myRole, setMyRole] = useState<string | null>(null);
   /** 正在弹窗设置时长的目标：封禁或禁言。 */
   const [dialog, setDialog] = useState<{ kind: SanctionKind; user: AdminUser } | null>(null);
+  /** 站长注销账号时的人机验证弹窗。 */
+  const [deleteDialog, setDeleteDialog] = useState<AdminUser | null>(null);
+  /** 站长改密码：step 1 提示 → step 2 再次确认 + 新密码 + 验证码。 */
+  const [pwDialog, setPwDialog] = useState<{ user: AdminUser; step: 1 | 2; password: string } | null>(null);
+
+  useEffect(() => {
+    void getSession().then((user) => setMyRole(user?.role ?? null));
+  }, []);
+
+  const isOwner = myRole === 'owner';
 
   async function act(user: AdminUser, path: string, body?: unknown, method: 'PATCH' | 'POST' = 'POST') {
     setBusy(user.id);
@@ -53,6 +95,8 @@ export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: 
         body: JSON.stringify(body ?? {}),
       });
       setDialog(null);
+      setDeleteDialog(null);
+      setPwDialog(null);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '操作失败');
@@ -61,13 +105,17 @@ export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: 
     }
   }
 
-  /** 站长直接注销账号（立即生效，无冷静期）。 */
-  async function removeAccount(user: AdminUser) {
-    if (!window.confirm(`直接注销账号「${user.username}」？立即生效、无冷静期，且不可恢复。`)) return;
+  /** 站长直接注销账号（立即生效，无冷静期；要人机验证）。 */
+  async function removeAccount(user: AdminUser, captchaToken: string | undefined) {
     setBusy(user.id);
     setError(null);
     try {
-      await apiFetch(`/api/admin/users/${user.id}/delete`, { method: 'POST' });
+      await apiFetch(`/api/admin/users/${user.id}/delete`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ captchaToken }),
+      });
+      setDeleteDialog(null);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '注销失败');
@@ -76,59 +124,99 @@ export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: 
     }
   }
 
+  /** 站长更改用户密码（两次提示 + 验证码），改完该用户所有会话失效。 */
+  async function doResetPassword(user: AdminUser, captchaToken: string | undefined) {
+    if (!pwDialog) return;
+    setBusy(user.id);
+    setError(null);
+    try {
+      await apiFetch(`/api/admin/users/${user.id}/reset-password`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ newPassword: pwDialog.password, captchaToken }),
+      });
+      setPwDialog(null);
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '改密失败');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** 管理员不能动管理员：这些管理动作只有站长能碰。 */
+  function canManage(user: AdminUser): boolean {
+    if (user.role === 'owner') return false;
+    if (user.role === 'admin') return isOwner;
+    return true;
+  }
+
   return (
     <div>
       {error && <p style={{ color: '#dc2626' }}>{error}</p>}
       {initial.users.map((user) => {
         const remaining = sanctionRemaining(user);
+        const manage = canManage(user);
+        const roleMeta = ROLE_META[user.role] ?? { label: user.role, className: '' };
+        const stateMeta = STATE_META[user.state] ?? { label: user.state, className: '' };
         return (
           <div key={user.id} style={row}>
-            <strong>{user.displayName}</strong> <span style={{ color: '#71717a' }}>@{user.username}</span>{' '}
-            <span style={{ color: '#71717a' }}>{user.email}</span>
-            <span style={{ marginLeft: '0.5rem' }}>
-              [{user.role} · {user.state} · Lv{user.level}]
-            </span>
-            {remaining && (
-              <span style={{ marginLeft: '0.5rem', color: '#dc2626' }}>
-                {remaining}
-                {user.banReason || user.muteReason ? `（${user.banReason || user.muteReason}）` : ''}
-              </span>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <strong>{user.displayName}</strong>
+              <span className="muted">@{user.username}</span>
+              <span className={`badge ${roleMeta.className}`}>{roleMeta.label}</span>
+              <span className={`badge ${stateMeta.className}`}>{stateMeta.label}</span>
+              <span className="badge badge-neutral">Lv{user.level}</span>
+              {remaining && (
+                <span className="badge badge-state-banned">
+                  {remaining}
+                  {user.banReason || user.muteReason ? `（${user.banReason || user.muteReason}）` : ''}
+                </span>
+              )}
+            </div>
+            <div className="muted" style={{ fontSize: '0.85rem', marginTop: '0.15rem' }}>
+              {user.email}
+            </div>
             <div style={{ marginTop: '0.4rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-              {user.role !== 'admin' && (
+              {manage && user.role === 'member' && isOwner && (
                 <button disabled={busy === user.id} onClick={() => void act(user, '/role', { role: 'admin' }, 'PATCH')}>
                   设为管理员
                 </button>
               )}
-              {user.role === 'admin' && (
+              {isOwner && user.role === 'admin' && (
                 <button disabled={busy === user.id} onClick={() => void act(user, '/role', { role: 'member' }, 'PATCH')}>
                   取消管理员
                 </button>
               )}
-              {user.state !== 'banned' ? (
+              {manage && user.state !== 'banned' && (
                 <button disabled={busy === user.id} onClick={() => setDialog({ kind: 'ban', user })}>
                   封禁…
                 </button>
-              ) : (
+              )}
+              {manage && user.state === 'banned' && (
                 <button disabled={busy === user.id} onClick={() => void act(user, '/unban')}>
                   解封
                 </button>
               )}
-              {user.state !== 'muted' && user.state !== 'banned' ? (
+              {manage && user.state !== 'muted' && user.state !== 'banned' && (
                 <button disabled={busy === user.id} onClick={() => setDialog({ kind: 'mute', user })}>
                   禁言…
                 </button>
-              ) : (
-                user.state === 'muted' && (
-                  <button disabled={busy === user.id} onClick={() => void act(user, '/unmute')}>
-                    解除禁言
-                  </button>
-                )
               )}
-              {user.role !== 'owner' && user.state !== 'deleted' && (
+              {manage && user.state === 'muted' && (
+                <button disabled={busy === user.id} onClick={() => void act(user, '/unmute')}>
+                  解除禁言
+                </button>
+              )}
+              {isOwner && user.role !== 'owner' && (
+                <button disabled={busy === user.id} onClick={() => setPwDialog({ user, step: 1, password: '' })}>
+                  改密码…
+                </button>
+              )}
+              {isOwner && user.role !== 'owner' && (
                 <button
                   disabled={busy === user.id}
-                  onClick={() => void removeAccount(user)}
+                  onClick={() => setDeleteDialog(user)}
                   style={{ color: '#dc2626' }}
                 >
                   注销
@@ -138,7 +226,7 @@ export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: 
           </div>
         );
       })}
-      <p style={{ color: '#71717a' }}>共 {initial.total} 位用户（本页 {initial.users.length}）</p>
+      <p className="muted">共 {initial.total} 位用户（本页 {initial.users.length}）· 管理员只能被站长管理</p>
 
       {dialog && (
         <SanctionDialog
@@ -151,6 +239,86 @@ export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: 
             void act(dialog.user, dialog.kind === 'ban' ? '/ban' : '/mute', { until, reason })
           }
         />
+      )}
+
+      {deleteDialog && (
+        <CaptchaGateModal
+          title={`注销「${deleteDialog.username}」`}
+          description="立即生效、无 3 天冷静期，且不可恢复。请先完成人机验证，确认后该账号将永久注销。"
+          confirmLabel="确认注销"
+          captcha={captcha}
+          busy={busy === deleteDialog.id}
+          error={error}
+          onClose={() => setDeleteDialog(null)}
+          onConfirm={(captchaToken) => void removeAccount(deleteDialog, captchaToken)}
+        />
+      )}
+
+      {pwDialog && pwDialog.step === 1 && (
+        <div className="modal-backdrop" onClick={() => setPwDialog(null)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <p className="modal-title">更改「{pwDialog.user.username}」的密码</p>
+            <p className="muted" style={{ margin: '0 0 0.9rem', fontSize: '0.9rem' }}>
+              设置后该用户<strong>所有会话立即失效</strong>，必须用新密码重新登录。账号此前如果只有
+              GitHub 登录，设置密码后即可用账号密码登录。
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button type="button" className="primary" onClick={() => setPwDialog({ ...pwDialog, step: 2 })}>
+                继续
+              </button>
+              <button type="button" onClick={() => setPwDialog(null)}>
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pwDialog && pwDialog.step === 2 && (
+        <form
+          className="modal-backdrop"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const fd = new FormData(event.currentTarget);
+            void doResetPassword(pwDialog.user, (fd.get('captchaToken') as string | null) ?? undefined);
+          }}
+        >
+          <div className="modal-card">
+            <p className="modal-title">再次确认：设置新密码</p>
+            <p className="muted" style={{ margin: '0 0 0.8rem', fontSize: '0.9rem' }}>
+              请再次确认要为「{pwDialog.user.username}」设置以下新密码，并完成人机验证。
+            </p>
+            <label style={{ display: 'grid', gap: '0.3rem', fontSize: '0.85rem', marginBottom: '0.8rem' }}>
+              新密码（{REGISTRATION.passwordHint}）
+              <input
+                type="text"
+                value={pwDialog.password}
+                onChange={(event) => setPwDialog({ ...pwDialog, password: event.target.value })}
+                minLength={REGISTRATION.minPasswordLength}
+                style={{ padding: '0.4rem' }}
+                autoFocus
+              />
+            </label>
+            {captcha && (
+              <div style={{ marginBottom: '0.9rem' }}>
+                <CaptchaField script={captcha.script} widgetApi={captcha.widgetApi} />
+              </div>
+            )}
+            {error && <p style={{ color: '#dc2626', margin: '0 0 0.6rem' }}>{error}</p>}
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                type="submit"
+                className="primary"
+                disabled={busy === pwDialog.user.id || !pwDialog.password}
+              >
+                {busy === pwDialog.user.id ? '处理中…' : '确认设置新密码'}
+              </button>
+              <button type="button" onClick={() => setPwDialog(null)} disabled={busy === pwDialog.user.id}>
+                取消
+              </button>
+            </div>
+          </div>
+        </form>
       )}
     </div>
   );
@@ -234,6 +402,20 @@ export interface InviteCodeItem {
 }
 
 /** 注册码管理：管理员创建（名称 + 注册码 ≤10 位）、查看列表、删除。 */
+/** 注册码使用量着色：没怎么用 = 浅绿，完全用完 = 深红，中间连续渐变。 */
+function usageStyle(used: number, max: number | null | undefined): React.CSSProperties {
+  if (!max) return { background: 'transparent', color: 'var(--muted)' };
+  const ratio = Math.min(1, used / Math.max(1, max));
+  const hue = Math.round(120 * (1 - ratio)); // 120(绿) → 0(红)
+  const saturation = 70 - ratio * 20;
+  const lightness = 92 - ratio * 34; // 浅 → 深
+  return {
+    background: `hsl(${hue} ${saturation}% ${lightness}%)`,
+    color: ratio > 0.55 ? '#7f1d1d' : '#166534',
+    fontWeight: 800,
+  };
+}
+
 export function InviteCodesPanel() {
   const router = useRouter();
   const [items, setItems] = useState<InviteCodeItem[]>([]);
@@ -326,32 +508,38 @@ export function InviteCodesPanel() {
       </div>
       {message && <p style={{ color: message.includes('失败') ? '#dc2626' : 'var(--accent)', margin: '0.4rem 0' }}>{message}</p>}
       {items.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem', fontSize: '0.9rem' }}>
-          <thead>
-            <tr>
-              <th style={thStyle}>名称</th>
-              <th style={thStyle}>注册码</th>
-              <th style={thStyle}>已用/上限</th>
-              <th style={thStyle}>创建时间</th>
-              <th style={thStyle}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((entry) => (
-              <tr key={entry.id}>
-                <td style={tdStyle}>{entry.name ?? '—'}</td>
-                <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{entry.code}</td>
-                <td style={tdStyle}>{entry.usedCount}/{entry.maxUses ?? '∞'}</td>
-                <td style={tdStyle}>{new Date(entry.createdAt).toLocaleString('zh-CN')}</td>
-                <td style={tdStyle}>
-                  <button type="button" onClick={() => void remove(entry.id)} disabled={busy === entry.id} style={{ color: '#dc2626' }}>
-                    删除
-                  </button>
-                </td>
+        <div className="table-scroll">
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem', fontSize: '0.9rem' }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>名称</th>
+                <th style={thStyle}>注册码</th>
+                <th style={thStyle}>已用/上限</th>
+                <th style={thStyle}>创建时间</th>
+                <th style={thStyle}></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((entry) => (
+                <tr key={entry.id}>
+                  <td style={tdStyle}>{entry.name ?? '—'}</td>
+                  <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{entry.code}</td>
+                  <td style={tdStyle}>
+                    <span className="badge" style={usageStyle(entry.usedCount, entry.maxUses)}>
+                      {entry.usedCount}/{entry.maxUses ?? '∞'}
+                    </span>
+                  </td>
+                  <td style={tdStyle}>{new Date(entry.createdAt).toLocaleString('zh-CN')}</td>
+                  <td style={tdStyle}>
+                    <button type="button" onClick={() => void remove(entry.id)} disabled={busy === entry.id} style={{ color: '#dc2626' }}>
+                      删除
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

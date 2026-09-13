@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { apiFetch } from '../lib/api';
+import { getSession } from '../lib/session';
 
 interface AdminCard {
   id: string;
@@ -15,6 +16,8 @@ interface AdminCard {
   h: number;
   visibility: string;
   position: number;
+  /** pending 待站长审核 / approved 已通过 / rejected 已拒绝。 */
+  status: string;
 }
 
 interface DragState {
@@ -39,6 +42,13 @@ const VISIBILITY_LABELS: Record<string, string> = {
 
 const VISIBILITY_OPTIONS = ['public', 'login', 'invite', 'staff'] as const;
 
+/** 卡片审核状态文案与颜色（复用徽章类）。 */
+const STATUS_META: Record<string, { label: string; className: string }> = {
+  pending: { label: '待站长审核', className: 'badge-warn' },
+  approved: { label: '已通过', className: 'badge-ok' },
+  rejected: { label: '已拒绝', className: 'badge-err' },
+};
+
 const HANDLES = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'] as const;
 const UNIT_W = 162; // 150px 列宽 + 12px 间距
 const UNIT_H = 122; // 110px 行高 + 12px 间距
@@ -52,12 +62,20 @@ export function CardsPanel() {
   const [newParentId, setNewParentId] = useState('');
   /** 正在拖拽改尺寸的卡片 id（null = 没在拖）。 */
   const [resizingId, setResizingId] = useState<string | null>(null);
+  /** 折叠起来的容器卡片 id（只影响编辑器里的子卡片展示，伸缩式）。 */
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const [myRole, setMyRole] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const titleRef = useRef<HTMLInputElement | null>(null);
 
   const selected = cards.find((card) => card.id === selectedId) ?? null;
   const containers = cards.filter((card) => card.kind === 'container');
+  const isOwner = myRole === 'owner';
+
+  useEffect(() => {
+    void getSession().then((user) => setMyRole(user?.role ?? null));
+  }, []);
 
   /** 某张卡片的全部子孙（用于防止把卡片拖进自己的子卡片里形成环）。 */
   function descendantIds(cardId: string): Set<string> {
@@ -117,7 +135,7 @@ export function CardsPanel() {
       h: 1,
     };
     try {
-      await apiFetch('/api/admin/cards', {
+      const created = await apiFetch<{ card: AdminCard }>('/api/admin/cards', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
@@ -126,6 +144,11 @@ export function CardsPanel() {
       setNewParentId('');
       await refresh();
       router.refresh();
+      setMessage(
+        created.card.status === 'pending'
+          ? '已创建，站长审核通过后才会出现在下载区'
+          : '已创建并通过审核（站长）',
+      );
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : '创建失败');
     }
@@ -258,10 +281,43 @@ export function CardsPanel() {
     }
   }
 
+  /** 折叠/展开某张容器卡片的子层（伸缩式）。 */
+  function toggleCollapse(cardId: string) {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(cardId)) next.delete(cardId);
+      else next.add(cardId);
+      return next;
+    });
+  }
+
+  function setAllCollapsed(collapsed: boolean) {
+    const parentsWithChildren = new Set<string>(
+      cards.filter((card) => card.parentId !== null).map((card) => card.parentId as string),
+    );
+    setCollapsedIds(collapsed ? parentsWithChildren : new Set());
+  }
+
+  /** 站长审核卡片：通过即公开可见。 */
+  async function review(card: AdminCard, decision: 'approve' | 'reject') {
+    setMessage(null);
+    try {
+      await apiFetch(`/api/admin/cards/${card.id}/review`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      });
+      setMessage(decision === 'approve' ? `「${card.title}」已通过审核，现在对外可见` : `「${card.title}」已拒绝`);
+      await refresh();
+      router.refresh();
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : '审核失败');
+    }
+  }
+
   /**
    * 树形渲染：每一层单独一个网格，子层带缩进和「属于哪张卡片」的标题。
-   *
-   * 这样做既能任意层套娃，又不会让子卡片的网格和父卡片的行高互相挤压。
+   * 容器卡片可以折叠/展开它的子层（伸缩式）。
    */
   function renderLevel(parentId: string | null, depth: number): React.ReactNode {
     const items = cards.filter((card) => card.parentId === parentId);
@@ -269,7 +325,7 @@ export function CardsPanel() {
 
     return (
       <div key={parentId ?? 'root'} style={{ display: 'grid', gap: '0.6rem' }}>
-        {depth > 0 && (
+        {depth > 0 && !collapsedIds.has(parentId as string) && (
           <p className="card-editor-level-title" style={{ marginLeft: (depth - 1) * 18 }}>
             「{parentTitle(parentId)}」内的子卡片 · 第 {depth} 层（{items.length}）
           </p>
@@ -277,47 +333,70 @@ export function CardsPanel() {
 
         {items.length > 0 ? (
           <div className="card-editor-grid" style={{ marginLeft: (depth - 1) * 18 > 0 ? (depth - 1) * 18 : undefined }}>
-            {items.map((card) => (
-              <div
-                key={card.id}
-                className={`card-editor-tile${selectedId === card.id ? ' selected' : ''}${resizingId === card.id ? ' resizing' : ''}`}
-                style={{ gridColumn: `span ${card.w}`, gridRow: `span ${card.h}` }}
-                onClick={() => setSelectedId(card.id)}
-              >
-                <div className="ct-title">{card.title}</div>
-                <div className="ct-meta">
-                  {card.kind} · {VISIBILITY_LABELS[card.visibility] ?? card.visibility} · {card.w}×{card.h}
-                </div>
-                {card.kind !== 'container' && <div className="ct-meta">（不能再往里放卡片）</div>}
-                <button
-                  type="button"
-                  className="ct-add-child"
-                  title="在这张卡片里新增子卡片"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setNewParentId(card.id);
-                    setSelectedId(card.id);
-                    titleRef.current?.focus();
-                  }}
+            {items.map((card) => {
+              const childCount = cards.filter((entry) => entry.parentId === card.id).length;
+              const statusMeta = STATUS_META[card.status] ?? { label: card.status, className: 'badge-neutral' };
+              return (
+                <div
+                  key={card.id}
+                  className={`card-editor-tile${selectedId === card.id ? ' selected' : ''}${resizingId === card.id ? ' resizing' : ''}`}
+                  style={{ gridColumn: `span ${card.w}`, gridRow: `span ${card.h}` }}
+                  onClick={() => setSelectedId(card.id)}
                 >
-                  + 子卡片
-                </button>
-                {HANDLES.map((h) => (
-                  <span
-                    key={h}
-                    className={`resize-handle handle-${h}`}
-                    title="拖动调整大小"
-                    onPointerDown={(e) => startResize(e, card, h)}
-                  />
-                ))}
-              </div>
-            ))}
+                  <div className="ct-title">{card.title}</div>
+                  <div className="ct-meta">
+                    {card.kind} · {VISIBILITY_LABELS[card.visibility] ?? card.visibility} · {card.w}×{card.h}
+                    <span className={`badge ${statusMeta.className}`} style={{ marginLeft: '0.35rem' }}>
+                      {statusMeta.label}
+                    </span>
+                  </div>
+                  {card.kind !== 'container' && <div className="ct-meta">（不能再往里放卡片）</div>}
+                  <button
+                    type="button"
+                    className="ct-add-child"
+                    title="在这张卡片里新增子卡片"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setNewParentId(card.id);
+                      setSelectedId(card.id);
+                      titleRef.current?.focus();
+                    }}
+                  >
+                    + 子卡片
+                  </button>
+                  {/* 伸缩式：容器卡片可展开/折叠子层 */}
+                  {card.kind === 'container' && childCount > 0 && (
+                    <button
+                      type="button"
+                      className="ct-collapse"
+                      title={collapsedIds.has(card.id) ? '展开子卡片' : '折叠子卡片'}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleCollapse(card.id);
+                      }}
+                    >
+                      {collapsedIds.has(card.id) ? `▸ ${childCount}` : `▾ ${childCount}`}
+                    </button>
+                  )}
+                  {HANDLES.map((h) => (
+                    <span
+                      key={h}
+                      className={`resize-handle handle-${h}`}
+                      title="拖动调整大小"
+                      onPointerDown={(e) => startResize(e, card, h)}
+                    />
+                  ))}
+                </div>
+              );
+            })}
           </div>
         ) : (
           depth === 0 && <p style={{ color: 'var(--muted)' }}>还没有卡片，先新增一张。</p>
         )}
 
-        {subContainers.map((child) => renderLevel(child.id, depth + 1))}
+        {/* 折叠的子层不渲染；审核通过/拒绝按钮在选中卡片的编辑框里 */}
+        {!collapsedIds.has(parentId as string) &&
+          subContainers.map((child) => renderLevel(child.id, depth + 1))}
       </div>
     );
   }
@@ -326,9 +405,17 @@ export function CardsPanel() {
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: '1rem 1.1rem', background: 'var(--surface)' }}>
       <h3 style={{ margin: 0 }}>下载区卡片门户</h3>
       <p style={{ margin: '0.25rem 0 0.8rem', color: 'var(--muted)', fontSize: '0.85rem' }}>
-        卡片可无限套娃：新增时选「放进哪张卡片」，或点卡片上的「+ 子卡片」；已经建好的卡片可以在编辑框里改「所属卡片」移动进去。
-        拖动卡片四周的圆点改尺寸，点击卡片编辑属性。
+        卡片无限套娃（子卡片可折叠/展开）；管理员新建的卡片要<strong>站长审核</strong>后才对外可见。
+        点击卡片可编辑并移动层级，拖动圆点改尺寸。
       </p>
+
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <button type="button" onClick={() => setAllCollapsed(true)}>全部折叠</button>
+        <button type="button" onClick={() => setAllCollapsed(false)}>全部展开</button>
+        <span className="muted" style={{ fontSize: '0.8rem' }}>
+          {isOwner ? '你是站长：待审核卡片可直接通过/拒绝' : '你是管理员：新卡片待站长审核'}
+        </span>
+      </div>
 
       <form onSubmit={submit} style={{ display: 'grid', gap: '0.45rem', marginBottom: '1rem', maxWidth: 620 }}>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -441,13 +528,28 @@ export function CardsPanel() {
               （1–6 个网格单位，也可直接拖动卡片四周的圆点）
             </span>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
             <button type="submit" className="primary">
               保存
             </button>
             <button type="button" onClick={() => void remove(selected)} style={{ color: '#dc2626' }}>
               删除
             </button>
+            {isOwner && selected.status === 'pending' && (
+              <>
+                <button type="button" className="primary" onClick={() => void review(selected, 'approve')}>
+                  通过审核
+                </button>
+                <button type="button" style={{ color: '#dc2626' }} onClick={() => void review(selected, 'reject')}>
+                  拒绝
+                </button>
+              </>
+            )}
+            {!isOwner && selected.status === 'pending' && (
+              <span className="muted" style={{ alignSelf: 'center', fontSize: '0.8rem' }}>
+                待站长审核
+              </span>
+            )}
           </div>
         </form>
       )}

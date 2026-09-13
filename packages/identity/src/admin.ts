@@ -1,8 +1,10 @@
 import { and, desc, eq, like, ne, or, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
-import { canAssignRole, FEATURE_DEFAULTS, type AssignableRole } from '@ycomm/config';
+import { canAssignRole, FEATURE_DEFAULTS, validatePassword, type AssignableRole } from '@ycomm/config';
 import { getSetting, setSetting } from '@ycomm/db';
+import { hashPassword } from './password';
+import { revokeAllSessionsForUser } from './sessions';
 import type { UserRecord } from './types';
 
 /**
@@ -86,6 +88,43 @@ export async function listUsers(
     .from(schema.users)
     .where(where);
   return { users, total: totals[0]?.n ?? 0 };
+}
+
+/** 站长重置任意用户的密码（仅 owner 可用）；重置后吊销该用户全部会话，强制重新登录。 */
+export async function resetUserPassword(
+  db: Db,
+  actorInput: AdminActor,
+  targetId: string,
+  newPassword: string,
+): Promise<UserRecord> {
+  const actor = await canonicalActor(db, actorInput);
+  if (actor.role !== 'owner') throw errors.forbidden('只有站长可以重置用户密码');
+
+  const passwordIssue = validatePassword(newPassword);
+  if (passwordIssue) {
+    throw errors.validation({ issues: [{ path: 'newPassword', message: passwordIssue }] });
+  }
+
+  const target = await loadTarget(db, targetId);
+  if (target.role === 'owner') throw errors.forbidden('不能重置站长账号的密码');
+
+  const hash = await hashPassword(newPassword);
+  const [updated] = await db
+    .update(schema.users)
+    .set({ password_hash: hash, updated_at: new Date() })
+    .where(eq(schema.users.id, targetId))
+    .returning();
+  if (!updated) throw errors.internal(undefined, 'password reset failed');
+
+  await revokeAllSessionsForUser(db, targetId);
+  await db.insert(schema.auditLogs).values({
+    actor_id: actor.id,
+    action: 'admin.user.password_reset',
+    target_type: 'user',
+    target_id: targetId,
+    meta: { by: 'owner' },
+  });
+  return updated;
 }
 
 export async function setUserRole(

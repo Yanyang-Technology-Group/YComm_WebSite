@@ -11,11 +11,13 @@ export interface NewSession {
 
 export async function createSession(
   db: Db,
-  input: { userId: string; ip?: string; userAgent?: string },
+  input: { userId: string; ip?: string; userAgent?: string; ttlDays?: number },
 ): Promise<NewSession> {
   const env = getEnv();
   const rawToken = newToken(32);
-  const expiresAt = new Date(Date.now() + env.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
+  // 登录「记住我」= 15 天免登录；不记住时用环境默认（浏览器会话 cookie 由 API 层决定）。
+  const ttlDays = input.ttlDays ?? env.SESSION_TTL_DAYS;
+  const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
 
   await db.insert(schema.sessions).values({
     token_hash: hashToken(rawToken),

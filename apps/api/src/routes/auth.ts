@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { randomUUID } from 'node:crypto';
 import { getDb } from '@ycomm/db';
-import { errors, getEnv, siteUrl, captchaConfig, logger } from '@ycomm/kernel';
+import { errors, getEnv, siteUrl, logger } from '@ycomm/kernel';
 import {
   bindInviteCode,
   cancelAccountDeletion,
@@ -17,6 +17,8 @@ import {
   getInviteBinding,
   getUserById,
   hashPassword,
+  linkOAuthAccount,
+  listOAuthProviders,
   register,
   requestAccountDeletion,
   requestPasswordReset,
@@ -24,6 +26,7 @@ import {
   resetPassword,
   reviveIfPendingDeletion,
   revokeSession,
+  setPassword,
   toPublicUser,
   updateProfile,
   verifyEmail,
@@ -34,6 +37,7 @@ import { listResourcesByAuthor } from '@ycomm/downloads';
 import { logAudit } from '@ycomm/audit';
 import type { AppVariables } from '../context';
 import { clientIp, sessionAuth } from '../middleware/session';
+import { verifyCaptcha } from '../middleware/captcha';
 import { rateLimitByIp } from '../middleware/rate-limit';
 
 /** Parse + validate a JSON body; rejects with the shared validation shape. */
@@ -65,6 +69,8 @@ const loginSchema = z.object({
   password: z.string().min(1).max(200),
   captchaToken: z.string().min(1).optional(),
   agreeTerms: z.boolean().optional(),
+  /** 勾选 = 15 天内免登录（持久 cookie）；不勾 = 关浏览器即退出。 */
+  rememberMe: z.boolean().optional(),
 });
 
 const emailSchema = z.object({ email: z.string().trim().min(3).max(255), captchaToken: z.string().min(1).optional() });
@@ -92,21 +98,21 @@ const changeEmailSchema = z.object({ email: z.string().trim().min(3).max(255) })
 
 const bindInviteSchema = z.object({ code: z.string().trim().min(1).max(10) });
 
+const setPasswordSchema = z.object({ newPassword: z.string().min(8).max(200) });
+
+const deleteAccountSchema = z.object({ captchaToken: z.string().min(1).optional() });
+
 /**
- * Session cookie flags. `__Host-` prefix forces Secure + Path=/ + no Domain —
- * exactly what a session cookie should look like behind a TLS-terminating
- * reverse proxy (Cloudflare Tunnel included).
- *
- * NOTE: Hono's cookie helpers validate `__Host-` cookies and REQUIRE the same
- * flags on delete; setCookie and deleteCookie MUST use identical options.
+ * Session cookie flags. `__Host-` 前缀强制 Secure + Path=/ + 无 Domain。
+ * 「记住我」= maxAge 15 天；不记住 = 浏览器会话 cookie（关浏览器即退出）。
  */
-function sessionCookieOptions(env: ReturnType<typeof getEnv>) {
+function sessionCookieOptions(_env: ReturnType<typeof getEnv>, rememberMe = false) {
   return {
     httpOnly: true,
     secure: true,
     sameSite: 'Lax' as const,
     path: '/',
-    maxAge: env.SESSION_TTL_DAYS * 86400,
+    ...(rememberMe ? { maxAge: 15 * 86400 } : {}),
   };
 }
 
@@ -182,6 +188,11 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
 
     let user = await findUserByLogin(handle.db, body.login);
 
+    // 没设置过密码的账号（GitHub 登录创建）不允许账号密码登录，给出明确的下一步。
+    if (user && !user.password_hash) {
+      throw errors.unauthenticated('该账号没有密码：请用 GitHub 登录，登录后在「账号安全」里创建密码');
+    }
+
     const passwordOk = user?.password_hash
       ? await verifyPassword(user.password_hash, body.password)
       : false;
@@ -205,14 +216,16 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     user = await expireSanctions(handle.db, user);
     if (user.state === 'banned') throw errors.accountBanned(user.ban_reason);
 
+    const rememberMe = body.rememberMe === true;
     const session = await createSession(handle.db, {
       userId: user.id,
       ip: clientIp(c),
       userAgent: c.req.header('user-agent'),
+      ttlDays: rememberMe ? 15 : undefined,
     });
 
     const env = getEnv();
-    setCookie(c, env.SESSION_COOKIE_NAME, session.rawToken, sessionCookieOptions(env));
+    setCookie(c, env.SESSION_COOKIE_NAME, session.rawToken, sessionCookieOptions(env, rememberMe));
 
     await logAudit(handle.db, {
       actorId: user.id,
@@ -254,6 +267,9 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   router.post('/delete-account', async (c) => {
     const auth = c.get('auth');
     if (!auth) throw errors.unauthenticated();
+    const body = await parseBody(c, deleteAccountSchema);
+    // 注销也要人机验证，防止外挂批量注销。
+    await verifyCaptcha(body.captchaToken);
     const handle = await getDb();
     await requestAccountDeletion(handle.db, auth.userId);
     await logAudit(handle.db, {
@@ -299,6 +315,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
     const user = await getUserById(handle.db, auth.userId);
     const binding = await getInviteBinding(handle.db, auth.userId);
+    const oauthProviders = await listOAuthProviders(handle.db, auth.userId);
     return c.json({
       ok: true,
       data: {
@@ -307,6 +324,11 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
           email: user.email,
           inviteBound: binding.bound,
           inviteCode: binding.code,
+          // 绑定过的第三方登录来源（用于控制台展示「已绑定 GitHub」）。
+          oauthProviders,
+          // 主页内容与关注列表可见度（控制台「个人资料」里编辑）。
+          homepageMd: user.homepage_md,
+          socialVisibility: user.social_visibility,
           // 处罚状态：控制台据此提示「封禁/禁言期间不能注销」。
           mutedUntil: user.muted_until,
           muteReason: user.mute_reason,
@@ -336,6 +358,23 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const body = await parseBody(c, changePasswordSchema);
     const handle = await getDb();
     await changePassword(handle.db, auth.userId, body.currentPassword, body.newPassword);
+    return c.json({ ok: true, data: null });
+  });
+
+  /** 给没有密码的账号（GitHub 登录创建）创建密码；创建后可用账号密码登录。 */
+  router.post('/set-password', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const body = await parseBody(c, setPasswordSchema);
+    const handle = await getDb();
+    await setPassword(handle.db, auth.userId, body.newPassword);
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: 'auth.password_set',
+      targetType: 'user',
+      targetId: auth.userId,
+    });
     return c.json({ ok: true, data: null });
   });
 
@@ -388,6 +427,10 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const state = randomUUID();
     // 30 分钟有效期：GitHub 页面在国内可能很慢，10 分钟容易过期导致 state 校验失败。
     setCookie(c, 'oauth_state', state, { httpOnly: true, secure: true, sameSite: 'Lax', path: '/', maxAge: 1800 });
+    // 控制台「绑定 GitHub」：?bind=1 时回调走绑定流程而不是登录流程。
+    if (c.req.query('bind') === '1') {
+      setCookie(c, 'oauth_intent', 'bind', { httpOnly: true, secure: true, sameSite: 'Lax', path: '/', maxAge: 1800 });
+    }
     const redirectUri = `${siteUrl(env)}/api/auth/github/callback`;
     const url =
       'https://github.com/login/oauth/authorize' +
@@ -401,7 +444,9 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   router.get('/github/callback', async (c) => {
     const env = getEnv();
     const savedState = getCookie(c, 'oauth_state');
+    const connectIntent = getCookie(c, 'oauth_intent');
     deleteCookie(c, 'oauth_state', { httpOnly: true, secure: true, sameSite: 'Lax', path: '/' });
+    deleteCookie(c, 'oauth_intent', { httpOnly: true, secure: true, sameSite: 'Lax', path: '/' });
 
     const code = c.req.query('code');
     const state = c.req.query('state');
@@ -474,6 +519,27 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
         emails.find((e) => e.primary && e.verified)?.email ?? emails.find((e) => e.verified)?.email ?? null;
 
       const handle = await getDb();
+
+      // 控制台「绑定 GitHub」：把 OAuth 账号绑定到当前登录用户，而不是登录。
+      if (connectIntent === 'bind') {
+        const auth = c.get('auth');
+        if (!auth) return c.redirect('/login?oauth=need_login', 302);
+        try {
+          await linkOAuthAccount(handle.db, auth.userId, 'github', String(ghUser.id));
+        } catch {
+          return c.redirect('/dashboard?bind=error', 302);
+        }
+        await logAudit(handle.db, {
+          actorId: auth.userId,
+          actorIp: clientIp(c),
+          action: 'auth.oauth_bind',
+          targetType: 'user',
+          targetId: auth.userId,
+          meta: { provider: 'github' },
+        });
+        return c.redirect('/dashboard?bind=done', 302);
+      }
+
       let user = await findOrCreateOAuthUser(handle.db, {
         provider: 'github',
         providerAccountId: String(ghUser.id),
@@ -549,26 +615,5 @@ function requireAgreeTerms(agreed: boolean | undefined): void {
         },
       ],
     });
-  }
-}
-
-/**
- * 人机验证（CAP Worker）：未配置 CAPTCHA_ENDPOINT 时跳过；
- * 已配置则把 widget 解出的 token 交给 `/api/validate` 核验（keepToken=false 一次性消费）。
- */
-async function verifyCaptcha(token: string | undefined): Promise<void> {
-  const cfg = captchaConfig();
-  if (!cfg) return;
-  if (!token) {
-    throw errors.validation({ issues: [{ path: 'captchaToken', message: '请完成人机验证' }] });
-  }
-  const response = await fetch(`${cfg.endpoint}/api/validate`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ token, keepToken: false }),
-  });
-  const json = (await response.json().catch(() => ({}))) as { success?: boolean };
-  if (json.success !== true) {
-    throw errors.validation({ issues: [{ path: 'captchaToken', message: '人机验证失败，请重试' }] });
   }
 }

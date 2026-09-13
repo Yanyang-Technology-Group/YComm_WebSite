@@ -1,12 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
+import type { CaptchaConfig } from '@ycomm/kernel';
 import { REGISTRATION } from '@ycomm/config';
 import { apiFetch } from '../lib/api';
+import { AppNav } from './app-nav';
 import { ThemePicker } from './theme-toggle';
 import { ImagePicker } from './image-picker';
+import { CaptchaGateModal } from './captcha-gate-modal';
 import { remainingLabel } from './sanction-dialog';
 
 interface Profile {
@@ -21,8 +24,14 @@ interface Profile {
   email: string;
   inviteBound: boolean;
   inviteCode: string | null;
-  /** 是否设置了密码；GitHub 登录创建的账号没有密码，不能改密。 */
+  /** 是否设置了密码；GitHub 登录创建的账号没有密码，可以创建。 */
   hasPassword: boolean;
+  /** 绑定过的第三方登录来源。 */
+  oauthProviders?: string[];
+  /** 主页 Markdown 内容。 */
+  homepageMd?: string;
+  /** 关注/粉丝列表可见度：'public' | 'mutual' | 'private'。 */
+  socialVisibility?: string;
   /** 封禁/禁言信息：处罚期间不允许自助注销。 */
   mutedUntil?: string | null;
   muteReason?: string | null;
@@ -60,39 +69,65 @@ interface MyResource {
 
 type Section = 'profile' | 'content' | 'security' | 'appearance';
 
-const SECTION_LABELS: Record<Section, string> = {
-  profile: '个人资料',
-  content: '我的内容',
-  security: '账号安全',
-  appearance: '外观主题',
-};
+const SECTIONS: readonly Section[] = ['profile', 'content', 'security', 'appearance'];
+
+const SOCIAL_VISIBILITY_OPTIONS = [
+  { value: 'public', label: '公开（所有人可见）' },
+  { value: 'mutual', label: '互关可见' },
+  { value: 'private', label: '仅自己可见' },
+] as const;
+
+type LoadStatus = 'loading' | 'ready' | 'error' | 'anon';
 
 /**
- * 控制台（dashboard）：左侧导航 + 右侧内容（类 wiki），管理员侧栏并入站务入口。
- * 登录态由客户端自检；未登录显示提示。
+ * 控制台：全站统一左侧导航 + 右侧内容。
+ * 加载时有「图标 + 蓝色旋转圆环」；10 秒内没出来提示加载失败（可重试），
+ * 而不是立刻误报「未登录」。
  */
-export function DashboardPanel() {
+export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
   const router = useRouter();
+  const search = useSearchParams();
+  const sectionParam = search.get('section');
+  const section: Section = SECTIONS.includes(sectionParam as Section) ? (sectionParam as Section) : 'profile';
+
+  const [status, setStatus] = useState<LoadStatus>('loading');
   const [profile, setProfile] = useState<Profile | null>(null);
   const [topics, setTopics] = useState<MyTopic[]>([]);
   const [posts, setPosts] = useState<MyPost[]>([]);
   const [resources, setResources] = useState<MyResource[]>([]);
-  const [section, setSection] = useState<Section>('profile');
   const [msg, setMsg] = useState<string | null>(null);
   const [avatarPath, setAvatarPath] = useState('');
+  const [deletePrompt, setDeletePrompt] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   useEffect(() => {
     void load();
   }, []);
 
+  /** 先读资料：401 = 未登录；超过 10 秒 = 加载失败（网络/网关问题），可重试。 */
   async function load() {
+    setStatus('loading');
+    setMsg(null);
     try {
-      const data = await apiFetch<{ user: Profile }>('/api/auth/profile');
-      setProfile(data.user);
-      setAvatarPath(data.user.avatarPath ?? '');
+      const response = await fetch('/api/auth/profile', { cache: 'no-store', signal: AbortSignal.timeout(10_000) });
+      if (response.status === 401) {
+        setStatus('anon');
+        return;
+      }
+      if (!response.ok) throw new Error('bad response');
+      const json = (await response.json()) as { data?: { user?: Profile } };
+      const user = json.data?.user;
+      if (!user) throw new Error('no user');
+      setProfile(user);
+      setAvatarPath(user.avatarPath ?? '');
+      setStatus('ready');
+      await loadContent();
     } catch {
-      setProfile(null);
+      setStatus('error');
     }
+  }
+
+  async function loadContent() {
     try {
       const data = await apiFetch<{ topics: MyTopic[] }>('/api/auth/me/topics');
       setTopics(data.topics);
@@ -138,6 +173,8 @@ export function DashboardPanel() {
             displayName: String(fd.get('displayName') ?? ''),
             bio: String(fd.get('bio') ?? ''),
             avatarPath: avatarPath || null,
+            homepageMd: String(fd.get('homepageMd') ?? ''),
+            socialVisibility: String(fd.get('socialVisibility') ?? 'public'),
           }),
         }),
       '资料已保存',
@@ -158,6 +195,21 @@ export function DashboardPanel() {
           }),
         }),
       '密码已修改',
+    );
+  }
+
+  /** GitHub 账号没有密码 → 创建密码（创建后即可用账号密码登录）。 */
+  function submitSetPassword(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    void run(
+      () =>
+        apiFetch('/api/auth/set-password', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ newPassword: String(fd.get('newPassword') ?? '') }),
+        }),
+      '密码已创建，现在可以用账号密码登录了（下次用 GitHub 也能登录）',
     );
   }
 
@@ -189,79 +241,103 @@ export function DashboardPanel() {
     );
   }
 
-  if (!profile) {
+  /** 注销也要人机验证。 */
+  async function confirmDelete(captchaToken: string | undefined) {
+    setDeleteBusy(true);
+    try {
+      await apiFetch('/api/auth/delete-account', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ captchaToken }),
+      });
+      setDeletePrompt(false);
+      setMsg('注销确认邮件已发送，请查收邮箱并点击确认链接');
+    } catch (caught) {
+      setMsg(caught instanceof Error ? caught.message : '注销失败');
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
+  if (status === 'loading') {
     return (
-      <div className="panel">
-        <p className="panel-title">控制台</p>
-        <p className="muted" style={{ margin: 0 }}>
-          请先登录：<Link href="/login">前往登录</Link>
-        </p>
+      <div className="app-shell">
+        <AppNav />
+        <div className="app-content">
+          <div className="loading-center">
+            <div className="loading-ring">
+              <img src="/logo.png" alt="" className="loading-icon" />
+            </div>
+            <p className="muted" style={{ margin: 0 }}>
+              正在加载控制台…
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  const staff = profile.role === 'admin' || profile.role === 'owner';
+  if (status === 'error') {
+    return (
+      <div className="app-shell">
+        <AppNav />
+        <div className="app-content">
+          <div className="panel loading-error">
+            <p className="panel-title">加载失败</p>
+            <p className="muted" style={{ margin: '0 0 1rem' }}>
+              请检查网络或登录状态；如果持续这样，请联系管理员。
+            </p>
+            <button type="button" className="primary" onClick={() => void load()}>
+              重新加载
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'anon' || !profile) {
+    return (
+      <div className="app-shell">
+        <AppNav />
+        <div className="app-content">
+          <div className="panel">
+            <p className="panel-title">控制台</p>
+            <p className="muted" style={{ margin: 0 }}>
+              请先登录：<Link href="/login">前往登录</Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const githubBound = (profile.oauthProviders ?? []).includes('github');
+  const bindNotice = search.get('bind');
 
   return (
-    <div className="dashboard-layout">
-      <aside className="dashboard-nav">
-        <div className="dashboard-nav-group">
-          <p className="dashboard-nav-title">个人</p>
-          {(['profile', 'content', 'security', 'appearance'] as Section[]).map((key) => (
-            <button
-              key={key}
-              type="button"
-              className={`dashboard-nav-link${section === key ? ' active' : ''}`}
-              onClick={() => setSection(key)}
-            >
-              {SECTION_LABELS[key]}
-            </button>
-          ))}
-        </div>
-
-        {staff && (
-          <div className="dashboard-nav-group">
-            <p className="dashboard-nav-title">管理</p>
-            <Link href="/admin" className="dashboard-nav-link">
-              管理后台
-            </Link>
-            <Link href="/admin/users" className="dashboard-nav-link">
-              用户管理
-            </Link>
-            <Link href="/admin/boards" className="dashboard-nav-link">
-              版块管理
-            </Link>
-            <Link href="/admin/cards" className="dashboard-nav-link">
-              下载区卡片
-            </Link>
-            <Link href="/admin/moderation" className="dashboard-nav-link">
-              审核队列
-            </Link>
-            <Link href="/admin/resources" className="dashboard-nav-link">
-              资源管理
-            </Link>
-            <Link href="/admin/audit" className="dashboard-nav-link">
-              操作日志
-            </Link>
-            <Link href="/admin/settings" className="dashboard-nav-link">
-              违禁词与注册码
-            </Link>
-          </div>
-        )}
-      </aside>
-
-      <div className="dashboard-content">
+    <div className="app-shell">
+      <AppNav />
+      <div className="app-content">
         <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>
           控制台
         </h1>
         <p className="muted" style={{ marginTop: 0 }}>
-          @{profile.username} · {profile.role} · Lv{profile.level}
+          @{profile.username} · {profile.role} · Lv{profile.level} ·{' '}
+          <Link href={`/users/${encodeURIComponent(profile.username)}`}>查看我的主页 →</Link>
         </p>
+
+        {bindNotice === 'done' && (
+          <p style={{ color: '#16a34a' }}>GitHub 绑定成功，之后可以用这个 GitHub 账号直接登录。</p>
+        )}
+        {bindNotice === 'error' && (
+          <p style={{ color: '#dc2626' }}>GitHub 绑定失败：这个 GitHub 账号可能已经绑定到其他用户。</p>
+        )}
 
         {msg && (
           <p
             style={{
-              color: msg.startsWith('已') || msg.includes('已') ? 'var(--accent-strong)' : '#dc2626',
+              color: msg.startsWith('已') || msg.includes('已') || msg.includes('成功') ? 'var(--accent-strong)' : '#dc2626',
             }}
           >
             {msg}
@@ -269,7 +345,7 @@ export function DashboardPanel() {
         )}
 
         {section === 'profile' && (
-          <div style={{ display: 'grid', gap: '1.5rem', maxWidth: 560 }}>
+          <div style={{ display: 'grid', gap: '1.5rem', maxWidth: 620 }}>
             <form onSubmit={submitProfile} className="panel">
               <p className="panel-title">编辑资料</p>
               <div style={{ display: 'grid', gap: '0.6rem' }}>
@@ -281,7 +357,27 @@ export function DashboardPanel() {
                   placeholder="头像图片 URL（也可直接上传）"
                 />
                 <ImagePicker label="🖼 上传头像" onPicked={setAvatarPath} />
-                <textarea name="bio" defaultValue={profile.bio} placeholder="签名 / 简介" rows={3} maxLength={500} />
+                <textarea name="bio" defaultValue={profile.bio} placeholder="签名 / 简介" rows={2} maxLength={500} />
+                <label style={{ fontSize: '0.85rem' }}>
+                  主页内容（Markdown，显示在你的公开主页上）
+                  <textarea
+                    name="homepageMd"
+                    defaultValue={profile.homepageMd ?? ''}
+                    placeholder={"支持 Markdown：# 标题、**加粗**、- 列表、![](图片链接) 等"}
+                    rows={8}
+                    maxLength={8000}
+                  />
+                </label>
+                <label style={{ fontSize: '0.85rem' }}>
+                  关注 / 粉丝列表可见度
+                  <select name="socialVisibility" defaultValue={profile.socialVisibility ?? 'public'}>
+                    {SOCIAL_VISIBILITY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
                   保存资料
                 </button>
@@ -365,7 +461,7 @@ export function DashboardPanel() {
         )}
 
         {section === 'security' && (
-          <div style={{ display: 'grid', gap: '1rem', maxWidth: 520 }}>
+          <div style={{ display: 'grid', gap: '1rem', maxWidth: 560 }}>
             {profile.hasPassword ? (
               <form onSubmit={submitPassword} className="panel" style={{ marginBottom: 0 }}>
                 <p className="panel-title">修改密码</p>
@@ -384,16 +480,44 @@ export function DashboardPanel() {
                 </div>
               </form>
             ) : (
-              <div className="panel" style={{ marginBottom: 0 }}>
-                <p className="panel-title">修改密码</p>
-                <p style={{ margin: 0 }}>
-                  你的账号是通过 <strong>GitHub 登录</strong>创建的，没有设置密码，因此无法修改密码。
+              <form onSubmit={submitSetPassword} className="panel" style={{ marginBottom: 0 }}>
+                <p className="panel-title">创建密码</p>
+                <p className="muted" style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+                  你的账号通过 GitHub 登录创建，还没有密码。创建后就能用<strong>用户名/邮箱 + 密码</strong>
+                  登录，GitHub 登录也仍然可用。
                 </p>
-                <p className="muted" style={{ margin: '0.5rem 0 0' }}>
-                  请继续使用 GitHub 登录；想用密码登录请先退出，再用注册功能创建带密码的账号。
-                </p>
-              </div>
+                <div style={{ display: 'grid', gap: '0.5rem' }}>
+                  <input
+                    name="newPassword"
+                    type="password"
+                    placeholder={`新密码（${REGISTRATION.passwordHint}）`}
+                    required
+                    minLength={REGISTRATION.minPasswordLength}
+                  />
+                  <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
+                    创建密码
+                  </button>
+                </div>
+              </form>
             )}
+
+            <div className="panel" style={{ marginBottom: 0 }}>
+              <p className="panel-title">GitHub 绑定</p>
+              {githubBound ? (
+                <p className="muted" style={{ margin: 0 }}>
+                  已绑定 GitHub，可用 GitHub 一键登录。
+                </p>
+              ) : (
+                <>
+                  <p className="muted" style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+                    绑定后无需再输账号密码，点一下 GitHub 就能登录（绑定你自己的 GitHub 账号，别绑别人的）。
+                  </p>
+                  <a className="primary" href="/api/auth/github?bind=1" style={{ display: 'inline-block', padding: '0.5rem 1.1rem', borderRadius: 8, background: 'var(--accent-strong)', color: '#fff', fontWeight: 600, textDecoration: 'none' }}>
+                    绑定 GitHub
+                  </a>
+                </>
+              )}
+            </div>
 
             <div className="panel" style={{ marginBottom: 0 }}>
               <p className="panel-title">注销账号</p>
@@ -419,9 +543,6 @@ export function DashboardPanel() {
                   <p style={{ margin: '0 0 0.5rem' }}>
                     账号正在<strong>注销冷静期</strong>：到期未取消将永久注销，且无法恢复。
                   </p>
-                  <p className="muted" style={{ margin: '0 0 0.75rem' }}>
-                    3 天内登录或点下方按钮都可以取消注销。
-                  </p>
                   <button
                     type="button"
                     className="primary"
@@ -434,22 +555,10 @@ export function DashboardPanel() {
                 </>
               ) : (
                 <>
-                  <p style={{ margin: '0 0 0.5rem' }}>
-                    注销需要<strong>邮箱验证</strong>：我们会向你的注册邮箱发送确认链接。
+                  <p className="muted" style={{ margin: '0 0 0.75rem', fontSize: '0.85rem' }}>
+                    注销需要<strong>邮箱验证</strong>；确认后进入 3 天冷静期，期间重新登录即可取消。此操作需要完成人机验证。
                   </p>
-                  <p className="muted" style={{ margin: '0 0 0.75rem' }}>
-                    确认后进入 3 天冷静期，期间重新登录即可取消；到期未登录则永久注销。
-                  </p>
-                  <button
-                    type="button"
-                    style={{ color: '#dc2626' }}
-                    onClick={() =>
-                      void run(
-                        () => apiFetch('/api/auth/delete-account', { method: 'POST' }),
-                        '注销确认邮件已发送，请查收邮箱并点击确认链接',
-                      )
-                    }
-                  >
+                  <button type="button" style={{ color: '#dc2626' }} onClick={() => setDeletePrompt(true)}>
                     申请注销账号
                   </button>
                 </>
@@ -465,6 +574,19 @@ export function DashboardPanel() {
           </div>
         )}
       </div>
+
+      {deletePrompt && (
+        <CaptchaGateModal
+          title="申请注销账号"
+          description="我们会向你的注册邮箱发送确认链接；点击后进入 3 天冷静期。请先完成人机验证。"
+          confirmLabel="发送注销确认邮件"
+          captcha={captcha}
+          busy={deleteBusy}
+          error={msg}
+          onClose={() => setDeletePrompt(false)}
+          onConfirm={(captchaToken) => void confirmDelete(captchaToken)}
+        />
+      )}
     </div>
   );
 }

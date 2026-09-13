@@ -46,6 +46,15 @@ export const users = pgTable(
     banned_until: timestamp('banned_until', { withTimezone: true, mode: 'date' }),
     /** 注销时间：self-deleting 进入冷静期的时间戳；owner 直接注销同样落这里（无冷静期）。 */
     deleted_at: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+    /** 个人主页自定内容（Markdown），公开显示在 /users/<username>。 */
+    homepage_md: text('homepage_md').notNull().default(''),
+    /**
+     * 关注/粉丝列表可见度：
+     * - public  公开（所有人可看）
+     * - mutual  互关可见（只有互相关注的人能看）
+     * - private 仅自己可见
+     */
+    social_visibility: varchar('social_visibility', { length: 16 }).notNull().default('public'),
     created_at: createdAtColumn(),
     updated_at: updatedAtColumn(),
     last_seen_at: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }),
@@ -157,4 +166,24 @@ export const inviteCodeUses = pgTable(
     used_at: createdAtColumn('used_at'),
   },
   (table) => [uniqueIndex('invite_use_unique').on(table.invite_code_id, table.user_id)],
+);
+
+/** 关注关系：follower 关注 following。禁止自己关注自己（服务层校验）。 */
+export const follows = pgTable(
+  'follows',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    follower_id: uuid('follower_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    following_id: uuid('following_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    created_at: createdAtColumn(),
+  },
+  (table) => [
+    uniqueIndex('follows_pair_unique').on(table.follower_id, table.following_id),
+    index('follows_following_idx').on(table.following_id),
+    index('follows_follower_idx').on(table.follower_id),
+  ],
 );

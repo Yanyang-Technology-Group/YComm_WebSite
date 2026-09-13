@@ -30,6 +30,13 @@ const ACTION_LABELS: Record<string, string> = {
   'admin.card.created': '新增下载卡片',
   'admin.card.updated': '修改下载卡片',
   'admin.card.deleted': '删除下载卡片',
+  'admin.card.approved': '通过下载卡片审核',
+  'admin.card.rejected': '拒绝下载卡片',
+  'admin.user.password_reset': '站长重置用户密码',
+  'auth.password_set': '创建账号密码',
+  'auth.oauth_bind': '绑定 GitHub 登录',
+  'user.follow': '关注用户',
+  'user.unfollow': '取消关注',
   'admin.board.created': '新增版块',
   'admin.board.updated': '修改版块',
   'admin.board.archived': '归档版块',
@@ -157,54 +164,56 @@ export function AuditLogPanel() {
       {entries.length === 0 && !loading ? (
         <p className="muted">暂无日志记录。</p>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.75rem', fontSize: '0.9rem' }}>
-          <thead>
-            <tr>
-              <th style={thStyle}>时间</th>
-              <th style={thStyle}>操作者</th>
-              <th style={thStyle}>动作</th>
-              <th style={thStyle}>对象</th>
-              <th style={thStyle}>详情</th>
-              <th style={thStyle}>IP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry) => {
-              const detail = formatMeta(entry.meta);
-              return (
-                <tr key={entry.id}>
-                  <td style={tdStyle}>{new Date(entry.createdAt).toLocaleString('zh-CN')}</td>
-                  <td style={tdStyle}>
-                    {entry.actorUsername ? (
-                      <>
-                        {entry.actorDisplayName || entry.actorUsername}
-                        <span className="muted"> @{entry.actorUsername}</span>
-                      </>
-                    ) : (
-                      <span className="muted">系统</span>
-                    )}
-                  </td>
-                  <td style={tdStyle}>
-                    {ACTION_LABELS[entry.action] ?? entry.action}
-                    <div className="muted" style={{ fontSize: '0.78rem', fontFamily: 'monospace' }}>
-                      {entry.action}
-                    </div>
-                  </td>
-                  <td style={tdStyle}>
-                    {entry.targetType ? `${TARGET_LABELS[entry.targetType] ?? entry.targetType}` : '—'}
-                    {entry.targetId && (
+        <div className="table-scroll" style={{ marginTop: '0.75rem' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>时间</th>
+                <th style={thStyle}>操作者</th>
+                <th style={thStyle}>动作</th>
+                <th style={thStyle}>对象</th>
+                <th style={thStyle}>详情</th>
+                <th style={thStyle}>IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((entry) => {
+                const detail = formatMeta(entry.meta);
+                return (
+                  <tr key={entry.id}>
+                    <td style={tdStyle}>{new Date(entry.createdAt).toLocaleString('zh-CN')}</td>
+                    <td style={tdStyle}>
+                      {entry.actorUsername ? (
+                        <>
+                          {entry.actorDisplayName || entry.actorUsername}
+                          <span className="muted"> @{entry.actorUsername}</span>
+                        </>
+                      ) : (
+                        <span className="muted">系统</span>
+                      )}
+                    </td>
+                    <td style={tdStyle}>
+                      {ACTION_LABELS[entry.action] ?? entry.action}
                       <div className="muted" style={{ fontSize: '0.78rem', fontFamily: 'monospace' }}>
-                        {entry.targetId.slice(0, 8)}
+                        {entry.action}
                       </div>
-                    )}
-                  </td>
-                  <td style={{ ...tdStyle, maxWidth: 320, wordBreak: 'break-all' }}>{detail || '—'}</td>
-                  <td style={tdStyle}>{entry.actorIp || '—'}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                    <td style={tdStyle}>
+                      {entry.targetType ? `${TARGET_LABELS[entry.targetType] ?? entry.targetType}` : '—'}
+                      {entry.targetId && (
+                        <div className="muted" style={{ fontSize: '0.78rem', fontFamily: 'monospace' }}>
+                          {entry.targetId.slice(0, 8)}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ ...tdStyle, maxWidth: 320, wordBreak: 'break-all' }}>{detail || '—'}</td>
+                    <td style={tdStyle}>{entry.actorIp || '—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {pages > 1 && (

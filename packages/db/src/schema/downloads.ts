@@ -181,6 +181,13 @@ export const downloadCards = pgTable(
     h: integer('h').notNull().default(1),
     visibility: text('visibility').notNull().default('public'),
     position: integer('position').notNull().default(0),
+    /**
+     * 卡片审核状态（下载卡片要 owner 审核）：
+     * - pending  待站长审核（管理员新建的卡片默认此状态，不对外可见）
+     * - approved 已通过（公开可见）
+     * - rejected 已拒绝
+     */
+    status: text('status').notNull().default('pending'),
     created_at: createdAtColumn(),
     updated_at: updatedAtColumn(),
   },

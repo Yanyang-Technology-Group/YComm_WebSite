@@ -13,6 +13,7 @@ import {
   listRuntimeSettings,
   listUsers,
   muteUser,
+  resetUserPassword,
   setRuntimeSetting,
   setUserRole,
   toPublicUser,
@@ -22,7 +23,7 @@ import {
 } from '@ycomm/identity';
 import { listAuditLogs, logAudit } from '@ycomm/audit';
 import { decide, listQueued } from '@ycomm/moderation';
-import { createCard, deleteCard, listAllCards, listAllResources, updateCard } from '@ycomm/downloads';
+import { createCard, deleteCard, listAllCards, listAllResources, reviewCard, updateCard } from '@ycomm/downloads';
 import {
   archiveBoard,
   createBoard,
@@ -34,6 +35,7 @@ import {
 import type { AppVariables } from '../context';
 import { sessionAuth, clientIp } from '../middleware/session';
 import { requirePermission } from '../middleware/permission';
+import { verifyCaptcha } from '../middleware/captcha';
 import { parseBody } from './forum';
 
 const roleSchema = z.object({ role: z.enum(['member', 'admin', 'owner']) });
@@ -99,6 +101,17 @@ const cardUpdateSchema = z.object({
   h: z.number().int().min(1).max(6).optional(),
   visibility: z.enum(['public', 'login', 'invite', 'staff']).optional(),
   position: z.number().int().optional(),
+});
+
+const cardReviewSchema = z.object({
+  decision: z.enum(['approve', 'reject']),
+});
+
+const captchaBodySchema = z.object({ captchaToken: z.string().min(1).optional() });
+
+const resetPasswordSchema = z.object({
+  newPassword: z.string().min(8).max(200),
+  captchaToken: z.string().min(1).optional(),
 });
 
 const adminUser = (user: UserRecord) => ({
@@ -214,8 +227,10 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
     return c.json({ ok: true, data: { user: adminUser(updated) } });
   });
 
-  /** 站长直接注销任意账号：立即生效，无 3 天冷静期。 */
+  /** 站长直接注销任意账号：立即生效，无 3 天冷静期；同样要求人机验证。 */
   router.post('/users/:userId/delete', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const body = await parseBody(c, captchaBodySchema);
+    await verifyCaptcha(body.captchaToken);
     const handle = await getDb();
     const auth = c.get('auth');
     if (!auth) throw errors.unauthenticated();
@@ -231,6 +246,22 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       meta: { via: 'owner', immediate: true },
     });
     return c.json({ ok: true, data: null });
+  });
+
+  /** 站长更改任意用户密码（仅 owner）：需人机验证；改完该用户全部会话失效。 */
+  router.post('/users/:userId/reset-password', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const body = await parseBody(c, resetPasswordSchema);
+    await verifyCaptcha(body.captchaToken);
+    const handle = await getDb();
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const updated = await resetUserPassword(
+      handle.db,
+      { id: auth.userId, role: auth.subject.role },
+      c.req.param('userId'),
+      body.newPassword,
+    );
+    return c.json({ ok: true, data: { user: adminUser(updated) } });
   });
 
   router.get('/settings', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
@@ -357,22 +388,34 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
   router.post('/cards', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
     const body = await parseBody(c, cardCreateSchema);
     const handle = await getDb();
-    const card = await createCard(handle.db, {
-      parentId: body.parentId ?? null,
-      title: body.title,
-      subtitle: body.subtitle,
-      kind: body.kind,
-      redirectUrl: body.redirectUrl,
-      w: body.w,
-      h: body.h,
-      visibility: body.visibility,
-      position: body.position,
-    });
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const card = await createCard(
+      handle.db,
+      {
+        parentId: body.parentId ?? null,
+        title: body.title,
+        subtitle: body.subtitle,
+        kind: body.kind,
+        redirectUrl: body.redirectUrl,
+        w: body.w,
+        h: body.h,
+        visibility: body.visibility,
+        position: body.position,
+      },
+      auth.subject.role,
+    );
     await auditAdmin(handle.db, c, {
       action: 'admin.card.created',
       targetType: 'download_card',
       targetId: card.id,
-      meta: { title: card.title, kind: card.kind, parentId: card.parent_id, visibility: card.visibility },
+      meta: {
+        title: card.title,
+        kind: card.kind,
+        parentId: card.parent_id,
+        visibility: card.visibility,
+        status: card.status,
+      },
     });
     return c.json({ ok: true, data: { card: adminCard(card) } }, 201);
   });
@@ -396,6 +439,24 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       targetType: 'download_card',
       targetId: card.id,
       meta: { title: card.title, kind: card.kind, parentId: card.parent_id, visibility: card.visibility, ...body },
+    });
+    return c.json({ ok: true, data: { card: adminCard(card) } });
+  });
+
+  /** 只有站长能审核卡片：通过后才会对外可见。 */
+  router.post('/cards/:cardId/review', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const handle = await getDb();
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    if (auth.subject.role !== 'owner') throw errors.forbidden('只有站长可以审核下载卡片');
+    const body = await parseBody(c, cardReviewSchema);
+    const cardId = c.req.param('cardId');
+    const card = await reviewCard(handle.db, cardId, body.decision);
+    await auditAdmin(handle.db, c, {
+      action: body.decision === 'approve' ? 'admin.card.approved' : 'admin.card.rejected',
+      targetType: 'download_card',
+      targetId: cardId,
+      meta: { title: card.title },
     });
     return c.json({ ok: true, data: { card: adminCard(card) } });
   });
@@ -513,6 +574,7 @@ function adminCard(card: {
   h: number;
   visibility: string;
   position: number;
+  status: string;
 }) {
   return {
     id: card.id,
@@ -525,5 +587,6 @@ function adminCard(card: {
     h: card.h,
     visibility: card.visibility,
     position: card.position,
+    status: card.status,
   };
 }

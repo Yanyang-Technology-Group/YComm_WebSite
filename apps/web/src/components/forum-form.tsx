@@ -1,8 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
 import { apiFetch } from '../lib/api';
+import { getSession, type SessionUser } from '../lib/session';
 import { ImagePicker } from './image-picker';
 
 function Notice({ error, notice }: { error: string | null; notice: string | null }) {
@@ -123,9 +125,25 @@ export function LikeButton({ postId, initialLiked }: { postId: string; initialLi
   const router = useRouter();
   const [liked, setLiked] = useState(initialLiked);
   const [busy, setBusy] = useState(false);
+  /** null=已确定未登录；undefined=还没查；SessionUser=已登录。 */
+  const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  useEffect(() => {
+    void getSession().then(setUser);
+  }, []);
 
   async function toggle() {
     if (busy) return;
+    // 没登录：明确提示请先登录（引导去登录页），不发出请求。
+    if (!user) {
+      const fresh = await getSession(true);
+      setUser(fresh);
+      if (!fresh) {
+        setShowLoginPrompt(true);
+        return;
+      }
+    }
     setBusy(true);
     try {
       await apiFetch(`/api/forum/posts/${postId}/${liked ? 'unlike' : 'like'}`, { method: 'POST' });
@@ -139,9 +157,38 @@ export function LikeButton({ postId, initialLiked }: { postId: string; initialLi
   }
 
   return (
-    <button type="button" onClick={() => void toggle()} disabled={busy} style={{ cursor: 'pointer' }}>
-      {liked ? '♥ 已赞' : '♡ 点赞'}
-    </button>
+    <>
+      <button type="button" onClick={() => void toggle()} disabled={busy} style={{ cursor: 'pointer' }}>
+        {liked ? '♥ 已赞' : '♡ 点赞'}
+      </button>
+
+      {showLoginPrompt && (
+        <div className="modal-backdrop" onClick={() => setShowLoginPrompt(false)}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
+            <p className="modal-title">请先登录</p>
+            <p className="modal-text">登录后才可以给帖子点赞。</p>
+            <div className="modal-actions">
+              <Link
+                href="/login"
+                style={{
+                  padding: '0.55rem 1.2rem',
+                  borderRadius: 8,
+                  background: 'var(--accent-strong)',
+                  color: '#fff',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                前往登录
+              </Link>
+              <button type="button" className="modal-skip" onClick={() => setShowLoginPrompt(false)}>
+                先看看
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
