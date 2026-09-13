@@ -19,6 +19,7 @@ export {
 } from './boards';
 export { bumpUserStats, getPostCount } from './counters';
 export { registerForumDeciders } from './deciders';
+export { listPostsByAuthor, listTopicsByAuthor } from './my-content';
 export {
   createPost,
   deletePost,

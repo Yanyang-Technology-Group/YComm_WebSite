@@ -48,5 +48,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/', label: '首页' },
   { href: '/forum', label: '论坛' },
   { href: '/downloads', label: '下载区', requiresAuth: true },
+  { href: '/console', label: '控制台', requiresAuth: true },
   { href: '/admin', label: '管理', requiresAuth: true },
 ] as const;

@@ -5,8 +5,13 @@ import { randomUUID } from 'node:crypto';
 import { getDb } from '@ycomm/db';
 import { errors, getEnv } from '@ycomm/kernel';
 import {
+  bindInviteCode,
+  changeEmail,
+  changePassword,
   createSession,
   findUserByLogin,
+  getInviteBinding,
+  getUserById,
   hashPassword,
   register,
   requestPasswordReset,
@@ -14,9 +19,12 @@ import {
   resetPassword,
   revokeSession,
   toPublicUser,
+  updateProfile,
   verifyEmail,
   verifyPassword,
 } from '@ycomm/identity';
+import { listPostsByAuthor, listTopicsByAuthor } from '@ycomm/forum';
+import { listResourcesByAuthor } from '@ycomm/downloads';
 import { logAudit } from '@ycomm/audit';
 import type { AppVariables } from '../context';
 import { clientIp, sessionAuth } from '../middleware/session';
@@ -57,6 +65,21 @@ const resetSchema = z.object({
   token: z.string().min(1).max(256),
   password: z.string().min(1).max(200),
 });
+
+const profileSchema = z.object({
+  displayName: z.string().max(40).optional(),
+  bio: z.string().max(500).optional(),
+  avatarPath: z.string().max(2000).nullable().optional(),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(10).max(200),
+});
+
+const changeEmailSchema = z.object({ email: z.string().trim().min(3).max(255) });
+
+const bindInviteSchema = z.object({ code: z.string().trim().min(1).max(10) });
 
 /**
  * Session cookie flags. `__Host-` prefix forces Secure + Path=/ + no Domain —
@@ -199,6 +222,90 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const auth = c.get('auth');
     if (!auth) throw errors.unauthenticated();
     return c.json({ ok: true, data: { user: auth.user } });
+  });
+
+  // ---- profile / 个人控制台 --------------------------------------------
+  router.get('/profile', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const handle = await getDb();
+    const user = await getUserById(handle.db, auth.userId);
+    const binding = await getInviteBinding(handle.db, auth.userId);
+    return c.json({
+      ok: true,
+      data: {
+        user: {
+          ...toPublicUser(user),
+          email: user.email,
+          inviteBound: binding.bound,
+          inviteCode: binding.code,
+        },
+      },
+    });
+  });
+
+  router.patch('/profile', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const body = await parseBody(c, profileSchema);
+    const handle = await getDb();
+    const updated = await updateProfile(handle.db, auth.userId, {
+      displayName: body.displayName,
+      bio: body.bio,
+      avatarPath: body.avatarPath,
+    });
+    return c.json({ ok: true, data: { user: toPublicUser(updated) } });
+  });
+
+  router.post('/change-password', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const body = await parseBody(c, changePasswordSchema);
+    const handle = await getDb();
+    await changePassword(handle.db, auth.userId, body.currentPassword, body.newPassword);
+    return c.json({ ok: true, data: null });
+  });
+
+  router.post('/change-email', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const body = await parseBody(c, changeEmailSchema);
+    const handle = await getDb();
+    await changeEmail(handle.db, auth.userId, body.email);
+    return c.json({ ok: true, data: null });
+  });
+
+  router.post('/bind-invite', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const body = await parseBody(c, bindInviteSchema);
+    const handle = await getDb();
+    await bindInviteCode(handle.db, auth.userId, body.code);
+    return c.json({ ok: true, data: null });
+  });
+
+  router.get('/me/topics', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const handle = await getDb();
+    const topics = await listTopicsByAuthor(handle.db, auth.userId);
+    return c.json({ ok: true, data: { topics } });
+  });
+
+  router.get('/me/posts', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const handle = await getDb();
+    const posts = await listPostsByAuthor(handle.db, auth.userId);
+    return c.json({ ok: true, data: { posts } });
+  });
+
+  router.get('/me/resources', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const handle = await getDb();
+    const resources = await listResourcesByAuthor(handle.db, auth.userId);
+    return c.json({ ok: true, data: { resources } });
   });
 
   // ---- password reset ---------------------------------------------------

@@ -14,6 +14,7 @@ export interface PublicUser {
   level: number;
   state: string;
   avatarPath: string | null;
+  bio: string;
   createdAt: Date;
 }
 

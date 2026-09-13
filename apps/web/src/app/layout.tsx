@@ -50,7 +50,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <span className="brand-name">{branding.name}</span>
             </Link>
             <nav className="site-nav">
-              {NAV_ITEMS.map((item) => (
+              {NAV_ITEMS.filter((item) => !item.requiresAuth || signedIn).map((item) => (
                 <Link key={item.href} href={item.href} className="nav-link">
                   {item.label}
                 </Link>

@@ -13,6 +13,7 @@ export function toPublicUser(user: UserRecord): PublicUser {
     level: user.level,
     state: user.state,
     avatarPath: user.avatar_path,
+    bio: user.bio,
     createdAt: user.created_at,
   };
 }

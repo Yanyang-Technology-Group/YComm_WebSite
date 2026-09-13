@@ -18,6 +18,16 @@ export {
 } from './invites';
 export { hashPassword, verifyPassword } from './password';
 export {
+  bindInviteCode,
+  changeEmail,
+  changePassword,
+  getInviteBinding,
+  getUserById,
+  updateProfile,
+  type InviteBindingView,
+  type UpdateProfileInput,
+} from './profile';
+export {
   requestPasswordReset,
   resetPassword,
 } from './password-reset';
