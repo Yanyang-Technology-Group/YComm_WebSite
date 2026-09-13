@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
-import { FEATURE_DEFAULTS, REGISTRATION } from '@ycomm/config';
+import { FEATURE_DEFAULTS, REGISTRATION, validatePassword } from '@ycomm/config';
 import { errors, hashToken, newToken } from '@ycomm/kernel';
 import { enqueue } from '@ycomm/jobs';
 import { renderVerifyEmail } from '@ycomm/notify';
@@ -60,18 +60,9 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
   if (!EMAIL_PATTERN.test(email)) {
     throw errors.validation({ issues: [{ path: 'email', message: '邮箱格式不正确' }] });
   }
-  if (
-    input.password.length < REGISTRATION.minPasswordLength ||
-    input.password.length > REGISTRATION.maxPasswordLength
-  ) {
-    throw errors.validation({
-      issues: [
-        {
-          path: 'password',
-          message: `密码长度需在 ${REGISTRATION.minPasswordLength}-${REGISTRATION.maxPasswordLength} 之间`,
-        },
-      ],
-    });
+  const passwordIssue = validatePassword(input.password);
+  if (passwordIssue) {
+    throw errors.validation({ issues: [{ path: 'password', message: passwordIssue }] });
   }
 
   const usernameTaken = await db

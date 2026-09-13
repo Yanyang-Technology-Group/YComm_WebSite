@@ -30,8 +30,8 @@ async function main(): Promise<void> {
     console.error('usage: npm run owner:recover -- --password <new-secret> [--email <mail>]');
     process.exit(1);
   }
-  if (password.length < REGISTRATION.minPasswordLength) {
-    console.error(`password must be at least ${REGISTRATION.minPasswordLength} characters`);
+  if (password.length < REGISTRATION.minPasswordLength || !REGISTRATION.passwordPattern.test(password)) {
+    console.error(`password must be at least ${REGISTRATION.minPasswordLength} characters, with upper and lower case`);
     process.exit(1);
   }
 

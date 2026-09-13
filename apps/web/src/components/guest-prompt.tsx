@@ -2,30 +2,25 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { getSession } from '../lib/session';
 
 /**
  * 未登录访客的登录/注册提示框。
  *
- * 客户端自检 `/api/auth/me`：已登录绝不弹；未登录每个浏览器会话（tab 生命周期）
- * 最多弹一次（sessionStorage 记录），避免每个页面都弹。
+ * 客户端自检（经 getSession 去重缓存）：已登录绝不弹；未登录每个浏览器会话
+ * （tab 生命周期）最多弹一次，避免每个页面都弹。
  */
 export function GuestPrompt({ siteName }: { siteName: string }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
-    (async () => {
-      try {
-        const response = await fetch('/api/auth/me', { cache: 'no-store' });
-        if (!active) return;
-        if (response.ok) return; // 已登录：不弹
-        if (sessionStorage.getItem('guest_prompt_seen')) return;
-        sessionStorage.setItem('guest_prompt_seen', '1');
-        setOpen(true);
-      } catch {
-        /* 请求失败不弹窗，避免打扰 */
-      }
-    })();
+    void getSession().then((user) => {
+      if (!active || user) return;
+      if (sessionStorage.getItem('guest_prompt_seen')) return;
+      sessionStorage.setItem('guest_prompt_seen', '1');
+      setOpen(true);
+    });
     return () => {
       active = false;
     };

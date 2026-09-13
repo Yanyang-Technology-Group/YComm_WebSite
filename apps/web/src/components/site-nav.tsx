@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { NAV_ITEMS } from '@ycomm/config';
+import { getSession } from '../lib/session';
 
 /**
- * 顶部导航：登录态用客户端直连 /api/auth/me 判定。
+ * 顶部导航（登录态经 getSession 去重缓存，整页只请求一次 /me）。
  * 桌面端横排；小屏（<=760px）折成「三横杠」汉堡菜单。
  */
 export function SiteNav() {
@@ -16,14 +17,9 @@ export function SiteNav() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/auth/me')
-      .then((response) => response.ok)
-      .then((ok) => {
-        if (active) setSignedIn(ok);
-      })
-      .catch(() => {
-        if (active) setSignedIn(false);
-      });
+    void getSession().then((user) => {
+      if (active) setSignedIn(user !== null);
+    });
     return () => {
       active = false;
     };

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { randomUUID } from 'node:crypto';
 import { getDb } from '@ycomm/db';
-import { errors, getEnv, siteUrl, captchaConfig } from '@ycomm/kernel';
+import { errors, getEnv, siteUrl, captchaConfig, logger } from '@ycomm/kernel';
 import {
   bindInviteCode,
   cancelAccountDeletion,
@@ -84,7 +84,7 @@ const profileSchema = z.object({
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1).max(200),
-  newPassword: z.string().min(10).max(200),
+  newPassword: z.string().min(8).max(200),
 });
 
 const changeEmailSchema = z.object({ email: z.string().trim().min(3).max(255) });
@@ -378,7 +378,8 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const env = getEnv();
     if (!env.OAUTH_GITHUB_CLIENT_ID) throw errors.notFound('GitHub 登录未配置');
     const state = randomUUID();
-    setCookie(c, 'oauth_state', state, { httpOnly: true, secure: true, sameSite: 'Lax', path: '/', maxAge: 600 });
+    // 30 分钟有效期：GitHub 页面在国内可能很慢，10 分钟容易过期导致 state 校验失败。
+    setCookie(c, 'oauth_state', state, { httpOnly: true, secure: true, sameSite: 'Lax', path: '/', maxAge: 1800 });
     const redirectUri = `${siteUrl(env)}/api/auth/github/callback`;
     const url =
       'https://github.com/login/oauth/authorize' +
@@ -391,71 +392,120 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
 
   router.get('/github/callback', async (c) => {
     const env = getEnv();
-    const code = c.req.query('code');
-    const state = c.req.query('state');
     const savedState = getCookie(c, 'oauth_state');
     deleteCookie(c, 'oauth_state', { httpOnly: true, secure: true, sameSite: 'Lax', path: '/' });
-    if (!code || !state || state !== savedState) throw errors.forbidden('OAuth 状态校验失败');
 
-    const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({
-        client_id: env.OAUTH_GITHUB_CLIENT_ID,
-        client_secret: env.OAUTH_GITHUB_CLIENT_SECRET,
-        code,
-      }),
-    });
-    const tokenJson = (await tokenRes.json().catch(() => ({}))) as { access_token?: string };
-    if (!tokenJson.access_token) throw errors.forbidden('GitHub 授权失败');
+    const code = c.req.query('code');
+    const state = c.req.query('state');
+    const denied = c.req.query('error');
 
-    const ghHeaders = { authorization: `Bearer ${tokenJson.access_token}`, 'user-agent': 'ycomm' };
-    const userRes = await fetch('https://api.github.com/user', { headers: ghHeaders });
-    const ghUser = (await userRes.json().catch(() => ({}))) as {
-      id?: number;
-      login?: string;
-      name?: string | null;
-      avatar_url?: string | null;
-    };
-    if (!ghUser.id || !ghUser.login) throw errors.forbidden('GitHub 用户信息获取失败');
-
-    const emailsRes = await fetch('https://api.github.com/user/emails', { headers: ghHeaders });
-    const emails = (await emailsRes.json().catch(() => [])) as { email: string; primary: boolean; verified: boolean }[];
-    const primaryEmail =
-      emails.find((e) => e.primary && e.verified)?.email ?? emails.find((e) => e.verified)?.email ?? null;
-
-    const handle = await getDb();
-    let user = await findOrCreateOAuthUser(handle.db, {
-      provider: 'github',
-      providerAccountId: String(ghUser.id),
-      username: ghUser.login,
-      email: primaryEmail,
-      displayName: ghUser.name ?? null,
-      avatarUrl: ghUser.avatar_url ?? null,
-    });
-
-    // 注销冷静期：GitHub 登录同样自动取消注销。
-    if (user.state === 'deleting') {
-      user = (await reviveIfPendingDeletion(handle.db, user)) ?? user;
+    // 统一失败出口：重定向回登录页并带原因（不再给用户看原始 JSON 错误）
+    if (denied) {
+      logger.warn('github oauth denied', { error: denied });
+      return c.redirect('/login?oauth=denied', 302);
+    }
+    if (!code || !state || state !== savedState) {
+      logger.warn('github oauth state mismatch', {
+        hasCode: Boolean(code),
+        hasState: Boolean(state),
+        hasSavedState: Boolean(savedState),
+      });
+      return c.redirect('/login?oauth=state', 302);
     }
 
-    const session = await createSession(handle.db, {
-      userId: user.id,
-      ip: clientIp(c),
-      userAgent: c.req.header('user-agent'),
-    });
-    setCookie(c, env.SESSION_COOKIE_NAME, session.rawToken, sessionCookieOptions(env));
+    try {
+      const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({
+          client_id: env.OAUTH_GITHUB_CLIENT_ID,
+          client_secret: env.OAUTH_GITHUB_CLIENT_SECRET,
+          code,
+        }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      const tokenJson = (await tokenRes.json().catch(() => ({}))) as {
+        access_token?: string;
+        error?: string;
+        error_description?: string;
+      };
+      if (!tokenJson.access_token) {
+        logger.warn('github token exchange failed', {
+          error: tokenJson.error,
+          description: tokenJson.error_description,
+        });
+        return c.redirect('/login?oauth=token', 302);
+      }
 
-    await logAudit(handle.db, {
-      actorId: user.id,
-      actorIp: clientIp(c),
-      action: 'auth.oauth_login',
-      targetType: 'user',
-      targetId: user.id,
-      meta: { provider: 'github' },
-    });
+      const ghHeaders = { authorization: `Bearer ${tokenJson.access_token}`, 'user-agent': 'ycomm' };
+      const userRes = await fetch('https://api.github.com/user', {
+        headers: ghHeaders,
+        signal: AbortSignal.timeout(20_000),
+      });
+      const ghUser = (await userRes.json().catch(() => ({}))) as {
+        id?: number;
+        login?: string;
+        name?: string | null;
+        avatar_url?: string | null;
+      };
+      if (!ghUser.id || !ghUser.login) {
+        logger.warn('github profile fetch failed', { status: userRes.status });
+        return c.redirect('/login?oauth=profile', 302);
+      }
 
-    return c.redirect('/', 302);
+      const emailsRes = await fetch('https://api.github.com/user/emails', {
+        headers: ghHeaders,
+        signal: AbortSignal.timeout(20_000),
+      });
+      const emails = (await emailsRes.json().catch(() => [])) as {
+        email: string;
+        primary: boolean;
+        verified: boolean;
+      }[];
+      const primaryEmail =
+        emails.find((e) => e.primary && e.verified)?.email ?? emails.find((e) => e.verified)?.email ?? null;
+
+      const handle = await getDb();
+      let user = await findOrCreateOAuthUser(handle.db, {
+        provider: 'github',
+        providerAccountId: String(ghUser.id),
+        username: ghUser.login,
+        email: primaryEmail,
+        displayName: ghUser.name ?? null,
+        avatarUrl: ghUser.avatar_url ?? null,
+      });
+
+      // 注销冷静期：GitHub 登录同样自动取消注销。
+      if (user.state === 'deleting') {
+        user = (await reviveIfPendingDeletion(handle.db, user)) ?? user;
+      }
+      if (user.state === 'deleted') return c.redirect('/login?oauth=deleted', 302);
+      if (user.state === 'banned') return c.redirect('/login?oauth=banned', 302);
+
+      const session = await createSession(handle.db, {
+        userId: user.id,
+        ip: clientIp(c),
+        userAgent: c.req.header('user-agent'),
+      });
+      setCookie(c, env.SESSION_COOKIE_NAME, session.rawToken, sessionCookieOptions(env));
+
+      await logAudit(handle.db, {
+        actorId: user.id,
+        actorIp: clientIp(c),
+        action: 'auth.oauth_login',
+        targetType: 'user',
+        targetId: user.id,
+        meta: { provider: 'github' },
+      });
+
+      return c.redirect('/', 302);
+    } catch (error) {
+      // 服务器到 GitHub 的网络在国内机房经常超时——给用户可读的提示
+      logger.error('github oauth failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return c.redirect('/login?oauth=network', 302);
+    }
   });
 
   // ---- password reset ---------------------------------------------------

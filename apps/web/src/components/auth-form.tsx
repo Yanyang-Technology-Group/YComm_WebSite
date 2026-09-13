@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useTransition, useState, type FormEvent } from 'react';
 import type { CaptchaConfig } from '@ycomm/kernel';
-import { LEGAL_DOCS } from '@ycomm/config';
+import { LEGAL_DOCS, REGISTRATION } from '@ycomm/config';
 import { CaptchaField } from './captcha-field';
 
 export type AuthFormKind = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
@@ -99,7 +99,9 @@ export function AuthForm({
     const form = new FormData(event.currentTarget);
     const payload: Record<string, string | boolean> = {};
     for (const [key, value] of form.entries()) {
-      if (typeof value === 'string') payload[key] = value;
+      // 跳过空值：可选字段（邀请码 / 验证码 token）留空时不能作为空字符串提交，
+      // 否则服务端 min(1).optional() 会报 “Too small”。
+      if (typeof value === 'string' && value.trim() !== '') payload[key] = value;
     }
     if (token) payload.token = token;
     // 登录/注册：把 checkbox 勾选状态转成布尔送服务端二次校验。
@@ -182,8 +184,9 @@ export function AuthForm({
           <input
             name="password"
             type="password"
-            placeholder="密码（至少 10 位）"
+            placeholder={`密码（${REGISTRATION.passwordHint}）`}
             required
+            minLength={REGISTRATION.minPasswordLength}
             autoComplete="new-password"
           />
           <input name="inviteCode" placeholder="邀请码（可选）" autoComplete="off" />
@@ -201,8 +204,9 @@ export function AuthForm({
         <input
           name="password"
           type="password"
-          placeholder="新密码（至少 10 位）"
+          placeholder={`新密码（${REGISTRATION.passwordHint}）`}
           required
+          minLength={REGISTRATION.minPasswordLength}
           autoComplete="new-password"
         />
       )}

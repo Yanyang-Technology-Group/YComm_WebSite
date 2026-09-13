@@ -1,7 +1,7 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 
-/** 当前用户的主题列表（个人控制台「我的主题」）。 */
+/** 当前用户的主题列表（控制台「我的主题」）——已删除/未过审的不计入。 */
 export async function listTopicsByAuthor(db: Db, authorId: string) {
   return db
     .select({
@@ -14,12 +14,18 @@ export async function listTopicsByAuthor(db: Db, authorId: string) {
     })
     .from(schema.topics)
     .innerJoin(schema.boards, eq(schema.topics.board_id, schema.boards.id))
-    .where(eq(schema.topics.author_id, authorId))
+    .where(
+      and(
+        eq(schema.topics.author_id, authorId),
+        eq(schema.topics.status, 'published'),
+        isNull(schema.topics.deleted_at),
+      ),
+    )
     .orderBy(desc(schema.topics.created_at))
     .limit(50);
 }
 
-/** 当前用户的回帖列表（个人控制台「我的回帖」）。 */
+/** 当前用户的回帖列表（控制台「我的回帖」）——已删除的不计入。 */
 export async function listPostsByAuthor(db: Db, authorId: string) {
   return db
     .select({
@@ -33,7 +39,13 @@ export async function listPostsByAuthor(db: Db, authorId: string) {
     .from(schema.posts)
     .innerJoin(schema.topics, eq(schema.posts.topic_id, schema.topics.id))
     .innerJoin(schema.boards, eq(schema.topics.board_id, schema.boards.id))
-    .where(eq(schema.posts.author_id, authorId))
+    .where(
+      and(
+        eq(schema.posts.author_id, authorId),
+        eq(schema.posts.status, 'published'),
+        isNull(schema.topics.deleted_at),
+      ),
+    )
     .orderBy(desc(schema.posts.created_at))
     .limit(50);
 }

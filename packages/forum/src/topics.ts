@@ -195,6 +195,28 @@ export async function moderateTopic(
     .where(eq(schema.topics.id, topicId))
     .returning();
   if (!updated) throw errors.notFound('主题不存在');
+
+  // 删除后同步修正统计：主题下的帖子一并标记删除，版块与作者的计数器回退，
+  // 这样「社区统计」「我的内容」不会再显示已删除的内容。
+  if (action === 'delete') {
+    const removedPosts = 1 + (updated.reply_count ?? 0);
+    await db
+      .update(schema.posts)
+      .set({ status: 'deleted', deleted_at: new Date(), deleted_by: options.byId ?? null })
+      .where(eq(schema.posts.topic_id, topicId));
+    await db
+      .update(schema.boards)
+      .set({
+        topic_count: sql`greatest(${schema.boards.topic_count} - 1, 0)`,
+        post_count: sql`greatest(${schema.boards.post_count} - ${removedPosts}, 0)`,
+        updated_at: new Date(),
+      })
+      .where(eq(schema.boards.id, updated.board_id));
+    if (updated.author_id) {
+      await bumpUserStats(db, updated.author_id, { posts: -removedPosts });
+    }
+  }
+
   return updated;
 }
 

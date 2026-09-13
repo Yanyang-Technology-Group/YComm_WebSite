@@ -3,34 +3,32 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { getSession } from '../lib/session';
 import { LogoutButton } from './logout-button';
 
-interface MePayload {
-  user?: { username: string; role: string } | null;
-}
-
 /**
- * 头部登录状态：直连 `/api/auth/me`（浏览器自动带上会话 cookie），
- * 路由变化时重新拉取——登录/登出后状态一定和真实会话一致。
+ * 头部登录状态（经 getSession 去重缓存，整页只请求一次 /me）：
+ * 未登录 → 登录 / 注册；已登录 → 最右侧「控制台」按钮 + 退出。
  */
 export function SessionNav() {
   const pathname = usePathname();
+  const [ready, setReady] = useState(false);
   const [user, setUser] = useState<{ username: string; role: string } | null>(null);
 
   useEffect(() => {
     let active = true;
-    fetch('/api/auth/me')
-      .then((response) => (response.ok ? (response.json() as Promise<MePayload>) : null))
-      .then((json) => {
-        if (active) setUser(json?.user ?? null);
-      })
-      .catch(() => {
-        if (active) setUser(null);
-      });
+    void getSession().then((session) => {
+      if (!active) return;
+      setUser(session);
+      setReady(true);
+    });
     return () => {
       active = false;
     };
   }, [pathname]);
+
+  // 首帧不渲染按钮，避免先闪出「登录/注册」再变成「控制台」
+  if (!ready) return null;
 
   if (!user) {
     return (
@@ -45,11 +43,11 @@ export function SessionNav() {
     );
   }
 
-  // 已登录：隐藏登录/注册，换成最右侧的头像图标（点击进控制台 /dashboard）
   return (
     <>
-      <Link href="/dashboard" className="nav-avatar" title="控制台" aria-label="控制台">
+      <Link href="/dashboard" className="nav-console" title="进入控制台">
         <span className="nav-avatar-initial">{user.username.slice(0, 1).toUpperCase()}</span>
+        <span>控制台</span>
       </Link>
       <LogoutButton />
     </>

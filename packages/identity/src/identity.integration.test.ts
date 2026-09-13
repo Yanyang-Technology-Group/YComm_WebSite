@@ -110,7 +110,7 @@ async function rawTokenFromMail(kind: 'verify_email' | 'password_reset'): Promis
   return match[1];
 }
 
-const NEW_USER = { username: 'alice', email: 'alice@example.com', password: 'secret-12345' };
+const NEW_USER = { username: 'alice', email: 'alice@example.com', password: 'Secret-12345' };
 
 describe('register', () => {
   it('rejects registration before the site has an owner', async () => {
@@ -168,7 +168,7 @@ describe('register', () => {
         register(handle.db, {
           username: `race${index}`,
           email: `race${index}@example.com`,
-          password: 'secret-12345',
+          password: 'Secret-12345',
           inviteCode: code,
         }),
       ),
@@ -265,10 +265,10 @@ describe('password reset', () => {
     await requestPasswordReset(handle.db, NEW_USER.email);
     const rawToken = await rawTokenFromMail('password_reset');
 
-    await resetPassword(handle.db, rawToken, 'new-password-123');
+    await resetPassword(handle.db, rawToken, 'New-Password-123');
     expect(await findSessionByToken(handle.db, session.rawToken)).toBeNull();
 
-    await expect(resetPassword(handle.db, rawToken, 'another-password-1')).rejects.toMatchObject({
+    await expect(resetPassword(handle.db, rawToken, 'Another-Password-1')).rejects.toMatchObject({
       code: errors.validation().code,
     });
   });

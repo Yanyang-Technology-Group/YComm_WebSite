@@ -49,7 +49,8 @@ export function CaptchaField({ script, widgetApi }: { script: string; widgetApi:
 
   return (
     <div>
-      <input type="hidden" name="captchaToken" value={token} />
+      {/* 只有拿到 token 才提交该字段——空字符串会被服务端 min(1) 校验拒绝 */}
+      {token && <input type="hidden" name="captchaToken" value={token} />}
       {error && (
         <p role="alert" style={{ color: '#dc2626', margin: 0, fontSize: '0.85rem' }}>
           验证码加载失败，请刷新重试

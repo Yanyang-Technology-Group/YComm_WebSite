@@ -114,11 +114,13 @@ export const REGISTRATION = {
   usernamePattern: /^[A-Za-z0-9_-]{3,20}$/,
   usernameHint: '3-20 位字母、数字、下划线或连字符',
   /**
-   * Length only — no mandatory symbol classes. Composition rules push people
-   * toward `Password1!` while NIST guidance favours length.
+   * 长度下限 + 大小写组成要求（由 validatePassword 统一执行）。
    */
-  minPasswordLength: 10,
+  minPasswordLength: 8,
   maxPasswordLength: 200,
+  /** 至少一个大写 + 至少一个小写。 */
+  passwordPattern: /(?=.*[a-z])(?=.*[A-Z])/,
+  passwordHint: '至少 8 位，且同时包含大写字母和小写字母',
   /** Case-insensitive; prevents impersonation of staff and of routes. */
   reservedUsernames: [
     'admin',
@@ -140,6 +142,23 @@ export const REGISTRATION = {
     'me',
   ],
 } as const;
+
+/**
+ * 校验密码强度：长度 8-200，且同时包含大写字母与小写字母。
+ * 通过返回 null；不通过返回可直接展示给用户的错误信息。
+ */
+export function validatePassword(password: string): string | null {
+  if (
+    password.length < REGISTRATION.minPasswordLength ||
+    password.length > REGISTRATION.maxPasswordLength
+  ) {
+    return `密码长度需在 ${REGISTRATION.minPasswordLength}-${REGISTRATION.maxPasswordLength} 之间`;
+  }
+  if (!REGISTRATION.passwordPattern.test(password)) {
+    return '密码需同时包含大写字母和小写字母';
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Moderation
@@ -223,6 +242,12 @@ export const RATE_LIMITS = {
     windowSeconds: 86400,
     dimensions: ['user'],
     description: '创建下载资源',
+  },
+  uploadImage: {
+    limit: 60,
+    windowSeconds: 3600,
+    dimensions: ['user'],
+    description: '论坛帖子内嵌图片上传',
   },
   downloadBurst: {
     limit: 10,

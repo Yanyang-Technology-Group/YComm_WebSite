@@ -40,6 +40,17 @@ const nextConfig: NextConfig = {
    */
   serverExternalPackages: ['@electric-sql/pglite', 'pg'],
   poweredByHeader: false,
+  /**
+   * 客户端路由缓存：默认动态页面每次导航都要回服务端取一遍（本站几乎全是
+   * force-dynamic），切页会明显发卡。给动态页面 30 秒、静态资源 3 分钟的
+   * 客户端复用窗口，导航体感快很多，同时登录态仍由客户端 /me 实时判定。
+   */
+  experimental: {
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
+  },
   /** 构建期常量：footer 展示的版本号。 */
   env: {
     NEXT_PUBLIC_APP_VERSION: resolveAppVersion(),

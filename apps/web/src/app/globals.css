@@ -235,7 +235,7 @@ a:hover {
   font-weight: 600;
 }
 
-/* 已登录头像入口（最右侧，进 /dashboard） */
+/* 已登录头像入口（独立圆形，可嵌在按钮里） */
 .nav-avatar {
   display: inline-flex;
   align-items: center;
@@ -256,9 +256,74 @@ a:hover {
 }
 
 .nav-avatar-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: #fff;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 0.9rem;
   line-height: 1;
+  flex-shrink: 0;
+}
+
+/* 已登录时的「控制台」按钮（最右侧） */
+.nav-console {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.28rem 0.85rem 0.28rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.nav-console:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  opacity: 1;
+}
+
+/* GitHub 回调失败提示 */
+.oauth-alert {
+  margin: 0 0 1.25rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  background: #fff6e5;
+  border: 1px solid #f0d199;
+  color: #8a5b00;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+[data-theme='dark'] .oauth-alert {
+  background: #2a2113;
+  border-color: #4d3c1c;
+  color: #f0c884;
+}
+
+/* ===== 帖子正文（含内嵌图片） ===== */
+.post-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.75;
+}
+
+.post-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.6rem 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }
 
 /* ===== 控制台（dashboard）：左导航 + 右内容，类 wiki ===== */

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition, type FormEvent } from 'react';
+import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
 import { apiFetch } from '../lib/api';
 
 function Notice({ error, notice }: { error: string | null; notice: string | null }) {
@@ -12,10 +12,61 @@ function Notice({ error, notice }: { error: string | null; notice: string | null
 
 const field: React.CSSProperties = { padding: '0.4rem', fontSize: '0.95rem' };
 
+/**
+ * 图片上传按钮：选图 → 上传到 /api/uploads/images → 回调插入 Markdown 图片语法。
+ * 上传后把光标放到插入内容之后，方便继续写。
+ */
+function ImageUploadButton({ onUploaded }: { onUploaded: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function pick(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const data = await apiFetch<{ url: string }>('/api/uploads/images', { method: 'POST', body: form });
+      onUploaded(data.url);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '图片上传失败');
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+      <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} style={{ padding: '0.4rem 0.8rem' }}>
+        {busy ? '图片上传中…' : '🖼 插入图片'}
+      </button>
+      <input ref={inputRef} type="file" accept="image/*" onChange={pick} style={{ display: 'none' }} />
+      {error && <span style={{ color: '#dc2626', fontSize: '0.85rem' }}>{error}</span>}
+    </span>
+  );
+}
+
+/** 在 textarea 光标处插入文本。 */
+function insertAtCursor(el: HTMLTextAreaElement | null, snippet: string): void {
+  if (!el) return;
+  const start = el.selectionStart ?? el.value.length;
+  const end = el.selectionEnd ?? start;
+  el.value = el.value.slice(0, start) + snippet + el.value.slice(end);
+  el.focus();
+  const caret = start + snippet.length;
+  el.selectionStart = caret;
+  el.selectionEnd = caret;
+}
+
 export function NewTopicForm({ boardSlug }: { boardSlug: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,11 +91,21 @@ export function NewTopicForm({ boardSlug }: { boardSlug: string }) {
   return (
     <form onSubmit={submit} style={{ display: 'grid', gap: '0.5rem', maxWidth: 560 }}>
       <input name="title" placeholder="标题" required maxLength={120} style={field} />
-      <textarea name="content" placeholder="内容（支持 Markdown）" required rows={6} style={field} />
+      <textarea
+        ref={contentRef}
+        name="content"
+        placeholder="内容（支持 Markdown，可插入图片）"
+        required
+        rows={6}
+        style={field}
+      />
       <Notice error={error} notice={null} />
-      <button type="submit" disabled={pending} style={{ width: 120, padding: '0.4rem' }}>
-        {pending ? '发布中…' : '发布主题'}
-      </button>
+      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button type="submit" disabled={pending} style={{ width: 120, padding: '0.4rem' }}>
+          {pending ? '发布中…' : '发布主题'}
+        </button>
+        <ImageUploadButton onUploaded={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
+      </div>
     </form>
   );
 }
@@ -53,6 +114,7 @@ export function ReplyForm({ topicId }: { topicId: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,11 +137,21 @@ export function ReplyForm({ topicId }: { topicId: string }) {
 
   return (
     <form onSubmit={submit} style={{ display: 'grid', gap: '0.5rem', maxWidth: 640 }}>
-      <textarea name="content" placeholder="回复内容（支持 Markdown）" required rows={4} style={field} />
+      <textarea
+        ref={contentRef}
+        name="content"
+        placeholder="回复内容（支持 Markdown，可插入图片）"
+        required
+        rows={4}
+        style={field}
+      />
       <Notice error={error} notice={null} />
-      <button type="submit" disabled={pending} style={{ width: 100, padding: '0.4rem' }}>
-        {pending ? '发送中…' : '回复'}
-      </button>
+      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button type="submit" disabled={pending} style={{ width: 100, padding: '0.4rem' }}>
+          {pending ? '发送中…' : '回复'}
+        </button>
+        <ImageUploadButton onUploaded={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
+      </div>
     </form>
   );
 }

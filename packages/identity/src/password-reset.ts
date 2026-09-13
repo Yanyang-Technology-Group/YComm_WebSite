@@ -1,6 +1,6 @@
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
-import { AUTH, REGISTRATION } from '@ycomm/config';
+import { AUTH, validatePassword } from '@ycomm/config';
 import { errors, hashToken, newToken } from '@ycomm/kernel';
 import { enqueue } from '@ycomm/jobs';
 import { renderPasswordReset } from '@ycomm/notify';
@@ -48,18 +48,9 @@ export async function requestPasswordReset(db: Db, emailInput: string): Promise<
  * revoked — a stolen session does not survive a password change.
  */
 export async function resetPassword(db: Db, rawToken: string, newPassword: string): Promise<void> {
-  if (
-    newPassword.length < REGISTRATION.minPasswordLength ||
-    newPassword.length > REGISTRATION.maxPasswordLength
-  ) {
-    throw errors.validation({
-      issues: [
-        {
-          path: 'password',
-          message: `密码长度需在 ${REGISTRATION.minPasswordLength}-${REGISTRATION.maxPasswordLength} 之间`,
-        },
-      ],
-    });
+  const passwordIssue = validatePassword(newPassword);
+  if (passwordIssue) {
+    throw errors.validation({ issues: [{ path: 'password', message: passwordIssue }] });
   }
 
   const tokenHash = hashToken(rawToken);

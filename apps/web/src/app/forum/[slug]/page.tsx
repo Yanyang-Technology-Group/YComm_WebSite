@@ -33,7 +33,10 @@ interface BoardDetail {
 }
 
 function excerpt(text: string): string {
-  const oneLine = text.replace(/\s+/g, ' ').trim();
+  const oneLine = text
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '[图片]')
+    .replace(/\s+/g, ' ')
+    .trim();
   return oneLine.length > 140 ? `${oneLine.slice(0, 140)}…` : oneLine;
 }
 

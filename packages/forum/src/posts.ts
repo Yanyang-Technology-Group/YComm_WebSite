@@ -37,7 +37,12 @@ export async function createPost(db: Db, input: CreatePostInput): Promise<PostRo
 
   const post = await db.transaction(async (tx) => {
     const topicRows = await tx
-      .select({ id: schema.topics.id, is_locked: schema.topics.is_locked, status: schema.topics.status })
+      .select({
+        id: schema.topics.id,
+        board_id: schema.topics.board_id,
+        is_locked: schema.topics.is_locked,
+        status: schema.topics.status,
+      })
       .from(schema.topics)
       .where(eq(schema.topics.id, input.topicId))
       .limit(1);
@@ -74,6 +79,12 @@ export async function createPost(db: Db, input: CreatePostInput): Promise<PostRo
         updated_at: new Date(),
       })
       .where(eq(schema.topics.id, input.topicId));
+
+    // 版块帖子数同步 +1（此前只统计了主题首楼，回复没算进去）
+    await tx
+      .update(schema.boards)
+      .set({ post_count: sql`${schema.boards.post_count} + 1`, updated_at: new Date() })
+      .where(eq(schema.boards.id, topic.board_id));
 
     if (needsReview) {
       await enqueueForReview(tx as unknown as Db, {
@@ -282,12 +293,46 @@ export async function editPost(
   });
 }
 
-/** Soft-delete a post (own or staff). Counts are not decremented to keep history true. */
+/**
+ * Soft-delete a post (own or staff)，并同步回退计数：
+ * 主题回复数、版块帖子数、作者发帖数——已删除的帖子不会再出现在统计里。
+ */
 export async function deletePost(db: Db, postId: string, byId: string): Promise<void> {
-  await db
-    .update(schema.posts)
-    .set({ status: 'deleted', deleted_at: new Date(), deleted_by: byId })
-    .where(eq(schema.posts.id, postId));
+  await db.transaction(async (tx) => {
+    const rows = await tx.select().from(schema.posts).where(eq(schema.posts.id, postId)).limit(1);
+    const post = rows[0];
+    if (!post || post.status === 'deleted') return;
+
+    await tx
+      .update(schema.posts)
+      .set({ status: 'deleted', deleted_at: new Date(), deleted_by: byId })
+      .where(eq(schema.posts.id, postId));
+
+    // 首楼（position = 1）不算回复数
+    if (post.position > 1) {
+      await tx
+        .update(schema.topics)
+        .set({ reply_count: sql`greatest(${schema.topics.reply_count} - 1, 0)`, updated_at: new Date() })
+        .where(eq(schema.topics.id, post.topic_id));
+    }
+
+    const topicRows = await tx
+      .select({ board_id: schema.topics.board_id })
+      .from(schema.topics)
+      .where(eq(schema.topics.id, post.topic_id))
+      .limit(1);
+    const boardId = topicRows[0]?.board_id;
+    if (boardId) {
+      await tx
+        .update(schema.boards)
+        .set({ post_count: sql`greatest(${schema.boards.post_count} - 1, 0)`, updated_at: new Date() })
+        .where(eq(schema.boards.id, boardId));
+    }
+
+    if (post.author_id) {
+      await bumpUserStats(tx as unknown as Db, post.author_id, { posts: -1 });
+    }
+  });
 }
 
 export async function likePost(db: Db, postId: string, userId: string): Promise<void> {

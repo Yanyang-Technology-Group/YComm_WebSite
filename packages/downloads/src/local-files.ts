@@ -62,12 +62,14 @@ export function saveLocalFile(buffer: Buffer, input: { kind: UploadKind; origina
   // Keep the extension from the message only when it matches the sniffed type.
   const ext = EXTENSION_BY_MIME[mime] ?? extname(input.originalName ?? '').toLowerCase();
   const fileName = `${newId()}${ext}`;
-  const fullDir = join(getEnv().UPLOAD_DIR, 'resources');
+  // 按上传类型分目录：resource 沿用历史的 resources/，其余用类型名（如 inlineImage/）
+  const folder = input.kind === 'resource' ? 'resources' : input.kind;
+  const fullDir = join(getEnv().UPLOAD_DIR, folder);
   mkdirSync(fullDir, { recursive: true });
   writeFileSync(join(fullDir, fileName), buffer);
 
   return {
-    localPath: join('resources', fileName),
+    localPath: join(folder, fileName),
     fileName: basename(input.originalName ?? fileName),
     sizeBytes: buffer.length,
     mime,

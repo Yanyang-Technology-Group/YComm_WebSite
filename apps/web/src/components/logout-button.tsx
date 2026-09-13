@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { invalidateSession } from '../lib/session';
 
 export function LogoutButton() {
   const [pending, setPending] = useState(false);
@@ -11,6 +12,7 @@ export function LogoutButton() {
     setFailed(false);
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
+      invalidateSession();
       // 硬跳转：带「已注销」的结果让服务端重新渲染头部状态。
       window.location.assign('/');
     } catch {

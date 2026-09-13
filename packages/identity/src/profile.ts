@@ -1,5 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
+import { validatePassword } from '@ycomm/config';
 import { errors } from '@ycomm/kernel';
 import { hashPassword, verifyPassword } from './password';
 import { consumeInviteCode } from './invites';
@@ -33,6 +34,10 @@ export async function updateProfile(db: Db, userId: string, input: UpdateProfile
 }
 
 export async function changePassword(db: Db, userId: string, currentPassword: string, newPassword: string): Promise<void> {
+  const passwordIssue = validatePassword(newPassword);
+  if (passwordIssue) {
+    throw errors.validation({ issues: [{ path: 'newPassword', message: passwordIssue }] });
+  }
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
   if (!user) throw errors.notFound('用户不存在');
   const ok = user.password_hash ? await verifyPassword(user.password_hash, currentPassword) : false;
