@@ -7,6 +7,7 @@ import { assertPermission } from '@ycomm/access';
 import {
   adminCreateInviteCode,
   banUser,
+  deleteAccountNow,
   deleteInviteCode,
   listInviteCodes,
   listRuntimeSettings,
@@ -19,7 +20,7 @@ import {
   unmuteUser,
   type UserRecord,
 } from '@ycomm/identity';
-import { listRecentAudit } from '@ycomm/audit';
+import { listRecentAudit, logAudit } from '@ycomm/audit';
 import { decide, listQueued } from '@ycomm/moderation';
 import { createCard, deleteCard, listAllCards, listAllResources, updateCard } from '@ycomm/downloads';
 import {
@@ -31,7 +32,7 @@ import {
   type BoardView,
 } from '@ycomm/forum';
 import type { AppVariables } from '../context';
-import { sessionAuth } from '../middleware/session';
+import { sessionAuth, clientIp } from '../middleware/session';
 import { requirePermission } from '../middleware/permission';
 import { parseBody } from './forum';
 
@@ -53,6 +54,7 @@ const decideSchema = z.object({
 const inviteCreateSchema = z.object({
   name: z.string().min(1).max(60),
   code: z.string().max(10).optional(),
+  maxUses: z.number().int().min(1).max(1000).optional(),
 });
 
 const boardCreateSchema = z.object({
@@ -171,6 +173,25 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
     return c.json({ ok: true, data: { user: adminUser(updated) } });
   });
 
+  /** 站长直接注销任意账号：立即生效，无 3 天冷静期。 */
+  router.post('/users/:userId/delete', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const handle = await getDb();
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    if (auth.subject.role !== 'owner') throw errors.forbidden('仅站长可注销账号');
+    const targetId = c.req.param('userId');
+    await deleteAccountNow(handle.db, targetId);
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: 'admin.user.deleted',
+      targetType: 'user',
+      targetId,
+      meta: { via: 'owner', immediate: true },
+    });
+    return c.json({ ok: true, data: null });
+  });
+
   router.get('/settings', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
     const handle = await getDb();
     const settings = await listRuntimeSettings(handle.db);
@@ -252,6 +273,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
     const row = await adminCreateInviteCode(handle.db, {
       name: body.name,
       code: body.code,
+      maxUses: body.maxUses,
       createdBy: auth.userId,
     });
     return c.json({ ok: true, data: { inviteCode: row } }, 201);

@@ -14,6 +14,8 @@ export const userStateEnum = pgEnum('user_state', [
   'active',
   'muted',
   'banned',
+  /** 注销确认期：3 天内登录可取消，到期自动转 deleted。 */
+  'deleting',
   'deleted',
 ]);
 
@@ -40,6 +42,8 @@ export const users = pgTable(
     muted_until: timestamp('muted_until', { withTimezone: true, mode: 'date' }),
     mute_reason: text('mute_reason'),
     ban_reason: text('ban_reason'),
+    /** 注销时间：self-deleting 进入冷静期的时间戳；owner 直接注销同样落这里（无冷静期）。 */
+    deleted_at: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
     created_at: createdAtColumn(),
     updated_at: updatedAtColumn(),
     last_seen_at: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }),

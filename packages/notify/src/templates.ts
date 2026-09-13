@@ -105,3 +105,20 @@ export function renderPasswordReset(token: string, expiresInMinutes: number): Re
     }),
   };
 }
+
+/** 账号注销确认：一次性 token，确认后进入 N 天冷静期（期内登录可取消）。 */
+export function renderAccountDeletion(token: string, graceDays: number, tokenTtlMinutes: number): RenderedMail {
+  const branding = getSiteBranding();
+  const url = `${siteUrl()}/delete-account?token=${encodeURIComponent(token)}`;
+  return {
+    subject: `确认注销账号 — ${branding.name}`,
+    text: `你申请了注销 ${branding.name} 账号：\n\n${url}\n\n链接 ${tokenTtlMinutes} 分钟内有效。确认注销后会有 ${graceDays} 天冷静期，期间重新登录即可取消。若你没有申请，请忽略此邮件。`,
+    html: shell({
+      title: '确认注销账号',
+      body: `<p style="margin:0 0 6px;">你申请了注销 <strong>${escapeHtml(branding.name)}</strong> 账号。</p>
+        <p style="margin:0;">确认后将进入 ${graceDays} 天冷静期：期间重新登录即可取消注销；到期未登录则账号永久注销。</p>
+        ${button(url, '确认注销')}`,
+      note: `链接 ${tokenTtlMinutes} 分钟内有效。若你没有申请，请忽略此邮件。`,
+    }),
+  };
+}

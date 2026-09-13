@@ -34,6 +34,9 @@ export function assertAccountCanAct(
   if (user.state === 'deleted') {
     throw errors.forbidden('账号已注销');
   }
+  if (user.state === 'deleting') {
+    throw errors.forbidden('账号注销确认中，请重新登录以取消');
+  }
   if (user.state === 'banned') {
     throw errors.accountBanned(user.ban_reason);
   }

@@ -281,16 +281,62 @@ export function ConsolePanel() {
       )}
 
       {tab === 'security' && (
-        <form onSubmit={submitPassword} className="panel" style={{ maxWidth: 400 }}>
-          <p className="panel-title">修改密码</p>
-          <div style={{ display: 'grid', gap: '0.5rem' }}>
-            <input name="currentPassword" type="password" placeholder="当前密码" required />
-            <input name="newPassword" type="password" placeholder="新密码（至少 10 位）" required minLength={10} />
-            <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
-              修改密码
-            </button>
+        <div style={{ display: 'grid', gap: '1rem', maxWidth: 520 }}>
+          <form onSubmit={submitPassword} className="panel" style={{ marginBottom: 0 }}>
+            <p className="panel-title">修改密码</p>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              <input name="currentPassword" type="password" placeholder="当前密码" required />
+              <input name="newPassword" type="password" placeholder="新密码（至少 10 位）" required minLength={10} />
+              <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
+                修改密码
+              </button>
+            </div>
+          </form>
+
+          <div className="panel" style={{ marginBottom: 0 }}>
+            <p className="panel-title">注销账号</p>
+            {profile.state === 'deleting' ? (
+              <>
+                <p style={{ margin: '0 0 0.5rem' }}>
+                  账号正在<strong>注销冷静期</strong>：到期未取消将永久注销，且无法恢复。
+                </p>
+                <p className="muted" style={{ margin: '0 0 0.75rem' }}>
+                  3 天内登录或点下方按钮都可以取消注销。
+                </p>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() =>
+                    void run(() => apiFetch('/api/auth/cancel-deletion', { method: 'POST' }), '已取消注销')
+                  }
+                >
+                  取消注销
+                </button>
+              </>
+            ) : (
+              <>
+                <p style={{ margin: '0 0 0.5rem' }}>
+                  注销需要<strong>邮箱验证</strong>：我们会向你的注册邮箱发送确认链接。
+                </p>
+                <p className="muted" style={{ margin: '0 0 0.75rem' }}>
+                  确认后进入 3 天冷静期，期间重新登录即可取消；到期未登录则永久注销。
+                </p>
+                <button
+                  type="button"
+                  style={{ color: '#dc2626' }}
+                  onClick={() =>
+                    void run(
+                      () => apiFetch('/api/auth/delete-account', { method: 'POST' }),
+                      '注销确认邮件已发送，请查收邮箱并点击确认链接',
+                    )
+                  }
+                >
+                  申请注销账号
+                </button>
+              </>
+            )}
           </div>
-        </form>
+        </div>
       )}
     </div>
   );

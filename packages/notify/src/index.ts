@@ -10,6 +10,7 @@ export { createMailTransport, type MailMessage, type MailTransport } from './tra
 export { registerMailJobHandler } from './jobs';
 export { sendMail, type SendMailInput, type SendMailResult } from './send';
 export {
+  renderAccountDeletion,
   renderPasswordReset,
   renderVerifyEmail,
   type RenderedMail,

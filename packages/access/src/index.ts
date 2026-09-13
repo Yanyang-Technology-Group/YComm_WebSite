@@ -12,7 +12,7 @@ export interface AccessSubject {
   id: string;
   role: AssignableRole;
   level: number;
-  state: 'unverified' | 'active' | 'muted' | 'banned' | 'deleted';
+  state: 'unverified' | 'active' | 'muted' | 'banned' | 'deleting' | 'deleted';
   mutedUntil: Date | null;
   banReason: string | null;
 }
@@ -45,6 +45,9 @@ export function assertSubjectCanAct(
 
   if (subject.state === 'deleted') {
     throw errors.forbidden('账号已注销');
+  }
+  if (subject.state === 'deleting') {
+    throw errors.forbidden('账号注销确认中，请重新登录以取消');
   }
   if (subject.state === 'banned') {
     throw errors.accountBanned(subject.banReason);

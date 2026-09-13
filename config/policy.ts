@@ -313,10 +313,17 @@ export const AUTH = {
   verificationTokenTtlMinutes: 60,
   /** Password reset tokens are short-lived on purpose. */
   resetTokenTtlMinutes: 30,
-  /** Default invite code capacity when created by an admin. */
-  inviteCodeDefaultMaxUses: 20,
+  /** 注册码默认最多可被使用的次数（即最多绑定/注册的账号数）。 */
+  inviteCodeDefaultMaxUses: 1,
   /** Default invite code lifetime. */
   inviteCodeDefaultTtlDays: 90,
+  /** 注销确认邮件里的链接有效期。 */
+  deleteAccountTokenTtlMinutes: 60,
+  /**
+   * 注销冷静期：确认注销后，账户会在「注销确认中」状态停留这么多天；
+   * 期间重新登录即可取消注销，到期未登录则转为永久注销。
+   */
+  accountDeletionGraceDays: 3,
   /** Sessions are rotated on every login (fresh token, old one revoked). */
   sessionRotateOnLogin: true,
   /**

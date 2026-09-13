@@ -6,8 +6,10 @@ import { getDb } from '@ycomm/db';
 import { errors, getEnv, siteUrl, captchaConfig } from '@ycomm/kernel';
 import {
   bindInviteCode,
+  cancelAccountDeletion,
   changeEmail,
   changePassword,
+  confirmAccountDeletion,
   createSession,
   findOrCreateOAuthUser,
   findUserByLogin,
@@ -15,9 +17,11 @@ import {
   getUserById,
   hashPassword,
   register,
+  requestAccountDeletion,
   requestPasswordReset,
   resendVerification,
   resetPassword,
+  reviveIfPendingDeletion,
   revokeSession,
   toPublicUser,
   updateProfile,
@@ -171,7 +175,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
 
     await verifyCaptcha(body.captchaToken);
 
-    const user = await findUserByLogin(handle.db, body.login);
+    let user = await findUserByLogin(handle.db, body.login);
 
     const passwordOk = user?.password_hash
       ? await verifyPassword(user.password_hash, body.password)
@@ -186,8 +190,13 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       throw errors.unauthenticated('用户名或密码错误');
     }
 
+    // 注销冷静期：本次登录自动取消注销；已过冷静期则转永久注销、登录被拒。
+    if (user.state === 'deleting') {
+      user = await reviveIfPendingDeletion(handle.db, user);
+    }
+
+    if (!user || user.state === 'deleted') throw errors.forbidden('账号已注销');
     if (user.state === 'banned') throw errors.accountBanned(user.ban_reason);
-    if (user.state === 'deleted') throw errors.forbidden('账号已注销');
 
     const session = await createSession(handle.db, {
       userId: user.id,
@@ -232,6 +241,48 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const auth = c.get('auth');
     if (!auth) throw errors.unauthenticated();
     return c.json({ ok: true, data: { user: auth.user } });
+  });
+
+  // ---- 账号注销（邮箱确认 → 3 天冷静期） --------------------------------
+  router.post('/delete-account', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const handle = await getDb();
+    await requestAccountDeletion(handle.db, auth.userId);
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: 'account.deletion_requested',
+      targetType: 'user',
+      targetId: auth.userId,
+      meta: { via: 'email' },
+    });
+    return c.json({ ok: true, data: null });
+  });
+
+  /** 点击邮件里的确认链接后调用：进入冷静期（deleting），无需登录态。 */
+  router.post('/delete-account/confirm', async (c) => {
+    const body = await parseBody(c, verificationSchema);
+    const handle = await getDb();
+    await confirmAccountDeletion(handle.db, body.token);
+    return c.json({ ok: true, data: null });
+  });
+
+  /** 冷静期内显式取消注销（登录自动取消之外的入口）。 */
+  router.post('/cancel-deletion', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const handle = await getDb();
+    await cancelAccountDeletion(handle.db, auth.userId);
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: 'account.deletion_cancelled',
+      targetType: 'user',
+      targetId: auth.userId,
+      meta: { via: 'console' },
+    });
+    return c.json({ ok: true, data: null });
   });
 
   // ---- profile / 个人控制台 --------------------------------------------
@@ -370,7 +421,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       emails.find((e) => e.primary && e.verified)?.email ?? emails.find((e) => e.verified)?.email ?? null;
 
     const handle = await getDb();
-    const user = await findOrCreateOAuthUser(handle.db, {
+    let user = await findOrCreateOAuthUser(handle.db, {
       provider: 'github',
       providerAccountId: String(ghUser.id),
       username: ghUser.login,
@@ -378,6 +429,11 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       displayName: ghUser.name ?? null,
       avatarUrl: ghUser.avatar_url ?? null,
     });
+
+    // 注销冷静期：GitHub 登录同样自动取消注销。
+    if (user.state === 'deleting') {
+      user = (await reviveIfPendingDeletion(handle.db, user)) ?? user;
+    }
 
     const session = await createSession(handle.db, {
       userId: user.id,

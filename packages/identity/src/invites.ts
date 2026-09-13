@@ -52,6 +52,8 @@ export interface AdminInviteCodeInput {
   name: string;
   /** 注册码，可选（留空自动生成 8 位） */
   code?: string;
+  /** 最多可绑定/使用的账号数；缺省用 AUTH.inviteCodeDefaultMaxUses（默认 1）。 */
+  maxUses?: number;
   createdBy: string;
 }
 
@@ -82,6 +84,7 @@ export async function adminCreateInviteCode(db: Db, input: AdminInviteCodeInput)
     code,
     created_by: input.createdBy,
     note: name,
+    max_uses: input.maxUses ?? AUTH.inviteCodeDefaultMaxUses,
   });
   const row = await getInviteCodeRows(db, code);
   return row[0] as InviteCodeRow;

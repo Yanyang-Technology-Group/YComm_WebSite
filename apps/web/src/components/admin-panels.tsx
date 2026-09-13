@@ -45,6 +45,21 @@ export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: 
     }
   }
 
+  /** 站长直接注销账号（立即生效，无冷静期）。 */
+  async function removeAccount(user: AdminUser) {
+    if (!window.confirm(`直接注销账号「${user.username}」？立即生效、无冷静期，且不可恢复。`)) return;
+    setBusy(user.id);
+    setError(null);
+    try {
+      await apiFetch(`/api/admin/users/${user.id}/delete`, { method: 'POST' });
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '注销失败');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div>
       {error && <p style={{ color: '#dc2626' }}>{error}</p>}
@@ -90,6 +105,15 @@ export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: 
             ) : (
               <button disabled={busy === user.id} onClick={() => void act(user, '/unmute')}>
                 解除禁言
+              </button>
+            )}
+            {user.role !== 'owner' && user.state !== 'deleted' && (
+              <button
+                disabled={busy === user.id}
+                onClick={() => void removeAccount(user)}
+                style={{ color: '#dc2626' }}
+              >
+                注销
               </button>
             )}
           </div>
@@ -184,6 +208,7 @@ export function InviteCodesPanel() {
   const [items, setItems] = useState<InviteCodeItem[]>([]);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
+  const [maxUses, setMaxUses] = useState('1');
   const [busy, setBusy] = useState<string | false>(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -205,11 +230,12 @@ export function InviteCodesPanel() {
       await apiFetch('/api/admin/invites', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name, code: code || undefined }),
+        body: JSON.stringify({ name, code: code || undefined, maxUses: Number(maxUses) || 1 }),
       });
       setMessage(`注册码已创建${code ? '' : '（自动生成）'}`);
       setName('');
       setCode('');
+      setMaxUses('1');
       const data = await apiFetch<{ inviteCodes: InviteCodeItem[] }>('/api/admin/invites');
       setItems(data.inviteCodes);
       router.refresh();
@@ -255,6 +281,14 @@ export function InviteCodesPanel() {
           maxLength={10}
           style={{ padding: '0.4rem', flex: '0 1 160px' }}
         />
+        <input
+          type="number"
+          min={1}
+          placeholder="最多绑定账号数（默认 1）"
+          value={maxUses}
+          onChange={(event) => setMaxUses(event.target.value)}
+          style={{ padding: '0.4rem', flex: '0 1 130px' }}
+        />
         <button type="button" onClick={() => void create()} disabled={busy !== false}>
           {busy === false ? '创建' : '处理中…'}
         </button>
@@ -266,7 +300,7 @@ export function InviteCodesPanel() {
             <tr>
               <th style={thStyle}>名称</th>
               <th style={thStyle}>注册码</th>
-              <th style={thStyle}>已用</th>
+              <th style={thStyle}>已用/上限</th>
               <th style={thStyle}>创建时间</th>
               <th style={thStyle}></th>
             </tr>
@@ -276,7 +310,7 @@ export function InviteCodesPanel() {
               <tr key={entry.id}>
                 <td style={tdStyle}>{entry.name ?? '—'}</td>
                 <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{entry.code}</td>
-                <td style={tdStyle}>{entry.usedCount}</td>
+                <td style={tdStyle}>{entry.usedCount}/{entry.maxUses ?? '∞'}</td>
                 <td style={tdStyle}>{new Date(entry.createdAt).toLocaleString('zh-CN')}</td>
                 <td style={tdStyle}>
                   <button type="button" onClick={() => void remove(entry.id)} disabled={busy === entry.id} style={{ color: '#dc2626' }}>

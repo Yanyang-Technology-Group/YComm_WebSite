@@ -6,6 +6,13 @@
  */
 export { assertAccountCanAct, findUserByEmail, findUserByLogin, hasAnyUser, toPublicUser } from './account';
 export {
+  cancelAccountDeletion,
+  confirmAccountDeletion,
+  deleteAccountNow,
+  requestAccountDeletion,
+  reviveIfPendingDeletion,
+} from './account-deletion';
+export {
   adminCreateInviteCode,
   consumeInviteCode,
   createInviteCode,
