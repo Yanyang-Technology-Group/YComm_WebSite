@@ -39,7 +39,8 @@ import { parseBody } from './forum';
 const roleSchema = z.object({ role: z.enum(['member', 'admin', 'owner']) });
 const banSchema = z.object({ reason: z.string().max(300).optional() });
 const muteSchema = z.object({
-  until: z.string().datetime().optional(),
+  /** null / 缺省 = 永久禁言。 */
+  until: z.string().datetime().nullable().optional(),
   reason: z.string().max(300).optional(),
 });
 const settingSchema = z.object({

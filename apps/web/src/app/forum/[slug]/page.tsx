@@ -10,7 +10,18 @@ interface PreviewPost {
   contentExcerpt: string;
   authorUsername: string | null;
   authorDisplayName: string | null;
+  authorAvatarPath: string | null;
   likeCount: number;
+}
+
+/** 小头像：有图用图，没图用昵称首字母。 */
+function Avatar({ path, name, small = false }: { path: string | null; name: string | null; small?: boolean }) {
+  const cls = small ? 'avatar avatar-sm' : 'avatar';
+  return path ? (
+    <img src={path} alt={name ?? '访客'} className={cls} loading="lazy" />
+  ) : (
+    <span className={`${cls} avatar-fallback`}>{(name ?? '访客').slice(0, 1).toUpperCase()}</span>
+  );
 }
 
 interface Topic {
@@ -75,6 +86,11 @@ export default async function BoardPage({
 
           {topic.preview.firstPost && (
             <div className="topic-block-post">
+              <Avatar
+                path={topic.preview.firstPost.authorAvatarPath}
+                name={topic.preview.firstPost.authorDisplayName}
+                small
+              />
               <span className="topic-block-author">
                 {topic.preview.firstPost.authorDisplayName ?? '访客'}
               </span>
@@ -87,6 +103,7 @@ export default async function BoardPage({
           {topic.preview.topReplies.map((reply, index) => (
             <div key={index} className="topic-block-post topic-block-reply">
               <span className="topic-block-likes">♥ {reply.likeCount}</span>
+              <Avatar path={reply.authorAvatarPath} name={reply.authorDisplayName} small />
               <span className="topic-block-author">{reply.authorDisplayName ?? '访客'}</span>
               <span className="topic-block-text">{excerpt(reply.contentExcerpt)}</span>
             </div>

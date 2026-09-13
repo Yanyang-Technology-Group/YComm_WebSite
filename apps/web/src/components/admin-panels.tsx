@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { apiFetch } from '../lib/api';
 
+/** 禁言时长单位：小时 / 天 / 永久。 */
+type MuteUnit = 'hour' | 'day' | 'forever';
+
 const row: React.CSSProperties = {
   border: '1px solid #e4e4e7',
   borderRadius: 8,
@@ -27,6 +30,22 @@ export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: 
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** 每个用户的禁言时长草稿：数值 + 单位（小时/天/永久）。 */
+  const [muteDrafts, setMuteDrafts] = useState<Record<string, { amount: string; unit: MuteUnit }>>({});
+
+  function muteDraft(user: AdminUser): { amount: string; unit: MuteUnit } {
+    return muteDrafts[user.id] ?? { amount: '7', unit: 'day' };
+  }
+
+  /** 按自定义时长禁言；「永久」发送 until: null。 */
+  async function muteUser(user: AdminUser, draft: { amount: string; unit: MuteUnit }) {
+    const amount = Math.max(1, Number.parseInt(draft.amount, 10) || 1);
+    const until =
+      draft.unit === 'forever'
+        ? null
+        : new Date(Date.now() + amount * (draft.unit === 'hour' ? 3_600_000 : 86_400_000)).toISOString();
+    await act(user, '/mute', { until, reason: '由管理员禁言' });
+  }
 
   async function act(user: AdminUser, path: string, body?: unknown) {
     setBusy(user.id);
@@ -91,17 +110,39 @@ export function UsersPanel({ initial }: { initial: { users: AdminUser[]; total: 
               </button>
             )}
             {user.state !== 'muted' ? (
-              <button
-                disabled={busy === user.id}
-                onClick={() =>
-                  void act(user, '/mute', {
-                    until: new Date(Date.now() + 7 * 86400_000).toISOString(),
-                    reason: '由管理员禁言',
-                  })
-                }
-              >
-                禁言 7 天
-              </button>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                <input
+                  type="number"
+                  min={1}
+                  value={muteDraft(user).amount}
+                  onChange={(event) =>
+                    setMuteDrafts({ ...muteDrafts, [user.id]: { ...muteDraft(user), amount: event.target.value } })
+                  }
+                  style={{ width: 64, padding: '0.3rem 0.4rem' }}
+                  aria-label="禁言时长"
+                />
+                <select
+                  value={muteDraft(user).unit}
+                  onChange={(event) =>
+                    setMuteDrafts({
+                      ...muteDrafts,
+                      [user.id]: { ...muteDraft(user), unit: event.target.value as MuteUnit },
+                    })
+                  }
+                  style={{ padding: '0.3rem 0.4rem' }}
+                  aria-label="时长单位"
+                >
+                  <option value="hour">小时</option>
+                  <option value="day">天</option>
+                  <option value="forever">永久</option>
+                </select>
+                <button
+                  disabled={busy === user.id}
+                  onClick={() => void muteUser(user, muteDraft(user))}
+                >
+                  禁言
+                </button>
+              </span>
             ) : (
               <button disabled={busy === user.id} onClick={() => void act(user, '/unmute')}>
                 解除禁言

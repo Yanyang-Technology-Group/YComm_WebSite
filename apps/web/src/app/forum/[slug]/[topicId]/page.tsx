@@ -22,6 +22,7 @@ interface Post {
   author_id: string | null;
   authorUsername: string | null;
   authorDisplayName: string | null;
+  authorAvatarPath: string | null;
   position: number;
   content_md: string;
   created_at: string;
@@ -74,10 +75,24 @@ export default async function TopicPage({
 
       {posts.map((post) => (
         <div key={post.id} className="post-item">
-          <div className="muted" style={{ marginBottom: '0.4rem' }}>
-            #{post.position} · {post.authorDisplayName ?? '访客'} ·{' '}
-            {new Date(post.created_at).toLocaleString('zh-CN')}
-            {post.edited_at ? ' · 已编辑' : ''}
+          <div className="post-head">
+            {post.authorAvatarPath ? (
+              <img
+                src={post.authorAvatarPath}
+                alt={post.authorDisplayName ?? '访客'}
+                className="avatar"
+                loading="lazy"
+              />
+            ) : (
+              <span className="avatar avatar-fallback">
+                {(post.authorDisplayName ?? '访客').slice(0, 1).toUpperCase()}
+              </span>
+            )}
+            <span className="muted">
+              #{post.position} · {post.authorDisplayName ?? '访客'} ·{' '}
+              {new Date(post.created_at).toLocaleString('zh-CN')}
+              {post.edited_at ? ' · 已编辑' : ''}
+            </span>
           </div>
           <MarkdownContent text={post.content_md} />
           <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.75rem' }}>

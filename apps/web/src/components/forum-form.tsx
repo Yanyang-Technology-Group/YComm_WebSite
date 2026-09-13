@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
 import { apiFetch } from '../lib/api';
+import { ImagePicker } from './image-picker';
 
 function Notice({ error, notice }: { error: string | null; notice: string | null }) {
   if (error) return <p style={{ color: '#dc2626', fontSize: '0.9rem' }}>{error}</p>;
@@ -11,44 +12,6 @@ function Notice({ error, notice }: { error: string | null; notice: string | null
 }
 
 const field: React.CSSProperties = { padding: '0.4rem', fontSize: '0.95rem' };
-
-/**
- * 图片上传按钮：选图 → 上传到 /api/uploads/images → 回调插入 Markdown 图片语法。
- * 上传后把光标放到插入内容之后，方便继续写。
- */
-function ImageUploadButton({ onUploaded }: { onUploaded: (url: string) => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function pick(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const data = await apiFetch<{ url: string }>('/api/uploads/images', { method: 'POST', body: form });
-      onUploaded(data.url);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '图片上传失败');
-    } finally {
-      setBusy(false);
-      if (inputRef.current) inputRef.current.value = '';
-    }
-  }
-
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-      <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} style={{ padding: '0.4rem 0.8rem' }}>
-        {busy ? '图片上传中…' : '🖼 插入图片'}
-      </button>
-      <input ref={inputRef} type="file" accept="image/*" onChange={pick} style={{ display: 'none' }} />
-      {error && <span style={{ color: '#dc2626', fontSize: '0.85rem' }}>{error}</span>}
-    </span>
-  );
-}
 
 /** 在 textarea 光标处插入文本。 */
 function insertAtCursor(el: HTMLTextAreaElement | null, snippet: string): void {
@@ -104,7 +67,7 @@ export function NewTopicForm({ boardSlug }: { boardSlug: string }) {
         <button type="submit" disabled={pending} style={{ width: 120, padding: '0.4rem' }}>
           {pending ? '发布中…' : '发布主题'}
         </button>
-        <ImageUploadButton onUploaded={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
+        <ImagePicker label="🖼 插入图片" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
       </div>
     </form>
   );
@@ -150,7 +113,7 @@ export function ReplyForm({ topicId }: { topicId: string }) {
         <button type="submit" disabled={pending} style={{ width: 100, padding: '0.4rem' }}>
           {pending ? '发送中…' : '回复'}
         </button>
-        <ImageUploadButton onUploaded={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
+        <ImagePicker label="🖼 插入图片" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
       </div>
     </form>
   );

@@ -13,7 +13,7 @@ import { LogoutButton } from './logout-button';
 export function SessionNav() {
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
-  const [user, setUser] = useState<{ username: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ username: string; role: string; avatarPath?: string | null } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -46,7 +46,11 @@ export function SessionNav() {
   return (
     <>
       <Link href="/dashboard" className="nav-console" title="进入控制台">
-        <span className="nav-avatar-initial">{user.username.slice(0, 1).toUpperCase()}</span>
+        {user.avatarPath ? (
+          <img src={user.avatarPath} alt={user.username} className="nav-avatar-img" />
+        ) : (
+          <span className="nav-avatar-initial">{user.username.slice(0, 1).toUpperCase()}</span>
+        )}
         <span>控制台</span>
       </Link>
       <LogoutButton />

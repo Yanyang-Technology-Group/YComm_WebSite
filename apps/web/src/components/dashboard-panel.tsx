@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
+import { REGISTRATION } from '@ycomm/config';
 import { apiFetch } from '../lib/api';
 import { ThemePicker } from './theme-toggle';
+import { ImagePicker } from './image-picker';
 
 interface Profile {
   id: string;
@@ -69,6 +71,7 @@ export function DashboardPanel() {
   const [resources, setResources] = useState<MyResource[]>([]);
   const [section, setSection] = useState<Section>('profile');
   const [msg, setMsg] = useState<string | null>(null);
+  const [avatarPath, setAvatarPath] = useState('');
 
   useEffect(() => {
     void load();
@@ -78,6 +81,7 @@ export function DashboardPanel() {
     try {
       const data = await apiFetch<{ user: Profile }>('/api/auth/profile');
       setProfile(data.user);
+      setAvatarPath(data.user.avatarPath ?? '');
     } catch {
       setProfile(null);
     }
@@ -250,7 +254,13 @@ export function DashboardPanel() {
               <p className="panel-title">编辑资料</p>
               <div style={{ display: 'grid', gap: '0.6rem' }}>
                 <input name="displayName" defaultValue={profile.displayName} placeholder="昵称" maxLength={40} />
-                <input name="avatarPath" defaultValue={profile.avatarPath ?? ''} placeholder="头像图片 URL" />
+                <input
+                  name="avatarPath"
+                  value={avatarPath}
+                  onChange={(event) => setAvatarPath(event.target.value)}
+                  placeholder="头像图片 URL（也可直接上传）"
+                />
+                <ImagePicker label="🖼 上传头像" onPicked={setAvatarPath} />
                 <textarea name="bio" defaultValue={profile.bio} placeholder="签名 / 简介" rows={3} maxLength={500} />
                 <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
                   保存资料
@@ -340,7 +350,13 @@ export function DashboardPanel() {
               <p className="panel-title">修改密码</p>
               <div style={{ display: 'grid', gap: '0.5rem' }}>
                 <input name="currentPassword" type="password" placeholder="当前密码" required />
-                <input name="newPassword" type="password" placeholder="新密码（至少 10 位）" required minLength={10} />
+                <input
+                  name="newPassword"
+                  type="password"
+                  placeholder={`新密码（${REGISTRATION.passwordHint}）`}
+                  required
+                  minLength={REGISTRATION.minPasswordLength}
+                />
                 <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
                   修改密码
                 </button>

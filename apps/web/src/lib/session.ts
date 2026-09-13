@@ -4,6 +4,8 @@ export interface SessionUser {
   id: string;
   username: string;
   role: string;
+  /** 头像图片地址（站内上传路径或外链），未设置时为 null。 */
+  avatarPath?: string | null;
 }
 
 interface CacheEntry {

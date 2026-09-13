@@ -283,13 +283,14 @@ export const UPLOADS = {
   avatar: {
     extensions: ['png', 'jpg', 'jpeg', 'webp'],
     mimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
-    maxBytes: 2 * MB,
+    maxBytes: 50 * MB,
   },
   /** Images embedded in posts. SVG is deliberately absent — it can carry script. */
   inlineImage: {
     extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'],
     mimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
-    maxBytes: 5 * MB,
+    /** 50MB：更大的图片请让用户填外链（前端 ImagePicker 会引导）。 */
+    maxBytes: 50 * MB,
   },
   /** Post attachments. Stays well under the 100MB Cloudflare request-body limit. */
   attachment: {

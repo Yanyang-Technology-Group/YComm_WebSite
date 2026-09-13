@@ -11,6 +11,7 @@ export type PostRow = typeof schema.posts.$inferSelect;
 export interface PostWithAuthor extends PostRow {
   authorUsername: string | null;
   authorDisplayName: string | null;
+  authorAvatarPath: string | null;
 }
 
 export interface CreatePostInput {
@@ -117,6 +118,7 @@ export interface TopicPostPreview {
   contentExcerpt: string;
   authorUsername: string | null;
   authorDisplayName: string | null;
+  authorAvatarPath: string | null;
   likeCount: number;
 }
 
@@ -138,6 +140,7 @@ export async function listTopicPreviews(db: Db, topicIds: string[]): Promise<Map
       content_md: schema.posts.content_md,
       authorUsername: schema.users.username,
       authorDisplayName: schema.users.display_name,
+      authorAvatarPath: schema.users.avatar_path,
     })
     .from(schema.posts)
     .leftJoin(schema.users, eq(schema.posts.author_id, schema.users.id))
@@ -156,6 +159,7 @@ export async function listTopicPreviews(db: Db, topicIds: string[]): Promise<Map
         contentExcerpt: row.content_md,
         authorUsername: row.authorUsername,
         authorDisplayName: row.authorDisplayName,
+        authorAvatarPath: row.authorAvatarPath,
         likeCount: 0,
       };
     }
@@ -179,6 +183,7 @@ export async function listTopicPreviews(db: Db, topicIds: string[]): Promise<Map
       content_md: schema.posts.content_md,
       authorUsername: schema.users.username,
       authorDisplayName: schema.users.display_name,
+      authorAvatarPath: schema.users.avatar_path,
       likeCount: sql<number>`coalesce(${likeCounts.count}, 0)`,
       rank: sql<number>`(row_number() over (partition by ${schema.posts.topic_id} order by coalesce(${likeCounts.count}, 0) desc, ${schema.posts.position} asc))::int`,
     })
@@ -202,6 +207,7 @@ export async function listTopicPreviews(db: Db, topicIds: string[]): Promise<Map
       contentExcerpt: row.content_md,
       authorUsername: row.authorUsername,
       authorDisplayName: row.authorDisplayName,
+      authorAvatarPath: row.authorAvatarPath,
       likeCount: row.likeCount,
     });
   }
@@ -233,6 +239,7 @@ export async function listPosts(
       deleted_by: schema.posts.deleted_by,
       authorUsername: schema.users.username,
       authorDisplayName: schema.users.display_name,
+      authorAvatarPath: schema.users.avatar_path,
     })
     .from(schema.posts)
     .leftJoin(schema.users, eq(schema.posts.author_id, schema.users.id))

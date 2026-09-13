@@ -326,6 +326,64 @@ a:hover {
   border: 1px solid var(--border);
 }
 
+/* ===== 头像（论坛 / 头部） ===== */
+.avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.avatar-sm {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: none;
+}
+
+.nav-avatar-img {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* 帖子头部：头像 + 元信息 */
+.post-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ===== 论坛三栏：左右栏与中间区分开 ===== */
+.forum-sidebar .panel,
+.forum-info .panel {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.forum-sidebar .panel-title,
+.forum-info .panel-title {
+  margin-bottom: 0.7rem;
+}
+
 /* ===== 控制台（dashboard）：左导航 + 右内容，类 wiki ===== */
 .dashboard-layout {
   display: grid;
