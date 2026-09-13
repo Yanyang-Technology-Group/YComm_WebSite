@@ -31,10 +31,10 @@ export async function SessionNav() {
   if (!user) {
     return (
       <>
-        <Link href="/login" style={{ color: '#d4d4d8' }}>
+        <Link href="/login" className="nav-auth">
           登录
         </Link>
-        <Link href="/register" style={{ color: '#d4d4d8' }}>
+        <Link href="/register" className="nav-auth nav-auth-strong">
           注册
         </Link>
       </>
@@ -43,7 +43,7 @@ export async function SessionNav() {
 
   return (
     <>
-      <span style={{ color: '#fff', fontSize: '0.9rem' }}>{user.username}</span>
+      <span className="nav-user">{user.username}</span>
       <LogoutButton />
     </>
   );

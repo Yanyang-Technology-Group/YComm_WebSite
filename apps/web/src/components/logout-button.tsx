@@ -25,7 +25,7 @@ export function LogoutButton() {
     <button
       onClick={() => void logout()}
       disabled={pending}
-      style={{ background: 'none', border: 'none', color: '#d4d4d8', cursor: 'pointer', fontSize: '0.9rem' }}
+      style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.9rem' }}
       title="退出登录"
     >
       {failed ? '重试' : '退出'}

@@ -1,45 +1,51 @@
-/* 全局样式与主题变量。
+/* 全局样式与主题变量 —— 晏阳社区
  *
- * 主题通过 <html data-theme="..."> 切换（用户本地选择，仅对自己生效）。
- * 默认：蔚蓝(azure) | 可选：粉(pink)、清新绿(mint)、浅色(light)、深色(dark)
+ * 主题：晏阳蓝(azure 默认) / 猛男粉(pink) / 草神绿(mint) / 浅色(light) / 深色(dark)
+ * 视觉：简约大气、flat 扁平、整体圆润。
  */
 :root,
 [data-theme='azure'] {
-  --bg: #f3f7fc;
+  --bg: #f5f8fe;
   --surface: #ffffff;
-  --text: #1c2536;
-  --muted: #64748b;
-  --border: #dbe7f5;
-  --accent: #1d6fd1;
-  --accent-soft: #e3f0fd;
-  --header-bg: #123a66;
-  --header-text: #f0f6ff;
+  --text: #17233a;
+  --muted: #66748f;
+  --border: #e6edf8;
+  --accent: #5da4fa;
+  --accent-strong: #2f81e8;
+  --accent-soft: #e9f2fe;
+  --header-bg: #ffffff;
+  --header-text: #17233a;
+  --shadow: 0 8px 28px rgba(29, 62, 120, 0.07);
   color-scheme: light;
 }
 
 [data-theme='pink'] {
-  --bg: #fdf4f7;
+  --bg: #fff6f8;
   --surface: #ffffff;
-  --text: #3d2330;
-  --muted: #8a6b78;
-  --border: #f4dce6;
-  --accent: #d4558a;
-  --accent-soft: #fdeaf3;
-  --header-bg: #7c2d56;
-  --header-text: #fdf0f6;
+  --text: #3a1f28;
+  --muted: #96707a;
+  --border: #f8e4ea;
+  --accent: #ff9999;
+  --accent-strong: #ef6f7c;
+  --accent-soft: #ffecef;
+  --header-bg: #ffffff;
+  --header-text: #3a1f28;
+  --shadow: 0 8px 28px rgba(120, 40, 60, 0.07);
   color-scheme: light;
 }
 
 [data-theme='mint'] {
-  --bg: #f0faf5;
+  --bg: #f6fdf4;
   --surface: #ffffff;
-  --text: #1c3b30;
-  --muted: #5d8173;
-  --border: #d3ecdf;
-  --accent: #14996b;
-  --accent-soft: #ddf5e9;
-  --header-bg: #0e5c43;
-  --header-text: #eff9f4;
+  --text: #183321;
+  --muted: #5f7a68;
+  --border: #e4f3dc;
+  --accent: #b2ff66;
+  --accent-strong: #5fae2f;
+  --accent-soft: #f0fbe2;
+  --header-bg: #ffffff;
+  --header-text: #183321;
+  --shadow: 0 8px 28px rgba(30, 90, 50, 0.07);
   color-scheme: light;
 }
 
@@ -50,22 +56,26 @@
   --muted: #6b7280;
   --border: #e5e7eb;
   --accent: #2563eb;
+  --accent-strong: #1d4ed8;
   --accent-soft: #eff4ff;
-  --header-bg: #1f2937;
-  --header-text: #f9fafb;
+  --header-bg: #ffffff;
+  --header-text: #1f1f1f;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.06);
   color-scheme: light;
 }
 
 [data-theme='dark'] {
-  --bg: #10141c;
-  --surface: #161b26;
-  --text: #e5e9f0;
+  --bg: #0f1216;
+  --surface: #171b22;
+  --text: #e7ebf1;
   --muted: #8b94a5;
-  --border: #262e3d;
+  --border: #262d38;
   --accent: #5ea2ef;
+  --accent-strong: #7db4f7;
   --accent-soft: #1c2a3d;
-  --header-bg: #0a0e15;
-  --header-text: #eef2f9;
+  --header-bg: #0c0f14;
+  --header-text: #e7ebf1;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
 }
 
@@ -73,8 +83,13 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  padding: 0;
+}
+
+body {
   font-family:
     system-ui,
     -apple-system,
@@ -82,7 +97,7 @@ body {
     'PingFang SC',
     'Microsoft YaHei',
     sans-serif;
-  line-height: 1.6;
+  line-height: 1.65;
   background: var(--bg);
   color: var(--text);
   transition:
@@ -91,20 +106,168 @@ body {
 }
 
 a {
-  color: var(--accent);
+  color: var(--accent-strong);
   text-decoration: none;
 }
 
 a:hover {
-  text-decoration: underline;
+  opacity: 0.85;
 }
 
+/* ===== 顶部导航：居中、简约、圆润 ===== */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--header-bg);
+  color: var(--header-text);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+  height: 3.75rem;
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--header-text);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.brand .logo {
+  height: 2rem;
+  width: auto;
+  border-radius: 8px;
+}
+
+.logo-dark {
+  display: none;
+}
+
+[data-theme='dark'] .logo-light {
+  display: none;
+}
+
+[data-theme='dark'] .logo-dark {
+  display: inline-block;
+}
+
+.site-nav {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 0.95rem;
+}
+
+.nav-link {
+  color: var(--muted);
+}
+
+.nav-link:hover {
+  color: var(--text);
+}
+
+.flex-spacer {
+  flex: 1;
+}
+
+.site-actions {
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.nav-auth {
+  color: var(--muted);
+}
+
+.nav-auth-strong {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.nav-user {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+/* ===== 主体居中 ===== */
+.site-main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 5rem;
+}
+
+/* ===== 底部 ===== */
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: 1.75rem 1.25rem 2.5rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* ===== 首页 hero ===== */
+.hero {
+  text-align: center;
+  padding: 4rem 1rem 3rem;
+}
+
+.hero-title {
+  font-size: 2.7rem;
+  margin: 0 0 0.5rem;
+  letter-spacing: 0.02em;
+}
+
+.hero-tagline {
+  font-size: 1.25rem;
+  color: var(--muted);
+  margin: 0 0 1rem;
+}
+
+.hero-desc {
+  max-width: 560px;
+  margin: 0 auto 2rem;
+  color: var(--muted);
+}
+
+.hero-actions {
+  display: flex;
+  gap: 0.9rem;
+  justify-content: center;
+}
+
+.hero-btn {
+  display: inline-block;
+  padding: 0.6rem 1.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.hero-btn.primary {
+  background: var(--accent-strong);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* ===== 表单 / 按钮：flat 圆润 ===== */
 input,
 textarea,
 select,
 button {
   font: inherit;
-  border-radius: 8px;
+  border-radius: 12px;
 }
 
 input,
@@ -113,18 +276,29 @@ select {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  padding: 0.55rem 0.8rem;
 }
 
 button {
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   background: var(--accent-soft);
   color: var(--text);
   cursor: pointer;
+  padding: 0.45rem 1rem;
+}
+
+button:hover {
+  filter: brightness(0.97);
 }
 
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent-strong);
+  color: #fff;
 }
 
 /* 深色模式下浏览器自动填表配色修正 */

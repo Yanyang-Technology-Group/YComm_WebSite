@@ -23,49 +23,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN" data-theme="azure">
       <body>
-        <header
-          style={{
-            background: 'var(--header-bg)',
-            color: 'var(--header-text)',
-            padding: '0 1.5rem',
-            height: '3.5rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1.5rem',
-          }}
-        >
-          <Link
-            href="/"
-            style={{ color: 'var(--header-text)', fontWeight: 700, textDecoration: 'none' }}
-          >
-            {branding.name}
-          </Link>
-          <nav style={{ display: 'flex', gap: '1rem', fontSize: '0.95rem' }}>
-            {NAV_ITEMS.map((item) => (
-              <Link key={item.href} href={item.href} style={{ color: 'var(--header-text)', opacity: 0.85 }}>
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-          <span style={{ flex: 1 }} />
-          <nav style={{ display: 'flex', gap: '0.8rem', fontSize: '0.95rem', alignItems: 'center' }}>
-            <ThemeToggle />
-            <SessionNav />
-          </nav>
+        <header className="site-header">
+          <div className="site-header-inner">
+            <Link href="/" className="brand">
+              <img src="/logo.png" alt={branding.name} className="logo logo-light" />
+              <img src="/logo-dark.png" alt={branding.name} className="logo logo-dark" />
+              <span className="brand-name">{branding.name}</span>
+            </Link>
+            <nav className="site-nav">
+              {NAV_ITEMS.map((item) => (
+                <Link key={item.href} href={item.href} className="nav-link">
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+            <span className="flex-spacer" />
+            <nav className="site-actions">
+              <ThemeToggle />
+              <SessionNav />
+            </nav>
+          </div>
         </header>
-        <main style={{ maxWidth: '960px', margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
-          {children}
-        </main>
-        <footer
-          style={{
-            borderTop: '1px solid var(--border)',
-            padding: '1.5rem',
-            textAlign: 'center',
-            color: 'var(--muted)',
-            fontSize: '0.85rem',
-          }}
-        >
-          {branding.name} — {branding.tagline}
+        <main className="site-main">{children}</main>
+        <footer className="site-footer">
+          © 2025-2026 晏阳技术组
           {branding.sourceUrl ? (
             <>
               {' · '}

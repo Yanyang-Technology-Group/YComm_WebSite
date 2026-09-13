@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 
 export const THEMES = [
-  { id: 'azure', label: '蔚蓝', swatch: '#1d6fd1' },
-  { id: 'pink', label: '粉', swatch: '#d4558a' },
-  { id: 'mint', label: '清新绿', swatch: '#14996b' },
+  { id: 'azure', label: '晏阳蓝', swatch: '#5da4fa' },
+  { id: 'pink', label: '猛男粉', swatch: '#FF9999' },
+  { id: 'mint', label: '草神绿', swatch: '#B2FF66' },
   { id: 'light', label: '浅色', swatch: '#f5f5f5' },
   { id: 'dark', label: '深色', swatch: '#22262f' },
 ] as const;
@@ -27,9 +27,13 @@ export function applyTheme(theme: ThemeId): void {
 
 function initialTheme(): ThemeId {
   if (typeof document === 'undefined') return 'azure';
-  const stored = document.documentElement.dataset.theme as ThemeId | undefined;
-  if (stored && THEMES.some((theme) => theme.id === stored)) return stored;
-  return 'azure';
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY) as ThemeId | null;
+    if (saved && THEMES.some((theme) => theme.id === saved)) return saved;
+  } catch {
+    /* localStorage 不可用时仅本次会话生效 */
+  }
+  return (document.documentElement.dataset.theme as ThemeId) || 'azure';
 }
 
 export function ThemeToggle() {

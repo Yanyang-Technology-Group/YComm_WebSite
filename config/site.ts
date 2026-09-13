@@ -20,9 +20,9 @@ export interface SiteBranding {
 }
 
 export const SITE_DEFAULTS: SiteBranding = {
-  name: 'YComm',
-  tagline: '自托管的社区论坛与资源站',
-  description: 'YComm 是一个自托管的社区平台，包含论坛讨论与资源下载区。',
+  name: '晏阳社区',
+  tagline: '论坛讨论 · 资源下载',
+  description: '晏阳社区 —— 一个自托管的社区平台，包含论坛讨论与资源下载区。',
   icp: '',
   sourceUrl: '',
 } as const;
