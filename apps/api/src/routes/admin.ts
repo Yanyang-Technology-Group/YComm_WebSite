@@ -21,7 +21,7 @@ import {
 } from '@ycomm/identity';
 import { listRecentAudit } from '@ycomm/audit';
 import { decide, listQueued } from '@ycomm/moderation';
-import { listAllResources } from '@ycomm/downloads';
+import { createCard, deleteCard, listAllCards, listAllResources, updateCard } from '@ycomm/downloads';
 import type { AppVariables } from '../context';
 import { sessionAuth } from '../middleware/session';
 import { requirePermission } from '../middleware/permission';
@@ -45,6 +45,30 @@ const decideSchema = z.object({
 const inviteCreateSchema = z.object({
   name: z.string().min(1).max(60),
   code: z.string().max(10).optional(),
+});
+
+const cardCreateSchema = z.object({
+  parentId: z.string().nullable().optional(),
+  title: z.string().min(1).max(80),
+  subtitle: z.string().max(200).optional(),
+  kind: z.enum(['container', 'redirect', 'resources']).default('container'),
+  redirectUrl: z.string().max(2000).nullable().optional(),
+  w: z.number().int().min(1).max(6).optional(),
+  h: z.number().int().min(1).max(6).optional(),
+  visibility: z.enum(['public', 'login', 'staff']).default('public'),
+  position: z.number().int().optional(),
+});
+
+const cardUpdateSchema = z.object({
+  parentId: z.string().nullable().optional(),
+  title: z.string().min(1).max(80).optional(),
+  subtitle: z.string().max(200).optional(),
+  kind: z.enum(['container', 'redirect', 'resources']).optional(),
+  redirectUrl: z.string().max(2000).nullable().optional(),
+  w: z.number().int().min(1).max(6).optional(),
+  h: z.number().int().min(1).max(6).optional(),
+  visibility: z.enum(['public', 'login', 'staff']).optional(),
+  position: z.number().int().optional(),
 });
 
 const adminUser = (user: UserRecord) => ({
@@ -216,5 +240,78 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
     return c.json({ ok: true, data: null });
   });
 
+  // ---- 下载区卡片门户（管理员增删改） ---------------------------------
+  router.get('/cards', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const handle = await getDb();
+    const cards = await listAllCards(handle.db);
+    return c.json({ ok: true, data: { cards: cards.map(adminCard) } });
+  });
+
+  router.post('/cards', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const body = await parseBody(c, cardCreateSchema);
+    const handle = await getDb();
+    const card = await createCard(handle.db, {
+      parentId: body.parentId ?? null,
+      title: body.title,
+      subtitle: body.subtitle,
+      kind: body.kind,
+      redirectUrl: body.redirectUrl,
+      w: body.w,
+      h: body.h,
+      visibility: body.visibility,
+      position: body.position,
+    });
+    return c.json({ ok: true, data: { card: adminCard(card) } }, 201);
+  });
+
+  router.patch('/cards/:cardId', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const body = await parseBody(c, cardUpdateSchema);
+    const handle = await getDb();
+    const card = await updateCard(handle.db, c.req.param('cardId'), {
+      parentId: body.parentId,
+      title: body.title,
+      subtitle: body.subtitle,
+      kind: body.kind,
+      redirectUrl: body.redirectUrl,
+      w: body.w,
+      h: body.h,
+      visibility: body.visibility,
+      position: body.position,
+    });
+    return c.json({ ok: true, data: { card: adminCard(card) } });
+  });
+
+  router.delete('/cards/:cardId', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const handle = await getDb();
+    await deleteCard(handle.db, c.req.param('cardId'));
+    return c.json({ ok: true, data: null });
+  });
+
   return router;
+}
+
+function adminCard(card: {
+  id: string;
+  parent_id: string | null;
+  title: string;
+  subtitle: string;
+  kind: string;
+  redirect_url: string | null;
+  w: number;
+  h: number;
+  visibility: string;
+  position: number;
+}) {
+  return {
+    id: card.id,
+    parentId: card.parent_id,
+    title: card.title,
+    subtitle: card.subtitle,
+    kind: card.kind,
+    redirectUrl: card.redirect_url,
+    w: card.w,
+    h: card.h,
+    visibility: card.visibility,
+    position: card.position,
+  };
 }

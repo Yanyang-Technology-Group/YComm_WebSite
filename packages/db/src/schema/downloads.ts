@@ -8,6 +8,7 @@ import {
   timestamp,
   uuid,
   varchar,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { accessPolicyJsonb } from './access';
 import { createdAtColumn, deletedAtColumn, updatedAtColumn } from './helpers';
@@ -155,4 +156,33 @@ export const downloadLogs = pgTable(
     index('download_logs_user_time_idx').on(table.user_id, table.created_at),
     index('download_logs_resource_time_idx').on(table.resource_id, table.created_at),
   ],
+);
+
+export const downloadCardKindEnum = pgEnum('download_card_kind', ['container', 'redirect', 'resources']);
+
+/**
+ * 下载区卡片门户：管理员可无限嵌套的树状卡片。
+ * - kind=container  → 点进去显示子卡片（套娃）
+ * - kind=redirect   → 点进去重定向到 redirect_url
+ * - kind=resources  → 点进去显示资源列表（走现有下载逻辑）
+ * - w/h 是网格单位尺寸（后台可视化拖拽缩放）
+ * - visibility：public=访客可见 / login=需登录 / staff=仅管理员/站长
+ */
+export const downloadCards = pgTable(
+  'download_cards',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    parent_id: uuid('parent_id').references((): AnyPgColumn => downloadCards.id, { onDelete: 'cascade' }),
+    title: varchar('title', { length: 80 }).notNull(),
+    subtitle: varchar('subtitle', { length: 200 }).notNull().default(''),
+    kind: downloadCardKindEnum('kind').notNull().default('container'),
+    redirect_url: text('redirect_url'),
+    w: integer('w').notNull().default(1),
+    h: integer('h').notNull().default(1),
+    visibility: text('visibility').notNull().default('public'),
+    position: integer('position').notNull().default(0),
+    created_at: createdAtColumn(),
+    updated_at: updatedAtColumn(),
+  },
+  (table) => [index('download_cards_parent_idx').on(table.parent_id)],
 );

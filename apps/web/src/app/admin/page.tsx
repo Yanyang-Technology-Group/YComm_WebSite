@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { BannedWordsPanel, InviteCodesPanel } from '../../components/admin-panels';
+import { CardsPanel } from '../../components/card-editor';
 
 export const metadata: Metadata = { title: '管理后台' };
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,7 @@ export default function AdminPage() {
         </Link>
       </div>
       <div style={{ marginTop: '1.5rem', display: 'grid', gap: '1rem' }}>
+        <CardsPanel />
         <InviteCodesPanel />
         <BannedWordsPanel />
       </div>

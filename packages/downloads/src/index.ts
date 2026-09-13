@@ -13,6 +13,19 @@ export {
   type CategoryRow,
   type CategoryView,
 } from './categories';
+export {
+  createCard,
+  deleteCard,
+  getCard,
+  listAllCards,
+  listCards,
+  updateCard,
+  type CardKind,
+  type CardRow,
+  type CardVisibility,
+  type CreateCardInput,
+  type UpdateCardInput,
+} from './cards';
 export { registerDownloadDeciders } from './deciders';
 export {
   authorizedExtractCode,

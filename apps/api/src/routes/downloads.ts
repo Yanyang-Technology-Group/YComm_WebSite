@@ -14,6 +14,7 @@ import {
   getResourceIdByLink,
   listPublishedResources,
   listVisibleCategories,
+  listCards,
   openLocalFile,
   removeLink,
   reportDeadLink,
@@ -65,6 +66,28 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
     const categories = await listVisibleCategories(handle.db, c.get('auth')?.subject ?? null);
     return c.json({ ok: true, data: { categories } });
+  });
+
+  router.get('/cards', async (c) => {
+    const handle = await getDb();
+    const subject = c.get('auth')?.subject ?? null;
+    const cards = await listCards(handle.db, subject);
+    return c.json({
+      ok: true,
+      data: {
+        cards: cards.map((card) => ({
+          id: card.id,
+          parentId: card.parent_id,
+          title: card.title,
+          subtitle: card.subtitle,
+          kind: card.kind,
+          redirectUrl: card.redirect_url,
+          w: card.w,
+          h: card.h,
+          position: card.position,
+        })),
+      },
+    });
   });
 
   router.get('/resources', async (c) => {
