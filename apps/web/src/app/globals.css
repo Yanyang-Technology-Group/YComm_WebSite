@@ -306,3 +306,198 @@ button.primary {
   -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
   -webkit-text-fill-color: var(--text);
 }
+
+/* ===== 通用卡片 / 文本 ===== */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 0.6rem;
+  box-shadow: var(--shadow);
+}
+
+.topic-link {
+  display: block;
+  color: var(--text);
+}
+
+.post-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 0.6rem;
+  box-shadow: var(--shadow);
+}
+
+.page-title {
+  font-size: 1.6rem;
+  margin: 0 0 0.5rem;
+}
+
+.section-title {
+  font-size: 1.05rem;
+  margin: 0 0 0.6rem;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  margin-top: 0.4rem;
+}
+
+/* ===== 论坛三栏（Discord 式） ===== */
+.forum-layout {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.forum-sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 4.75rem;
+}
+
+.forum-center {
+  flex: 1;
+  min-width: 0;
+}
+
+.forum-info {
+  width: 230px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 4.75rem;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.9rem;
+  box-shadow: var(--shadow);
+}
+
+.panel-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0 0 0.6rem;
+  font-weight: 700;
+}
+
+.board-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.board-link:hover {
+  background: var(--accent-soft);
+  opacity: 1;
+}
+
+.board-hash {
+  color: var(--muted);
+}
+
+.info-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 0.2rem;
+}
+
+@media (max-width: 860px) {
+  .forum-info {
+    display: none;
+  }
+
+  .forum-sidebar {
+    width: 160px;
+  }
+}
+
+@media (max-width: 640px) {
+  .forum-sidebar {
+    display: none;
+  }
+}
+
+/* ===== 弹窗 ===== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(10, 14, 20, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 2rem;
+  max-width: 400px;
+  width: 100%;
+  position: relative;
+  text-align: center;
+}
+
+.modal-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.8rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.modal-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.3rem;
+}
+
+.modal-text {
+  color: var(--muted);
+  margin: 0 0 1.5rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.modal-skip {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}

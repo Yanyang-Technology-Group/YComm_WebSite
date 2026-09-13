@@ -40,9 +40,11 @@ export default async function TopicPage({
     return (
       <div>
         <p>
-          <Link href={`/forum/${slug}`}>← 返回版块</Link>
+          <Link href={`/forum/${slug}`} className="muted">
+            ← 返回版块
+          </Link>
         </p>
-        <p style={{ color: '#dc2626' }}>主题不存在或不可见：{result.status === 401 ? '请先登录' : ''}</p>
+        <p className="muted">主题不存在或不可见{result.status === 401 ? '：请先登录' : ''}</p>
       </div>
     );
   }
@@ -53,26 +55,21 @@ export default async function TopicPage({
   return (
     <div>
       <p>
-        <Link href={`/forum/${slug}`}>← 返回版块</Link>
+        <Link href={`/forum/${slug}`} className="muted">
+          ← 返回版块
+        </Link>
       </p>
-      <h1 style={{ marginBottom: '0.25rem' }}>{topic.title}</h1>
-      <p style={{ color: '#71717a', marginTop: 0, fontSize: '0.85rem' }}>
+      <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>
+        {topic.title}
+      </h1>
+      <p className="muted" style={{ marginTop: 0 }}>
         {topic.reply_count} 回复 · {topic.view_count} 浏览{topic.is_locked ? ' · 已锁定' : ''}
       </p>
 
       {posts.map((post) => (
-        <div
-          key={post.id}
-          style={{
-            border: '1px solid #e4e4e7',
-            borderRadius: 8,
-            background: '#fff',
-            padding: '0.9rem 1.1rem',
-            marginBottom: '0.6rem',
-          }}
-        >
-          <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
-            #{post.position}· {post.authorDisplayName ?? '访客'} ·{' '}
+        <div key={post.id} className="post-item">
+          <div className="muted" style={{ marginBottom: '0.4rem' }}>
+            #{post.position} · {post.authorDisplayName ?? '访客'} ·{' '}
             {new Date(post.created_at).toLocaleString('zh-CN')}
             {post.edited_at ? ' · 已编辑' : ''}
           </div>
@@ -84,10 +81,10 @@ export default async function TopicPage({
       ))}
 
       {topic.is_locked ? (
-        <p style={{ color: '#71717a' }}>主题已锁定，无法回复。</p>
+        <p className="muted">主题已锁定，无法回复。</p>
       ) : (
         <div style={{ marginTop: '1.5rem' }}>
-          <h2 style={{ fontSize: '1.05rem' }}>回复</h2>
+          <h2 className="section-title">回复</h2>
           <ReplyForm topicId={topic.id} />
         </div>
       )}

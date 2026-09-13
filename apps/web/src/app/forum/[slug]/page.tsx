@@ -42,40 +42,31 @@ export default async function BoardPage({
   return (
     <div>
       <p>
-        <Link href="/forum">← 全部版块</Link>
+        <Link href="/forum" className="muted">
+          ← 全部版块
+        </Link>
       </p>
-      <h1>{board?.name ?? slug}</h1>
-      {board && <p style={{ color: '#52525b' }}>{board.description}</p>}
+      <h1 className="page-title">{board?.name ?? slug}</h1>
+      {board && <p className="muted">{board.description}</p>}
 
-      <h2 style={{ fontSize: '1.05rem' }}>主题</h2>
-      {topics.length === 0 && <p style={{ color: '#71717a' }}>还没有主题，来发第一帖吧。</p>}
+      <h2 className="section-title">主题</h2>
+      {topics.length === 0 && <p className="muted">还没有主题，来发第一帖吧。</p>}
       {topics.map((topic) => (
-        <Link
-          key={topic.id}
-          href={`/forum/${slug}/${topic.id}`}
-          style={{
-            display: 'block',
-            border: '1px solid #e4e4e7',
-            borderRadius: 8,
-            background: '#fff',
-            padding: '0.75rem 1rem',
-            marginBottom: '0.5rem',
-            color: '#1c1c1e',
-            textDecoration: 'none',
-          }}
-        >
+        <Link key={topic.id} href={`/forum/${slug}/${topic.id}`} className="card topic-link">
           <strong>
             {topic.is_pinned && '📌 '}
             {topic.is_locked && '🔒 '}
             {topic.title}
           </strong>
-          <span style={{ color: 'var(--muted)', fontSize: '0.85rem', marginLeft: '0.6rem' }}>
+          <span className="muted" style={{ marginLeft: '0.6rem' }}>
             {topic.authorDisplayName ?? '访客'} · {topic.reply_count} 回复 · {topic.view_count} 浏览
           </span>
         </Link>
       ))}
 
-      <h2 style={{ fontSize: '1.05rem', marginTop: '2rem' }}>发新主题</h2>
+      <h2 className="section-title" style={{ marginTop: '2rem' }}>
+        发新主题
+      </h2>
       <NewTopicForm boardSlug={slug} />
     </div>
   );
