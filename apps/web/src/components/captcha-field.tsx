@@ -1,56 +1,72 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
-interface CaptchaWindow {
-  captcha?: { getToken: (opts: Record<string, unknown>) => Promise<string> };
-}
+import { useEffect, useRef, useState } from 'react';
 
 /**
- * 注册人机验证（Cap.js PoW + 自托管 cap-worker）。
- * 加载 Cap.js 脚本 → 用户点击后计算 PoW 拿到 token → 写入隐藏字段 captchaToken。
+ * 人机验证 —— CAP Worker（Cloudflare Workers + SHA-256 工作量证明）。
+ *
+ * 流程：加载 `cap.min.js` → 渲染 `<cap-widget data-cap-api-endpoint>` →
+ * 用户完成解题后收到 `solve` 事件 → 把 `e.detail.token` 写入隐藏字段
+ * captchaToken；服务端再调 `${endpoint}/api/validate` 做一次性核验。
  */
-export function CaptchaField({ script, siteKey, endpoint }: { script: string; siteKey: string; endpoint: string }) {
-  const [status, setStatus] = useState<'loading' | 'ready' | 'verifying' | 'done' | 'error'>('loading');
+export function CaptchaField({ script, widgetApi }: { script: string; widgetApi: string }) {
+  const [ready, setReady] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState(false);
   const [token, setToken] = useState('');
+  const hostRef = useRef<HTMLDivElement>(null);
 
+  // 加载 cap-widget 的客户端脚本（只加载一次，登录/注册页共用）。
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (document.querySelector('script[data-cap-captcha]')) {
-      setStatus('ready');
+    if (document.querySelector('script[data-cap-widget]')) {
+      setReady(true);
       return;
     }
     const el = document.createElement('script');
     el.src = script;
     el.async = true;
-    el.dataset.capCaptcha = '1';
-    el.onload = () => setStatus('ready');
-    el.onerror = () => setStatus('error');
+    el.dataset.capWidget = '1';
+    el.onload = () => setReady(true);
+    el.onerror = () => setError(true);
     document.head.appendChild(el);
   }, [script]);
 
-  async function run() {
-    setStatus('verifying');
-    try {
-      const cap = (window as unknown as CaptchaWindow).captcha;
-      if (!cap?.getToken) throw new Error('验证码脚本未就绪');
-      const value = await cap.getToken({ apiKey: siteKey, callbackUrl: endpoint, siteKey });
-      setToken(value);
-      setStatus('done');
-    } catch {
-      setStatus('error');
+  // 监听 widget 的 solve 事件，拿到解题 token。
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    function onSolve(event: Event) {
+      const detail = (event as CustomEvent<{ token?: string }>).detail;
+      if (detail?.token) {
+        setToken(detail.token);
+        setDone(true);
+      }
     }
-  }
+    host.addEventListener('solve', onSolve);
+    return () => host.removeEventListener('solve', onSolve);
+  }, [ready]);
 
   return (
     <div>
       <input type="hidden" name="captchaToken" value={token} />
-      {status === 'error' && <p style={{ color: '#dc2626', margin: 0, fontSize: '0.85rem' }}>验证码加载失败，请刷新重试</p>}
-      {status !== 'done' ? (
-        <button type="button" onClick={() => void run()} disabled={status !== 'ready'} style={{ width: '100%' }}>
-          {status === 'loading' ? '加载人机验证…' : status === 'verifying' ? '验证中…' : '完成人机验证'}
-        </button>
-      ) : (
+      {error && (
+        <p role="alert" style={{ color: '#dc2626', margin: 0, fontSize: '0.85rem' }}>
+          验证码加载失败，请刷新重试
+        </p>
+      )}
+      {!error && (
+        <div ref={hostRef} style={{ minHeight: 44 }}>
+          {ready ? (
+            <cap-widget data-cap-api-endpoint={widgetApi} />
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>
+              加载人机验证…
+            </p>
+          )}
+        </div>
+      )}
+      {done && (
         <p style={{ color: '#16a34a', margin: 0, fontSize: '0.85rem' }}>✓ 人机验证通过</p>
       )}
     </div>

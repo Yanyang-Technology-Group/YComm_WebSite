@@ -157,7 +157,7 @@ export function AuthForm({
 
       {/* 人机验证：注册 / 登录 / 找回密码 / 重置密码 四类表单统一挂载 */}
       {(kind === 'register' || kind === 'login' || kind === 'forgot' || kind === 'reset') &&
-        captcha && <CaptchaField script={captcha.script} siteKey={captcha.siteKey} endpoint={captcha.endpoint} />}
+        captcha && <CaptchaField script={captcha.script} widgetApi={captcha.widgetApi} />}
 
       {kind === 'forgot' && <input name="email" type="email" placeholder="注册邮箱" required />}
 
