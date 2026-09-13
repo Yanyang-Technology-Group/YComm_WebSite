@@ -521,7 +521,10 @@ a:hover {
 .app-content {
   flex: 1;
   min-width: 0;
-  max-width: 980px;
+  /* 内容列加宽并在剩余空间里居中，宽屏右侧不再一大片空白 */
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
   padding: 2.5rem 2.25rem 6rem;
 }
 
