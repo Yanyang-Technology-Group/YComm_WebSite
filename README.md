@@ -1,60 +1,38 @@
 # YComm
 
-自托管的社区平台：**账号系统 · 论坛 · 下载区**，一个容器跑起来。
+> 自托管的社区平台 —— **账号系统 · 论坛 · 下载区**，一个容器跑起来。
 
-- **模块化单体**：`web → api → 领域包 → kernel/db`，依赖方向由 ESLint 强制单向。
-- **统一权限内核**：角色（Owner/Admin/Member/Guest）+ 等级 + 资源访问策略（公开 / 需登录 / 邀请码）走同一个判定链；未登录只能看/发/下「管理员设为公开」的内容，其余全部登录墙。
-- **下载区门禁**：外链与提取码不落任何列表/详情 API，通过门禁后短时效跳转；大文件外链、小文件本地；公开内容访客可下。
-- **违禁词**：管理员在后台维护，含违禁词的主题/回复直接拦截。
-- **个性化主题**：蔚蓝（默认）/ 粉 / 清新绿 / 浅色 / 深色，用户本地选择、仅对自己生效。
-- **零安装开发**：本地用 PGlite（嵌入式 Postgres），不需要装数据库；生产用 Postgres 16，同一套 schema 与迁移。
-- **许可证**：AGPL-3.0-or-later，CI 强制依赖许可兼容 + DCO 签名。
+YComm 是一款面向自托管的社区型站点：经典论坛 + 资源下载站的形态，用现代技术栈（Next.js · Hono · PostgreSQL）实现。本地开发零安装、生产部署一条命令，开箱即用。
 
-## 当前进度（P0–P5 全部完成）
+## 功能特色
 
-| 期 | 内容 | 状态 |
-|---|---|---|
-| P0 | monorepo、配置体系、schema+迁移、kernel、API/Web 骨架、部署、CI | ✅ |
-| P1 | 账号：注册 / 邮箱验证 / 登录 / 找回密码 / `owner:create` / `owner:recover` | ✅ |
-| P2 | 权限判定链（状态门→策略门→权限点）+ 统一审核队列 + 管理后台 | ✅ |
-| P3 | 论坛：版块 / 主题 / 回帖 / 点赞 / 编辑历史 / 新成员审核 / 搜索 | ✅ |
-| P4 | 下载区：资源状态机 / 外链白名单门禁 / 两级审核 / 举报 / 每日配额 | ✅ |
-| P5 | 开源就绪：LICENSE(AGPL-3.0 全文) / NOTICE / 备份脚本 / license 门禁 / DCO / 自动发布 | ✅ |
+- 👤 **账号系统** — 注册 / 邮箱验证 / 登录 / 找回密码，`owner` 引导建站。
+- 💬 **论坛** — 版块、主题、回帖、点赞、编辑历史、新成员审核、搜索。
+- 📦 **下载区** — 资源状态机、外链白名单门禁、两级审核、举报、每日配额。
+- 🔐 **统一权限内核** — 角色（Owner / Admin / Member / Guest）+ 等级 + 访问策略（公开 / 需登录 / 邀请码）走同一判定链。
+- 🚫 **违禁词拦截** — 后台维护词库，命中即拦。
+- 🎨 **个性化主题** — 蔚蓝（默认）/ 粉 / 清新绿 / 浅色 / 深色，按用户选择、仅对自己生效。
+- ⚡ **零安装开发** — 本地用 PGlite（嵌入式 Postgres），不用装数据库；生产用 Postgres 16，同一套 schema 与迁移。
+- 📜 **开源合规** — AGPL-3.0-or-later，CI 强制依赖许可兼容 + DCO 签名。
 
-## 自动化流水线（GitHub Actions）
+## 技术架构
 
-- **Release**：push 到 master 自动跑 构建→测试→许可门禁 → 构建 GHCR 镜像 → 打
-  `vYYYY.MM.DD.<提交数>` 标签 → 发布 GitHub Release（与 Yanyang_WebSite 同版本格式）。
-- **自动部署**：push 到 master 在发布后自动部署到北京服务器——GitHub Actions 从国内
-  镜像源拉取 GHCR 镜像（默认 `ghcr.nju.edu.cn`，可用仓库变量 `GHCR_MIRROR` 覆盖），
-  SSH 到服务器 `docker run` 进 `coolify` 网络（Postgres 由 Coolify 托管）。
+模块化单体（Modular Monolith），依赖方向单向强制：
 
-### 部署所需 Secrets
+```
+web → api → 领域包 → kernel / db
+```
 
-在仓库 **Settings → Secrets and variables → Actions → New repository secret** 添加：
+- `apps/web`：Next.js 页面层，只调用 `@ycomm/api`，禁止直接接触数据库。
+- `apps/api`：Hono HTTP 层，负责校验、鉴权与 DTO 编排。
+- 领域包：`identity`（账号）、`access`（权限判定链）、`forum`（论坛）、`downloads`（下载区）、`moderation`（审核）、`notify`（邮件）、`jobs`（任务）、`audit`（审计）。
+- 底座：`packages/db`（Drizzle schema + 迁移 + pglite/postgres 双驱动）、`packages/kernel`（env 校验、错误、日志、限流）。
 
-| Secret | 说明 |
-|---|---|
-| `SERVER_HOST` | 北京服务器 SSH 地址（IP 或域名） |
-| `SERVER_SSH_USER` | SSH 用户名 |
-| `SERVER_SSH_KEY` | SSH 私钥（`BEGIN OPENSSH PRIVATE KEY` 格式；公钥加到服务器 `authorized_keys`） |
-| `SERVER_PORT` | SSH 端口，默认 22（可省略） |
-| `DB_HOST` | Coolify 里 Postgres 的地址（容器名或内网 IP） |
-| `DB_PASSWORD` | Postgres 密码 |
-| `SESSION_SECRET` | 会话密钥，≥32 字符（`openssl rand -base64 48`） |
-| `SITE_URL` | `https://community.yanyn.cn` |
-| `SITE_NAME` | 站点名（可选） |
-| `YCOMM_OWNER_USERNAME` / `YCOMM_OWNER_EMAIL` / `YCOMM_OWNER_PASSWORD` | 可选；首启自动建站长 |
+依赖方向由 ESLint 在 CI 中强制校验，防止架构腐化。
 
-### 部署前置条件（一次性）
+## 快速开始
 
-1. **GHCR 包设为 Public**：镜像源只能拉公共镜像。GitHub 仓库 → Packages → `ycomm-web` →
-   Package settings → Change visibility → **Public**。
-2. **服务器能访问镜像源**：先在服务器 `docker pull ghcr.nju.edu.cn/<org>/ycomm-web:latest`
-   验证；不通就换源，并在仓库 **Variables** 里设 `GHCR_MIRROR`。
-3. **服务器装好 Docker**，且部署公钥已加入目标用户的 `authorized_keys`。
-
-## 快速开始（生产，Docker + Postgres）
+### 生产部署（Docker + Postgres）
 
 ```bash
 cp .env.example .env
@@ -62,65 +40,26 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-App 只绑定 `127.0.0.1:3000`。对外暴露用 **Cloudflare Tunnel**（或你自己的反代）：
+应用只绑定 `127.0.0.1:3000`，对外通过 Cloudflare Tunnel 或你自己的反向代理暴露。完整部署与运维说明见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
 
-```toml
-# cloudflared config.yml
-tunnel: <tunnel-id>
-credentials-file: /path/to/<tunnel-id>.json
-ingress:
-  - hostname: forum.example.com
-    service: http://localhost:3000
-  - service: http_status:404
-```
-
-> Cloudflare 免费隧道限制单请求体 100MB——这是本地附件上限 50MB、大文件走外链的原因。
-> 限流与封禁依赖 `CF-Connecting-IP`，请保持 `TRUST_PROXY_HEADERS=true`。
-
-## 本地开发（零安装）
+### 本地开发（零安装）
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000
-npm run db:migrate   # 第一次跑迁移（写入 .data/pglite，已在 .gitignore）
-npm run db:seed      # 种子：版块 / 下载分类 / 站点设置
+npm run db:migrate          # 首次迁移（写入 .data/pglite）
+npm run db:seed             # 种子：版块 / 下载分类 / 站点设置
 npm run owner:create -- --username owner --email you@example.com --password <secret>
-                    # 首个站长（或：YCOMM_OWNER_* 环境变量）
-npm run verify       # lint + typecheck + test + license 检查
+npm run dev                 # http://localhost:3000
 ```
 
-首次使用流程：`db:migrate` → `db:seed` → `owner:create` 之后，再 `npm run dev`
-进入站点；注册 → 邮箱验证（无 SMTP 时控制台会打印验证链接）→ 登录。
-
-## 备份
-
-```bash
-DATABASE_URL=postgres://... BACKUP_TARGET=/mnt/backups/ycomm ./scripts/backup.sh
-```
-
-详见脚本头部（pg_dump + uploads 硬链轮转 + 保留周期）；**请每月验证一次恢复路径**。
-
-## 目录
-
-```
-apps/web        Next.js 页面（只调 @ycomm/api，禁止 import 领域包/数据库）
-apps/api        Hono HTTP 层（校验、鉴权中间件、DTO，薄编排）
-packages/kernel 基础设施：env 校验、AppError、日志、ID、限流器
-config/         类型化配置：站点 / 角色与权限矩阵 / 策略 / 版块与分类种子
-packages/db     Drizzle schema + 迁移 + 双驱动客户端（pglite / postgres）
-packages/identity      账号、会话、凭据、管理员操作
-packages/access        访问判定链（状态门 → 策略门 → 权限点）
-packages/forum         版块、主题、回帖、点赞
-packages/downloads     资源状态机、外链门禁、本地文件
-packages/moderation    统一审核队列
-packages/notify        邮件（SMTP/console 回退）
-packages/jobs          DB 任务表 + 进程内 worker
-packages/audit         审计日志
-```
+首次进入站点：注册 → 邮箱验证（无 SMTP 时控制台打印验证链接）→ 登录。
+完整校验：`npm run verify`（lint + typecheck + test + license 检查）。
 
 ## 文档
 
-- 贡献（DCO 与提交规范）：[CONTRIBUTING.md](CONTRIBUTING.md)
+- 部署与运维：[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- 贡献指南（DCO 与提交规范）：[CONTRIBUTING.md](CONTRIBUTING.md)
+- 安全政策：[SECURITY.md](SECURITY.md)
 
 ## License
 
