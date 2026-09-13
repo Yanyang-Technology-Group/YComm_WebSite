@@ -2,36 +2,76 @@
 
 > 本文面向部署与维护 YComm 的人，包含 CI/CD 流水线、服务器部署、备份与隧道注意事项。
 
+## 部署模型
+
+北京服务器**屏蔽外网入站**（SSH 进不去），因此不采用「GitHub Actions 推送镜像到服务器」的
+方式，而是**服务器主动从国内镜像源拉取镜像、本地部署**（出站下载不受影响）：
+
+```
+GitHub Actions（构建+推送 GHCR 镜像）
+        │
+        ▼
+ghcr.io ──(国内镜像源缓存)──▶ 北京服务器：docker pull 镜像源/<org>/ycomm-web:latest
+                                      │ 镜像有更新才 docker run 重启
+                                      ▼
+                              coolify 网络（Postgres 由 Coolify 托管）
+```
+
+更新延迟取决于服务器的轮询周期（默认每 5 分钟一次）。
+
 ## 自动化流水线（GitHub Actions）
 
 push 到 `master` 后自动执行：
 
 1. **Verify**：lint → typecheck → 单元/集成测试 → AGPL 许可门禁 → DCO 签名检查。
-2. **Release**：构建 GHCR 镜像 → 打 `vYYYY.MM.DD.<提交数>` 标签 → 发布 GitHub Release。
-3. **Deploy**：发布成功后 SSH 到服务器，从国内镜像源拉取 GHCR 镜像，`docker run` 加入
-   `coolify` 网络（Postgres 由 Coolify 托管）。
+2. **Release**：构建 GHCR 镜像（`ghcr.io/<org>/ycomm-web`）→ 打 `vYYYY.MM.DD.<提交数>`
+   标签 → 发布 GitHub Release。
 
-镜像：`ghcr.io/<org>/ycomm-web`。服务器从国内镜像源拉取（默认 `ghcr.nju.edu.cn`，可用仓库
-变量 `GHCR_MIRROR` 覆盖，填**裸主机名**，不要带 `https://` 或路径）。
+流水线**不直接部署**，部署由服务器侧脚本完成（见下）。
 
-## 部署所需 Secrets
+## 服务器侧安装（一次性）
 
-在仓库 **Settings → Secrets and variables → Actions** 中添加：
+在服务器上执行：
 
-| Secret | 说明 |
-|---|---|
-| `SERVER_HOST` | 服务器 SSH 地址（IP 或域名） |
-| `SERVER_SSH_USER` | SSH 用户名 |
-| `SERVER_SSH_KEY` | SSH 私钥（`BEGIN OPENSSH PRIVATE KEY` 格式；公钥加入服务器 `authorized_keys`） |
-| `SERVER_PORT` | SSH 端口（默认 22，可省略） |
-| `DB_HOST` | Coolify 中 Postgres 的内部地址（容器名/内网主机名） |
-| `DB_PASSWORD` | Postgres 密码 |
-| `SESSION_SECRET` | 会话密钥，≥32 字符（`openssl rand -base64 48`） |
-| `SITE_URL` | 站点对外地址，如 `https://community.yanyn.cn` |
-| `SITE_NAME` | 站点名（可选） |
-| `YCOMM_OWNER_USERNAME` / `YCOMM_OWNER_EMAIL` / `YCOMM_OWNER_PASSWORD` | 可选；首次启动自动创建站长 |
+```bash
+# 1. 目录与脚本
+mkdir -p /opt/ycomm
+cp scripts/deploy-server.sh /opt/ycomm/deploy.sh
+chmod +x /opt/ycomm/deploy.sh
 
-仓库变量（非机密）：`GHCR_MIRROR`（镜像源主机名，可选）。
+# 2. 填写配置（机密放这里，勿提交/勿外传）
+vi /opt/ycomm/ycomm.env
+```
+
+`/opt/ycomm/ycomm.env` 模板：
+
+```bash
+IMAGE=ghcr.io/yanyang-technology-group/ycomm-web
+MIRROR=ghcr.nju.edu.cn                 # 换源时改这里
+DB_HOST=<Coolify 中 Postgres 的内部地址>
+DB_USER=ycomm
+DB_PASSWORD=********
+DB_NAME=ycomm
+SESSION_SECRET=********                # openssl rand -base64 48
+SITE_URL=https://community.yanyn.cn
+SITE_NAME=YComm
+YCOMM_OWNER_USERNAME=                  # 可选，首次启动自动创建站长
+YCOMM_OWNER_EMAIL=
+YCOMM_OWNER_PASSWORD=
+```
+
+```bash
+# 3. 先手动跑一次，确认能拉镜像、容器能起来
+/opt/ycomm/deploy.sh
+
+# 4. 再加定时任务，每 5 分钟检查一次更新
+crontab -e   # 加一行：
+*/5 * * * * /opt/ycomm/deploy.sh >> /var/log/ycomm-deploy.log 2>&1
+```
+
+脚本逻辑：`docker pull` → 与当前容器镜像比对，没变就跳过 → 变了才 `docker run`
+（`--network coolify`，Postgres 由 Coolify 托管）→ 健康检查（最多等 3 分钟）。
+拉取失败时旧容器不会被动。
 
 ## 部署前置条件（一次性）
 
@@ -40,19 +80,19 @@ push 到 `master` 后自动执行：
 2. **服务器能访问镜像源**：先手动验证：
 
    ```bash
-   docker pull ghcr.nju.edu.cn/<org>/ycomm-web:latest
+   docker pull ghcr.nju.edu.cn/yanyang-technology-group/ycomm-web:latest
    ```
 
-   不通就换源，并设置仓库变量 `GHCR_MIRROR`。
-3. **服务器环境**：安装好 Docker；把部署公钥加入部署用户的 `~/.ssh/authorized_keys`。
+   不通就换源，把 `MIRROR` 改成可用的镜像源（填裸主机名，不带 `https://` 或路径）。
+3. **服务器环境**：安装好 Docker，且能访问 `coolify` 网络（Coolify 托管的 Postgres）。
 
 ## 手动部署 / 回滚
 
 ```bash
 # 拉取（走镜像源）
-docker pull ghcr.nju.edu.cn/<org>/ycomm-web:<tag>
+docker pull ghcr.nju.edu.cn/yanyang-technology-group/ycomm-web:<tag>
 
-# 停旧起新（加入 coolify 网络，Postgres 由 Coolify 托管）
+# 停旧起新（加入 coolify 网络）
 docker rm -f ycomm || true
 docker run -d --name ycomm --restart unless-stopped --network coolify -p 127.0.0.1:3000:3000 \
   -e NODE_ENV=production \
@@ -61,10 +101,10 @@ docker run -d --name ycomm --restart unless-stopped --network coolify -p 127.0.0
   -e SESSION_SECRET='<SESSION_SECRET>' \
   -e SITE_URL='https://community.yanyn.cn' \
   -e TRUST_PROXY_HEADERS=true \
-  ghcr.nju.edu.cn/<org>/ycomm-web:<tag>
+  ghcr.nju.edu.cn/yanyang-technology-group/ycomm-web:<tag>
 ```
 
-回滚：用上一个版本的 tag 重跑一遍即可；`docker pull` 失败时旧容器不会被替换。
+回滚：用上一个版本的 tag 重跑一遍即可。
 
 ## 备份
 
