@@ -447,13 +447,86 @@ a:hover {
   flex-shrink: 0;
 }
 
-/* 帖子头部：头像 + 元信息 + 管理员操作入口 */
-.post-head {
+/* 帖子底部一行：内容下方，左 = 头像+名字，右 = 点赞/转发/管理图标按钮 */
+.post-footer {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.5rem;
   flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-top: 1rem;
+}
+
+.post-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.post-author-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.post-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+/* 纯图标按钮：无边框无底色（点赞/转发等） */
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.4rem;
+  border-radius: 8px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.icon-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.icon-btn.liked {
+  color: #e11d48;
+}
+
+/* 小文字按钮（封禁/禁言/删除等） */
+.text-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.84rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 8px;
+}
+
+.text-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.text-btn.danger {
+  color: #dc2626;
+}
+
+.text-btn.danger:hover {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 /* ===== 论坛三栏：左右栏与中间区分开 ===== */
@@ -645,9 +718,9 @@ a:hover {
   padding: 1.5rem 1.75rem;
 }
 
-/* ===== 主体居中 ===== */
+/* ===== 主体居中：整体加宽平铺，右侧不空一大片 ===== */
 .site-main {
-  max-width: 1120px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 3rem 1.5rem 6rem;
 }
@@ -942,6 +1015,11 @@ select:focus {
   margin: 0;
   border-bottom: 1px solid var(--border);
   box-shadow: none;
+}
+
+/* 主题页平铺：整块内容铺满更宽的容器，右侧不留大片空白 */
+.site-main:has(.topic-page) {
+  max-width: 1280px;
 }
 
 .page-title {

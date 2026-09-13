@@ -158,8 +158,15 @@ export function LikeButton({ postId, initialLiked }: { postId: string; initialLi
 
   return (
     <>
-      <button type="button" onClick={() => void toggle()} disabled={busy} style={{ cursor: 'pointer' }}>
-        {liked ? '♥ 已赞' : '♡ 点赞'}
+      <button
+        type="button"
+        onClick={() => void toggle()}
+        disabled={busy}
+        className={`icon-btn${liked ? ' liked' : ''}`}
+        title={liked ? '取消点赞' : '点赞'}
+        aria-label={liked ? '取消点赞' : '点赞'}
+      >
+        {liked ? '♥' : '♡'}
       </button>
 
       {showLoginPrompt && (
@@ -189,6 +196,33 @@ export function LikeButton({ postId, initialLiked }: { postId: string; initialLi
         </div>
       )}
     </>
+  );
+}
+
+/** 转发：把当前页面链接复制到剪贴板（纯图标按钮）。 */
+export function ShareButton({ text }: { text?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function share() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      alert('复制失败，请手动复制地址栏链接');
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="icon-btn"
+      onClick={() => void share()}
+      title={text ?? '转发（复制链接）'}
+      aria-label={text ?? '转发（复制链接）'}
+    >
+      {copied ? '✓' : '↗'}
+    </button>
   );
 }
 
@@ -241,7 +275,7 @@ export function DeletePostButton({ postId, authorId }: { postId: string; authorI
       type="button"
       onClick={() => void remove()}
       disabled={busy}
-      style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}
+      className="text-btn danger"
     >
       {busy ? '删除中…' : '删除'}
     </button>
@@ -293,7 +327,7 @@ export function DeleteTopicButton({
       type="button"
       onClick={() => void remove()}
       disabled={busy}
-      style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}
+      className="text-btn danger"
     >
       {busy ? '删除中…' : '删除主题'}
     </button>

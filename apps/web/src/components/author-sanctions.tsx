@@ -64,7 +64,9 @@ export function AuthorSanctions({
     border: 'none',
     cursor: 'pointer',
     color: 'var(--muted)',
-    padding: 0,
+    padding: '0.3rem 0.5rem',
+    borderRadius: 8,
+    fontSize: '0.84rem',
   };
 
   return (

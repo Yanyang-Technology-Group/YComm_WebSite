@@ -1,7 +1,13 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { apiGet } from '../../../../lib/server-api';
-import { DeletePostButton, DeleteTopicButton, LikeButton, ReplyForm } from '../../../../components/forum-form';
+import {
+  DeletePostButton,
+  DeleteTopicButton,
+  LikeButton,
+  ReplyForm,
+  ShareButton,
+} from '../../../../components/forum-form';
 import { AuthorSanctions } from '../../../../components/author-sanctions';
 import { MarkdownContent } from '../../../../components/markdown-content';
 
@@ -58,12 +64,14 @@ export default async function TopicPage({
   const liked = result.data?.likedPostIds ?? [];
 
   return (
-    <div>
+    <div className="topic-page">
       <p>
         <Link href={`/forum/${slug}`} className="muted">
           ← 返回版块
         </Link>
       </p>
+
+      {/* 楼主区：主题标题下直接放楼主内容（头像与名字在内容左下角） */}
       <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>
         {topic.title}
       </h1>
@@ -76,37 +84,45 @@ export default async function TopicPage({
 
       {posts.map((post) => (
         <div key={post.id} className="post-item">
-          <div className="post-head">
-            {post.authorAvatarPath ? (
-              <img
-                src={post.authorAvatarPath}
-                alt={post.authorDisplayName ?? '访客'}
-                className="avatar"
-                loading="lazy"
-              />
-            ) : (
-              <span className="avatar avatar-fallback">
-                {(post.authorDisplayName ?? '访客').slice(0, 1).toUpperCase()}
-              </span>
-            )}
-            <span className="muted">
-              <span className={post.position === 1 ? 'badge badge-role-owner' : undefined}>
-                {post.position === 1 ? '楼主' : `#${post.position}`}
-              </span>
-              {' · '}
-              {post.authorDisplayName ?? '访客'} · {new Date(post.created_at).toLocaleString('zh-CN')}
-              {post.edited_at ? ' · 已编辑' : ''}
-            </span>
-            <AuthorSanctions
-              userId={post.author_id}
-              username={post.authorUsername}
-              displayName={post.authorDisplayName}
-            />
-          </div>
+          {/* 内容在上 */}
           <MarkdownContent text={post.content_md} />
-          <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.75rem' }}>
-            <LikeButton postId={post.id} initialLiked={liked.includes(post.id)} />
-            <DeletePostButton postId={post.id} authorId={post.author_id} />
+
+          {/* 底部一行：左 = 头像 + 名字（楼主徽章）；右 = 点赞/转发/管理按钮 */}
+          <div className="post-footer">
+            <div className="post-author">
+              {post.authorAvatarPath ? (
+                <img
+                  src={post.authorAvatarPath}
+                  alt={post.authorDisplayName ?? '访客'}
+                  className="avatar"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="avatar avatar-fallback">
+                  {(post.authorDisplayName ?? '访客').slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <span className="post-author-name">
+                {post.authorDisplayName ?? '访客'}
+                {post.position === 1 && <span className="badge badge-role-owner">楼主</span>}
+                <span className="muted" style={{ fontWeight: 400 }}>
+                  {post.position > 1 ? `#${post.position}` : ''} ·{' '}
+                  {new Date(post.created_at).toLocaleString('zh-CN')}
+                  {post.edited_at ? ' · 已编辑' : ''}
+                </span>
+              </span>
+            </div>
+
+            <div className="post-actions">
+              <LikeButton postId={post.id} initialLiked={liked.includes(post.id)} />
+              <ShareButton />
+              <AuthorSanctions
+                userId={post.author_id}
+                username={post.authorUsername}
+                displayName={post.authorDisplayName}
+              />
+              <DeletePostButton postId={post.id} authorId={post.author_id} />
+            </div>
           </div>
         </div>
       ))}
