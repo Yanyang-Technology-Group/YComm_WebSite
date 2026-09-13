@@ -19,10 +19,22 @@ describe('AppError', () => {
     expect(error.meta).toMatchObject({ requiredLevel: 2 });
     expect(error.isClientError).toBe(true);
   });
+
+  it('只有 expose 的错误才把面向用户的文案发给客户端', () => {
+    // 中文文案要能到达前端，否则注册冲突只会显示笼统的「操作冲突」。
+    expect(errors.conflict('该用户名已被别人用了，换一个吧').toJSON()).toMatchObject({
+      code: ErrorCodes.CONFLICT,
+      message: '该用户名已被别人用了，换一个吧',
+    });
+
+    // 内部错误（expose=false）永远不带 message。
+    const internal = toAppError(new Error('secret internals'));
+    expect(internal.toJSON()).not.toHaveProperty('message');
+    expect(JSON.stringify(internal.toJSON())).not.toContain('secret internals');
+  });
 });
 
-describe('toAppError', () => {
-  it('passes AppErrors through untouched', () => {
+describe('toAppError', () => {  it('passes AppErrors through untouched', () => {
     const original = errors.forbidden();
     expect(toAppError(original)).toBe(original);
   });

@@ -55,7 +55,7 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
     throw errors.validation({ issues: [{ path: 'username', message: REGISTRATION.usernameHint }] });
   }
   if ((REGISTRATION.reservedUsernames as readonly string[]).includes(username.toLowerCase())) {
-    throw errors.conflict('该用户名不可用', { field: 'username' });
+    throw errors.conflict('这个用户名是保留名称，换一个试试', { field: 'username' });
   }
   if (!EMAIL_PATTERN.test(email)) {
     throw errors.validation({ issues: [{ path: 'email', message: '邮箱格式不正确' }] });
@@ -71,7 +71,7 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
     .where(eq(sql`lower(${schema.users.username})`, username.toLowerCase()))
     .limit(1);
   if (usernameTaken.length > 0) {
-    throw errors.conflict('该用户名已被使用', { field: 'username' });
+    throw errors.conflict('该用户名已被别人用了，换一个吧', { field: 'username' });
   }
 
   const existingByEmail = await findUserByEmail(db, email);

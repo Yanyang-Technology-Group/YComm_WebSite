@@ -1,9 +1,10 @@
 /**
  * Machine-readable error codes shared by the API layer and the UI.
  *
- * The API responds with `{ ok: false, error: { code, messageKey, meta } }`; the UI
- * switches on `code` and renders `messageKey`, so these strings are part of the
- * public contract and must stay stable.
+ * The API responds with `{ ok: false, error: { code, messageKey, meta, message? } }`；
+ * `message` 只在 `expose: true`（面向用户的文案，中文）时才带给客户端。UI 先按
+ * `code` 出固定中文，没有对应条目时直接用服务端的 `message` —— 这样
+ * 「用户名已被使用」这类具体原因不会退化成「操作冲突」。
  */
 export const ErrorCodes = {
   VALIDATION_FAILED: 'VALIDATION_FAILED',
@@ -86,8 +87,25 @@ export class AppError extends Error {
     return this.httpStatus >= 400 && this.httpStatus < 500;
   }
 
-  toJSON(): { code: string; messageKey: string; meta: Record<string, unknown> } {
-    return { code: this.code, messageKey: this.messageKey, meta: this.meta };
+  /**
+   * Wire format.
+   *
+   * `message` is attached only for errors explicitly marked `expose: true`, i.e.
+   * messages written to be shown to end users. Developer-facing messages and
+   * internal failures never leave the server.
+   */
+  toJSON(): {
+    code: string;
+    messageKey: string;
+    meta: Record<string, unknown>;
+    message?: string;
+  } {
+    return {
+      code: this.code,
+      messageKey: this.messageKey,
+      meta: this.meta,
+      ...(this.expose ? { message: this.message } : {}),
+    };
   }
 }
 
@@ -107,7 +125,7 @@ export function toAppError(value: unknown): AppError {
       return new AppError({
         code: ErrorCodes.VALIDATION_FAILED,
         httpStatus: 400,
-        message: 'Request validation failed',
+        message: '输入内容有误',
         meta: {
           issues: issues.map((issue) => ({
             path: (issue.path ?? []).map(String).join('.'),
@@ -139,7 +157,7 @@ export const errors = {
       ...(meta ? { meta } : {}),
     }),
 
-  unauthenticated: (message = 'Authentication required') =>
+  unauthenticated: (message = '请先登录') =>
     new AppError({
       code: ErrorCodes.UNAUTHENTICATED,
       httpStatus: 401,
@@ -147,7 +165,7 @@ export const errors = {
       expose: true,
     }),
 
-  forbidden: (message = 'Not allowed', meta?: Record<string, unknown>) =>
+  forbidden: (message = '没有权限', meta?: Record<string, unknown>) =>
     new AppError({
       code: ErrorCodes.FORBIDDEN,
       httpStatus: 403,
@@ -156,10 +174,10 @@ export const errors = {
       ...(meta ? { meta } : {}),
     }),
 
-  notFound: (message = 'Not found') =>
+  notFound: (message = '内容不存在') =>
     new AppError({ code: ErrorCodes.NOT_FOUND, httpStatus: 404, message, expose: true }),
 
-  conflict: (message = 'Conflict', meta?: Record<string, unknown>) =>
+  conflict: (message = '该内容已存在', meta?: Record<string, unknown>) =>
     new AppError({
       code: ErrorCodes.CONFLICT,
       httpStatus: 409,
@@ -172,7 +190,7 @@ export const errors = {
     new AppError({
       code: ErrorCodes.RATE_LIMITED,
       httpStatus: 429,
-      message: 'Too many requests',
+      message: '请求过于频繁，请稍后再试',
       expose: true,
       ...(meta ? { meta } : {}),
     }),
@@ -183,7 +201,7 @@ export const errors = {
     new AppError({
       code: ErrorCodes.ACCESS_LOGIN_REQUIRED,
       httpStatus: 401,
-      message: 'Sign in to continue',
+      message: '请先登录',
       expose: true,
     }),
 
@@ -192,7 +210,7 @@ export const errors = {
     new AppError({
       code: ErrorCodes.ACCESS_LEVEL_TOO_LOW,
       httpStatus: 403,
-      message: `Requires level ${requiredLevel} or higher`,
+      message: `需要等级 Lv${requiredLevel} 或更高`,
       expose: true,
       meta: { requiredLevel, currentLevel },
     }),
@@ -202,7 +220,7 @@ export const errors = {
     new AppError({
       code: ErrorCodes.ACCESS_INVITE_REQUIRED,
       httpStatus: 403,
-      message: 'An invite code is required for this resource',
+      message: '这个内容需要注册码才能访问',
       expose: true,
       meta: { requireInvite: true },
     }),
@@ -211,7 +229,7 @@ export const errors = {
     new AppError({
       code: ErrorCodes.ACCOUNT_UNVERIFIED,
       httpStatus: 403,
-      message: 'Verify your email address first',
+      message: '请先验证邮箱',
       expose: true,
     }),
 
@@ -219,7 +237,7 @@ export const errors = {
     new AppError({
       code: ErrorCodes.ACCOUNT_MUTED,
       httpStatus: 403,
-      message: 'Your account is muted',
+      message: '账号处于禁言状态',
       expose: true,
       meta: { until: until ? until.toISOString() : null },
     }),
@@ -228,7 +246,7 @@ export const errors = {
     new AppError({
       code: ErrorCodes.ACCOUNT_BANNED,
       httpStatus: 403,
-      message: 'Your account is suspended',
+      message: '账号已被封禁',
       expose: true,
       meta: { reason },
     }),
@@ -238,7 +256,7 @@ export const errors = {
     new AppError({
       code: ErrorCodes.NOT_INITIALIZED,
       httpStatus: 409,
-      message: 'The site has not been initialized yet',
+      message: '站点尚未初始化，请先创建站长账号',
       expose: true,
     }),
 
@@ -246,7 +264,7 @@ export const errors = {
     new AppError({
       code: ErrorCodes.REGISTRATION_CLOSED,
       httpStatus: 403,
-      message: 'Registration is currently closed',
+      message: '注册暂未开放',
       expose: true,
     }),
 

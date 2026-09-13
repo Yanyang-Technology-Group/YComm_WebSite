@@ -83,7 +83,8 @@ export function AuthForm({
       ACCOUNT_BANNED: '账号已被封禁',
       ACCOUNT_MUTED: '账号处于禁言状态',
       ACCOUNT_UNVERIFIED: '请先验证邮箱',
-      CONFLICT: error.message ?? '操作冲突',
+      // 409：用户名/邮箱已被占用等，优先显示服务端给的具体原因
+      CONFLICT: error.message ?? '该用户名或邮箱已被占用',
       NOT_INITIALIZED: '站点尚未初始化，请先创建站长账号',
       REGISTRATION_CLOSED: '注册暂未开放',
       RATE_LIMITED: '请求过于频繁，请稍后再试',
