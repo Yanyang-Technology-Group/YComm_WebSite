@@ -17,21 +17,33 @@ export const THEME_FAMILIES = [
 
 export type ThemeFamilyId = (typeof THEME_FAMILIES)[number]['id'];
 
+/** 「无」= 该档不做强调色，用系统默认灰（深色深灰 / 浅色浅灰）。 */
+export type ThemeChoice = ThemeFamilyId | 'none';
+
 const STORAGE_KEY = 'ycomm_theme_pair';
 const OLD_KEY = 'ycomm_theme';
 
 interface Pair {
-  light: ThemeFamilyId;
-  dark: ThemeFamilyId;
+  light: ThemeChoice;
+  dark: ThemeChoice;
 }
 
 const DEFAULT_PAIR: Pair = { light: 'azure', dark: 'azure' };
 
+function attrFor(choice: ThemeChoice): string {
+  // 「无」映射到灰调色系（即系统默认灰组合）。
+  return choice === 'none' ? 'slate' : choice;
+}
+
+function isValidChoice(value: string | undefined): boolean {
+  return value === 'none' || THEME_FAMILIES.some((family) => family.id === value);
+}
+
 /** 把用户本地深浅两档写入 <html> 两个属性，并持久化。 */
 export function applyThemePair(pair: Pair): void {
   if (typeof document === 'undefined') return;
-  document.documentElement.dataset.lightTheme = pair.light;
-  document.documentElement.dataset.darkTheme = pair.dark;
+  document.documentElement.dataset.lightTheme = attrFor(pair.light);
+  document.documentElement.dataset.darkTheme = attrFor(pair.dark);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pair));
   } catch {
@@ -52,19 +64,19 @@ function initialPair(): Pair {
     if (saved) {
       const parsed = JSON.parse(saved) as Partial<Pair>;
       if (parsed.light && parsed.dark) {
-        const light = THEME_FAMILIES.some((family) => family.id === parsed.light) ? parsed.light : 'azure';
-        const dark = THEME_FAMILIES.some((family) => family.id === parsed.dark) ? parsed.dark : 'azure';
+        const light = isValidChoice(parsed.light) ? (parsed.light as ThemeChoice) : 'azure';
+        const dark = isValidChoice(parsed.dark) ? (parsed.dark as ThemeChoice) : 'azure';
         return { light, dark };
       }
     }
   } catch {
     /* 忽略损坏的存储 */
   }
-  const light = document.documentElement.dataset.lightTheme as ThemeFamilyId | undefined;
-  const dark = document.documentElement.dataset.darkTheme as ThemeFamilyId | undefined;
+  const light = document.documentElement.dataset.lightTheme;
+  const dark = document.documentElement.dataset.darkTheme;
   return {
-    light: THEME_FAMILIES.some((family) => family.id === light) ? (light as ThemeFamilyId) : 'azure',
-    dark: THEME_FAMILIES.some((family) => family.id === dark) ? (dark as ThemeFamilyId) : 'azure',
+    light: isValidChoice(light) ? (light as ThemeChoice) : 'azure',
+    dark: isValidChoice(dark) ? (dark as ThemeChoice) : 'azure',
   };
 }
 
@@ -77,9 +89,20 @@ function FamilySwatch({ mode, family }: { mode: 'dark' | 'light'; family: (typeo
   );
 }
 
+/** 「无」：半黑半白对半切开，表示不加任何强调色。 */
+function NoneSwatch() {
+  return (
+    <span
+      className="theme-swatch"
+      style={{ background: 'linear-gradient(90deg, #000 0 50%, #fff 50% 100%)', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.2)' }}
+    />
+  );
+}
+
 /**
  * 主题选择器（放控制台 → 外观主题）：
  * 上面一行 = 深色色系，下面一行 = 浅色色系，各勾一个；系统深色时用深色档，浅色时用浅色档。
+ * 每行最后固定一个「无」：不加强调色，深色配深灰 / 浅色配浅灰（系统默认灰）。
  */
 export function ThemePicker() {
   const [pair, setPair] = useState<Pair>(DEFAULT_PAIR);
@@ -88,8 +111,8 @@ export function ThemePicker() {
     setPair(initialPair());
   }, []);
 
-  function choose(mode: 'dark' | 'light', family: ThemeFamilyId) {
-    const next = { ...pair, [mode]: family };
+  function choose(mode: 'dark' | 'light', choice: ThemeChoice) {
+    const next = { ...pair, [mode]: choice };
     playAnim('theme');
     applyThemePair(next);
     setPair(next);
@@ -122,6 +145,20 @@ export function ThemePicker() {
             </button>
           );
         })}
+        {/* 「无」固定在每行最后 */}
+        <button
+          key="none"
+          type="button"
+          className={`theme-option${pair[mode] === 'none' ? ' active' : ''}`}
+          onClick={() => choose(mode, 'none')}
+          aria-pressed={pair[mode] === 'none'}
+        >
+          <NoneSwatch />
+          <span className="theme-label">
+            {mode === 'dark' ? '深色' : '浅色'} 无
+            {pair[mode] === 'none' ? ' ✓' : ''}
+          </span>
+        </button>
       </div>
     </div>
   );

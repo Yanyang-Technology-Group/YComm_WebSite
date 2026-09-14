@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getDb, schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import { PERMISSION, parseAccessPolicy } from '@ycomm/config';
@@ -133,6 +133,43 @@ const adminUser = (user: UserRecord) => ({
   banReason: user.ban_reason,
 });
 
+/**
+ * 用户详情扩展字段（不用每次同步查，批量一次取完）：
+ * - githubUsername  绑定的 GitHub 用户名（未绑定为 null）
+ * - lastLoginAt      最后登录时间（users.last_seen_at）
+ * - inviteCodeUsed   使用的注册码
+ */
+async function enrichUserDetails(
+  db: Db,
+  users: UserRecord[],
+): Promise<Array<ReturnType<typeof adminUser> & { githubUsername: string | null; lastLoginAt: string | null; inviteCodeUsed: string | null }>> {
+  if (users.length === 0) return [];
+  const ids = users.map((user) => user.id);
+
+  const ghRows = await db
+    .select({ userId: schema.oauthAccounts.user_id, username: schema.users.username })
+    .from(schema.oauthAccounts)
+    .innerJoin(schema.users, eq(schema.oauthAccounts.user_id, schema.users.id))
+    .where(
+      and(eq(schema.oauthAccounts.provider, 'github'), inArray(schema.oauthAccounts.user_id, ids)),
+    );
+  const githubByUser = new Map(ghRows.map((row) => [row.userId, row.username]));
+
+  const inviteRows = await db
+    .select({ userId: schema.inviteCodeUses.user_id, code: schema.inviteCodes.code })
+    .from(schema.inviteCodeUses)
+    .innerJoin(schema.inviteCodes, eq(schema.inviteCodeUses.invite_code_id, schema.inviteCodes.id))
+    .where(inArray(schema.inviteCodeUses.user_id, ids));
+  const inviteByUser = new Map(inviteRows.map((row) => [row.userId, row.code]));
+
+  return users.map((user) => ({
+    ...adminUser(user),
+    githubUsername: githubByUser.get(user.id) ?? null,
+    lastLoginAt: user.last_seen_at ? user.last_seen_at.toISOString() : null,
+    inviteCodeUsed: inviteByUser.get(user.id) ?? null,
+  }));
+}
+
 /** The moderation decision permission depends on what is being decided. */
 function permissionForTarget(targetType: string): (typeof PERMISSION)[keyof typeof PERMISSION] {
   if (targetType === 'download_resource') return PERMISSION.DOWNLOAD_RESOURCE_AUDIT;
@@ -177,7 +214,8 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       offset: Number.parseInt(c.req.query('offset') ?? '0', 10) || 0,
       limit: Math.min(Number.parseInt(c.req.query('limit') ?? '20', 10) || 20, 100),
     });
-    return c.json({ ok: true, data: { users: result.users.map(adminUser), total: result.total } });
+    const users = await enrichUserDetails(handle.db, result.users);
+    return c.json({ ok: true, data: { users, total: result.total } });
   });
 
   router.patch('/users/:userId/role', requirePermission(PERMISSION.USER_ROLE_ASSIGN), async (c) => {
