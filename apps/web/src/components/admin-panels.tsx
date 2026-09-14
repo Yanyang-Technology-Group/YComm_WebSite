@@ -250,7 +250,7 @@ export function UsersPanel({
       )}
 
       {pwDialog && pwDialog.step === 1 && (
-        <div className="modal-backdrop" onClick={() => setPwDialog(null)}>
+        <div className="modal-backdrop modal-layer-top" onClick={() => setPwDialog(null)}>
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <p className="modal-title">更改「{pwDialog.user.username}」的密码</p>
             <p className="muted" style={{ margin: '0 0 0.9rem', fontSize: '0.9rem' }}>
@@ -271,7 +271,7 @@ export function UsersPanel({
 
       {pwDialog && pwDialog.step === 2 && (
         <form
-          className="modal-backdrop"
+          className="modal-backdrop modal-layer-top"
           onSubmit={(event) => {
             event.preventDefault();
             const fd = new FormData(event.currentTarget);
@@ -341,7 +341,13 @@ export function UsersPanel({
                 </button>
               )}
               {manageFor.state !== 'banned' && (
-                <button type="button" onClick={() => setDialog({ kind: 'ban', user: manageFor })}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDialog({ kind: 'ban', user: manageFor });
+                    setManageFor(null);
+                  }}
+                >
                   封禁…
                 </button>
               )}
@@ -351,7 +357,13 @@ export function UsersPanel({
                 </button>
               )}
               {manageFor.state !== 'muted' && manageFor.state !== 'banned' && (
-                <button type="button" onClick={() => setDialog({ kind: 'mute', user: manageFor })}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDialog({ kind: 'mute', user: manageFor });
+                    setManageFor(null);
+                  }}
+                >
                   禁言…
                 </button>
               )}

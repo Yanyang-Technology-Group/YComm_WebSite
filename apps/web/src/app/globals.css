@@ -1436,6 +1436,11 @@ select:focus {
   padding: 1rem;
 }
 
+/* 子弹窗（时长/改密等）盖在所有普通弹窗之上，避免被管理面板等压住 */
+.modal-backdrop.modal-layer-top {
+  z-index: 130;
+}
+
 .modal {
   background: var(--surface);
   border: 1px solid var(--border);

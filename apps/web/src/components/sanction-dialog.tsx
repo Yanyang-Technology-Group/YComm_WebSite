@@ -126,7 +126,7 @@ export function SanctionDialog({
   );
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop modal-layer-top" role="presentation" onClick={onClose}>
       <div
         className="modal-card"
         role="dialog"
