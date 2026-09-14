@@ -44,11 +44,18 @@ export interface AdminUser {
   state: string;
   level: number;
   createdAt: string;
+  avatarPath?: string | null;
   /** 封禁/禁言到期时间；null = 永久或未生效。 */
   mutedUntil?: string | null;
   bannedUntil?: string | null;
   muteReason?: string | null;
   banReason?: string | null;
+  /** 详情扩展字段。 */
+  githubUsername?: string | null;
+  lastLoginAt?: string | null;
+  inviteCodeUsed?: string | null;
+  postCount?: number;
+  likeReceivedCount?: number;
 }
 
 /** 已生效的封禁/禁言剩余时间文案，未生效返回 null。 */
@@ -79,6 +86,10 @@ export function UsersPanel({
   const [deleteDialog, setDeleteDialog] = useState<AdminUser | null>(null);
   /** 站长改密码：step 1 提示 → step 2 再次确认 + 新密码 + 验证码。 */
   const [pwDialog, setPwDialog] = useState<{ user: AdminUser; step: 1 | 2; password: string } | null>(null);
+  /** 「管理面板」弹窗（操作入口）。 */
+  const [manageFor, setManageFor] = useState<AdminUser | null>(null);
+  /** 「详情」弹窗（用户具体数据）。 */
+  const [detailFor, setDetailFor] = useState<AdminUser | null>(null);
 
   useEffect(() => {
     void getSession().then((user) => setMyRole(user?.role ?? null));
@@ -160,11 +171,32 @@ export function UsersPanel({
         const manage = canManage(user);
         const roleMeta = ROLE_META[user.role] ?? { label: user.role, className: '' };
         const stateMeta = STATE_META[user.state] ?? { label: user.state, className: '' };
+        const homeHref = `/users/${encodeURIComponent(user.username)}`;
         return (
-          <div key={user.id} style={row}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <strong>{user.displayName}</strong>
-              <span className="muted">@{user.username}</span>
+          <div key={user.id} className="panel" style={{ padding: '0.85rem 1rem', marginBottom: '0.6rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {/* 头像 */}
+              {user.avatarPath ? (
+                <Link href={homeHref}>
+                  <img src={user.avatarPath} alt={user.username} className="avatar" style={{ width: 44, height: 44 }} loading="lazy" />
+                </Link>
+              ) : (
+                <Link href={homeHref}>
+                  <span className="avatar avatar-fallback" style={{ width: 44, height: 44, fontSize: '1.1rem' }}>
+                    {(user.displayName || user.username).slice(0, 1).toUpperCase()}
+                  </span>
+                </Link>
+              )}
+              {/* 昵称 + id */}
+              <div style={{ minWidth: 0 }}>
+                <Link className="uname" href={homeHref}>
+                  {user.displayName || user.username}
+                </Link>
+                <div className="muted" style={{ fontSize: '0.8rem' }}>
+                  @{user.username} · {user.email}
+                </div>
+              </div>
+              {/* 状态/权限/等级徽章 */}
               <span className={`badge ${roleMeta.className}`}>{roleMeta.label}</span>
               <span className={`badge ${stateMeta.className}`}>{stateMeta.label}</span>
               <span className="badge badge-neutral">Lv{user.level}</span>
@@ -174,54 +206,16 @@ export function UsersPanel({
                   {user.banReason || user.muteReason ? `（${user.banReason || user.muteReason}）` : ''}
                 </span>
               )}
-            </div>
-            <div className="muted" style={{ fontSize: '0.85rem', marginTop: '0.15rem' }}>
-              {user.email}
-            </div>
-            <div style={{ marginTop: '0.4rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-              {manage && user.role === 'member' && isOwner && (
-                <button disabled={busy === user.id} onClick={() => void act(user, '/role', { role: 'admin' }, 'PATCH')}>
-                  设为管理员
-                </button>
-              )}
-              {isOwner && user.role === 'admin' && (
-                <button disabled={busy === user.id} onClick={() => void act(user, '/role', { role: 'member' }, 'PATCH')}>
-                  取消管理员
-                </button>
-              )}
-              {manage && user.state !== 'banned' && (
-                <button disabled={busy === user.id} onClick={() => setDialog({ kind: 'ban', user })}>
-                  封禁…
-                </button>
-              )}
-              {manage && user.state === 'banned' && (
-                <button disabled={busy === user.id} onClick={() => void act(user, '/unban')}>
-                  解封
-                </button>
-              )}
-              {manage && user.state !== 'muted' && user.state !== 'banned' && (
-                <button disabled={busy === user.id} onClick={() => setDialog({ kind: 'mute', user })}>
-                  禁言…
-                </button>
-              )}
-              {manage && user.state === 'muted' && (
-                <button disabled={busy === user.id} onClick={() => void act(user, '/unmute')}>
-                  解除禁言
-                </button>
-              )}
-              {isOwner && user.role !== 'owner' && (
-                <button disabled={busy === user.id} onClick={() => setPwDialog({ user, step: 1, password: '' })}>
-                  改密码…
-                </button>
-              )}
-              {isOwner && user.role !== 'owner' && (
-                <button
-                  disabled={busy === user.id}
-                  onClick={() => setDeleteDialog(user)}
-                  style={{ color: '#dc2626' }}
-                >
-                  注销
-                </button>
+              {/* 右侧：管理 / 详情（管理员只能看和管理成员；管理员仅站长可见） */}
+              {manage && (
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <button type="button" disabled={busy === user.id} onClick={() => setManageFor(user)}>
+                    管理
+                  </button>
+                  <button type="button" disabled={busy === user.id} onClick={() => setDetailFor(user)}>
+                    详情
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -321,6 +315,152 @@ export function UsersPanel({
           </div>
         </form>
       )}
+
+      {/* 管理面板：操作都在这里（管理员只对成员可用，管理员仅站长可用） */}
+      {manageFor && (
+        <div className="modal-backdrop" onClick={() => setManageFor(null)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <p className="modal-title">
+              管理面板 · {manageFor.displayName || manageFor.username}
+              <span className="muted" style={{ fontWeight: 400, fontSize: '0.9rem' }}>
+                {' '}
+                @{manageFor.username}
+              </span>
+            </p>
+
+            <p className="section-title" style={{ marginTop: 0 }}>操作</p>
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+              {manageFor.role === 'member' && isOwner && (
+                <button type="button" onClick={() => void act(manageFor, '/role', { role: 'admin' }, 'PATCH')}>
+                  设为管理员
+                </button>
+              )}
+              {manageFor.role === 'admin' && isOwner && (
+                <button type="button" onClick={() => void act(manageFor, '/role', { role: 'member' }, 'PATCH')}>
+                  取消管理员
+                </button>
+              )}
+              {manageFor.state !== 'banned' && (
+                <button type="button" onClick={() => setDialog({ kind: 'ban', user: manageFor })}>
+                  封禁…
+                </button>
+              )}
+              {manageFor.state === 'banned' && (
+                <button type="button" onClick={() => void act(manageFor, '/unban')}>
+                  解封
+                </button>
+              )}
+              {manageFor.state !== 'muted' && manageFor.state !== 'banned' && (
+                <button type="button" onClick={() => setDialog({ kind: 'mute', user: manageFor })}>
+                  禁言…
+                </button>
+              )}
+              {manageFor.state === 'muted' && (
+                <button type="button" onClick={() => void act(manageFor, '/unmute')}>
+                  解除禁言
+                </button>
+              )}
+              {isOwner && manageFor.role !== 'owner' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPwDialog({ user: manageFor, step: 1, password: '' });
+                    setManageFor(null);
+                  }}
+                >
+                  改密码…
+                </button>
+              )}
+              {isOwner && manageFor.role !== 'owner' && (
+                <button
+                  type="button"
+                  style={{ color: '#dc2626' }}
+                  onClick={() => {
+                    setDeleteDialog(manageFor);
+                    setManageFor(null);
+                  }}
+                >
+                  注销
+                </button>
+              )}
+            </div>
+            <div style={{ marginTop: '1rem' }}>
+              <button type="button" onClick={() => setManageFor(null)}>
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 详情：该用户的具体数据（管理员仅能看到成员，管理员仅站长可见） */}
+      {detailFor && (
+        <div className="modal-backdrop" onClick={() => setDetailFor(null)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <p className="modal-title">
+              用户详情 · {detailFor.displayName || detailFor.username}
+              <span className="muted" style={{ fontWeight: 400, fontSize: '0.9rem' }}>
+                {' '}
+                @{detailFor.username}
+              </span>
+            </p>
+            <div style={{ display: 'grid', gap: '0.45rem', fontSize: '0.92rem' }}>
+              <DetailRow label="头像">
+                {detailFor.avatarPath ? (
+                  <img src={detailFor.avatarPath} alt={detailFor.username} className="avatar" style={{ width: 48, height: 48 }} loading="lazy" />
+                ) : (
+                  <span className="avatar avatar-fallback" style={{ width: 48, height: 48 }}>
+                    {(detailFor.displayName || detailFor.username).slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+              </DetailRow>
+              <DetailRow label="昵称">{detailFor.displayName || '—'}</DetailRow>
+              <DetailRow label="ID">@{detailFor.username}</DetailRow>
+              <DetailRow label="邮箱">{detailFor.email}</DetailRow>
+              <DetailRow label="GitHub">
+                {detailFor.githubUsername ? `已绑定 @${detailFor.githubUsername}` : '未绑定'}
+              </DetailRow>
+              <DetailRow label="注册时间">
+                {new Date(detailFor.createdAt).toLocaleString('zh-CN')}
+              </DetailRow>
+              <DetailRow label="最后登录">
+                {detailFor.lastLoginAt ? new Date(detailFor.lastLoginAt).toLocaleString('zh-CN') : '未记录'}
+              </DetailRow>
+              <DetailRow label="目前状态">
+                <span className={`badge ${(STATE_META[detailFor.state] ?? { className: 'badge-neutral' }).className}`}>
+                  {(STATE_META[detailFor.state] ?? { label: detailFor.state }).label}
+                </span>
+              </DetailRow>
+              <DetailRow label="权限">
+                <span className={`badge ${(ROLE_META[detailFor.role] ?? { className: 'badge-neutral' }).className}`}>
+                  {(ROLE_META[detailFor.role] ?? { label: detailFor.role }).label}
+                </span>
+              </DetailRow>
+              <DetailRow label="等级">Lv{detailFor.level}</DetailRow>
+              <DetailRow label="使用的注册码">{detailFor.inviteCodeUsed ?? '无'}</DetailRow>
+              <DetailRow label="发帖 / 获赞">
+                {detailFor.postCount ?? 0} 帖 · {detailFor.likeReceivedCount ?? 0} 赞
+              </DetailRow>
+            </div>
+            <div style={{ marginTop: '1rem' }}>
+              <button type="button" onClick={() => setDetailFor(null)}>
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', gap: '0.6rem' }}>
+      <span className="muted" style={{ flexShrink: 0, width: 92 }}>
+        {label}
+      </span>
+      <span style={{ minWidth: 0, wordBreak: 'break-all' }}>{children}</span>
     </div>
   );
 }
