@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { apiGet } from '../../../lib/server-api';
 import { FollowButton } from '../../../components/follow-button';
-import { FollowSections } from '../../../components/follow-sections';
+import { ProfileManageActions } from '../../../components/profile-manage-actions';
 import { MarkdownContent } from '../../../components/markdown-content';
 
 export const metadata: Metadata = { title: '主页' };
@@ -89,6 +89,12 @@ export default async function UserPage({ params }: { params: Promise<{ username:
             initialFollowing={profile.viewerFollowsTarget}
             isSelf={profile.isSelf}
           />
+          <ProfileManageActions
+            targetId={profile.id}
+            targetUsername={profile.username}
+            targetDisplayName={profile.displayName}
+            targetRole={profile.role}
+          />
           {profile.isSelf && (
             <Link href="/dashboard" className="muted" style={{ fontSize: '0.85rem' }}>
               编辑主页 →
@@ -97,14 +103,19 @@ export default async function UserPage({ params }: { params: Promise<{ username:
         </div>
       </div>
 
-      <FollowSections
-        username={profile.username}
-        followingVisible={profile.followingListVisible}
-        followersVisible={profile.followersListVisible}
-        followerCount={profile.followerCount}
-        followingCount={profile.followingCount}
-        isSelf={profile.isSelf}
-      />
+      <div className="panel" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1.25rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
+      <Link href={`/users/${encodeURIComponent(profile.username)}/following`} className="uname">
+        关注 {profile.followingCount}
+      </Link>
+      <Link href={`/users/${encodeURIComponent(profile.username)}/followers`} className="uname">
+        粉丝 {profile.followerCount}
+      </Link>
+      {!profile.isSelf && (
+        <span className="muted" style={{ fontSize: '0.8rem' }}>
+          列表可见度由用户自己设置
+        </span>
+      )}
+    </div>
 
       {profile.homepageMd.trim() ? (
         profile.homepageVisible ? (
