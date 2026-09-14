@@ -1378,6 +1378,24 @@ select:focus {
   border-color: var(--accent-strong);
 }
 
+/* 收缩后的单张卡片：只显示标题条 */
+.card-editor-tile.collapsed {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0.5rem 2.4rem 0.5rem 0.9rem;
+  cursor: pointer;
+}
+
+.card-editor-tile.collapsed .ct-title {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.card-editor-tile.collapsed .resize-handle {
+  display: none;
+}
+
 /* 伸缩式：折叠/展开子卡片的按钮（左上角） */
 .card-editor-tile .ct-collapse {
   position: absolute;

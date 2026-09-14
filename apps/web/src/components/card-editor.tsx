@@ -63,8 +63,10 @@ export function CardsPanel() {
   const [newParentId, setNewParentId] = useState('');
   /** 正在拖拽改尺寸的卡片 id（null = 没在拖）。 */
   const [resizingId, setResizingId] = useState<string | null>(null);
-  /** 折叠起来的容器卡片 id（只影响编辑器里的子卡片展示，伸缩式）。 */
+  /** 折叠起来的卡片 id（只影响编辑器里该卡片自身的展示与子层）。 */
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  /** 选中卡片的编辑框是否收缩。 */
+  const [editCollapsed, setEditCollapsed] = useState(false);
   const [myRole, setMyRole] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -339,56 +341,69 @@ export function CardsPanel() {
             {items.map((card) => {
               const childCount = cards.filter((entry) => entry.parentId === card.id).length;
               const statusMeta = STATUS_META[card.status] ?? { label: card.status, className: 'badge-neutral' };
+              const isCollapsed = collapsedIds.has(card.id);
               return (
                 <div
                   key={card.id}
-                  className={`card-editor-tile${selectedId === card.id ? ' selected' : ''}${resizingId === card.id ? ' resizing' : ''}`}
-                  style={{ gridColumn: `span ${card.w}`, gridRow: `span ${card.h}` }}
+                  className={`card-editor-tile${selectedId === card.id ? ' selected' : ''}${resizingId === card.id ? ' resizing' : ''}${isCollapsed ? ' collapsed' : ''}`}
+                  style={{ gridColumn: `span ${card.w}`, gridRow: `span ${isCollapsed ? 1 : card.h}` }}
                   onClick={() => setSelectedId(card.id)}
                 >
-                  <div className="ct-title">{card.title}</div>
-                  <div className="ct-meta">
-                    {card.kind} · {VISIBILITY_LABELS[card.visibility] ?? card.visibility} · {card.w}×{card.h}
-                    <span className={`badge ${statusMeta.className}`} style={{ marginLeft: '0.35rem' }}>
-                      {statusMeta.label}
-                    </span>
-                  </div>
-                  {card.kind !== 'container' && <div className="ct-meta">（不能再往里放卡片）</div>}
+                  {/* 伸缩式：每张卡片都能单独收缩成一格标题条 */}
                   <button
                     type="button"
-                    className="ct-add-child"
-                    title="在这张卡片里新增子卡片"
+                    className="ct-collapse"
+                    title={isCollapsed ? '展开卡片' : '收缩卡片'}
                     onClick={(event) => {
                       event.stopPropagation();
-                      setNewParentId(card.id);
-                      setSelectedId(card.id);
-                      titleRef.current?.focus();
+                      toggleCollapse(card.id);
                     }}
                   >
-                    + 子卡片
+                    {isCollapsed ? '▸' : '▾'}
                   </button>
-                  {/* 伸缩式：容器卡片可展开/折叠子层 */}
-                  {card.kind === 'container' && childCount > 0 && (
-                    <button
-                      type="button"
-                      className="ct-collapse"
-                      title={collapsedIds.has(card.id) ? '展开子卡片' : '折叠子卡片'}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleCollapse(card.id);
-                      }}
-                    >
-                      {collapsedIds.has(card.id) ? `▸ ${childCount}` : `▾ ${childCount}`}
-                    </button>
+
+                  {isCollapsed ? (
+                    <div className="ct-title ct-title-collapsed">
+                      {card.title}
+                      {card.kind === 'container' && childCount > 0 && (
+                        <span className="ct-meta" style={{ marginLeft: '0.4rem' }}>
+                          {childCount} 个子卡片
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="ct-title">{card.title}</div>
+                      <div className="ct-meta">
+                        {card.kind} · {VISIBILITY_LABELS[card.visibility] ?? card.visibility} · {card.w}×{card.h}
+                        <span className={`badge ${statusMeta.className}`} style={{ marginLeft: '0.35rem' }}>
+                          {statusMeta.label}
+                        </span>
+                      </div>
+                      {card.kind !== 'container' && <div className="ct-meta">（不能再往里放卡片）</div>}
+                      <button
+                        type="button"
+                        className="ct-add-child"
+                        title="在这张卡片里新增子卡片"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setNewParentId(card.id);
+                          setSelectedId(card.id);
+                          titleRef.current?.focus();
+                        }}
+                      >
+                        + 子卡片
+                      </button>
+                      {HANDLES.map((h) => (
+                        <span
+                          key={h}
+                          className={`resize-handle handle-${h}`}
+                          title="拖动调整大小"
+                          onPointerDown={(e) => startResize(e, card, h)}
+                        />
+                      ))}
+                    </>
                   )}
-                  {HANDLES.map((h) => (
-                    <span
-                      key={h}
-                      className={`resize-handle handle-${h}`}
-                      title="拖动调整大小"
-                      onPointerDown={(e) => startResize(e, card, h)}
-                    />
-                  ))}
                 </div>
               );
             })}
@@ -472,7 +487,44 @@ export function CardsPanel() {
           onSubmit={saveSelected}
           style={{ display: 'grid', gap: '0.45rem', marginBottom: '1rem', padding: '0.75rem', border: '1px solid var(--accent-strong)', borderRadius: 12 }}
         >
-          <strong>编辑：{selected.title}</strong>
+          {/* 编辑框自己也可收缩 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <strong>编辑：{selected.title}</strong>
+            <button
+              type="button"
+              onClick={() => setEditCollapsed(!editCollapsed)}
+              title={editCollapsed ? '展开编辑框' : '收缩编辑框'}
+            >
+              {editCollapsed ? '▸ 展开编辑' : '▾ 收缩编辑'}
+            </button>
+            <button
+              type="button"
+              title="在选中卡片里插入一张卡片"
+              onClick={() => {
+                setNewParentId(selected.id);
+                setEditCollapsed(false);
+                titleRef.current?.focus();
+              }}
+            >
+              ⇢ 插入子卡片
+            </button>
+            {selected.parentId && (
+              <button
+                type="button"
+                title="插入一张与它同级的卡片（放在父卡片里）"
+                onClick={() => {
+                  setNewParentId(selected.parentId ?? '');
+                  setEditCollapsed(false);
+                  titleRef.current?.focus();
+                }}
+              >
+                ⇥ 插入同级卡片
+              </button>
+            )}
+          </div>
+
+          {!editCollapsed && (
+            <>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <input name="title" defaultValue={selected.title} placeholder="标题" required style={{ flex: '1 1 160px', padding: '0.4rem' }} />
             <input name="subtitle" defaultValue={selected.subtitle} placeholder="副标题" style={{ flex: '1 1 160px', padding: '0.4rem' }} />
@@ -556,6 +608,8 @@ export function CardsPanel() {
               </span>
             )}
           </div>
+            </>
+          )}
         </form>
       )}
 
