@@ -22,6 +22,21 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
   const cards: PublicCard[] = result.data?.cards ?? [];
   const card = cards.find((entry) => entry.id === cardId);
 
+  // 返回上一级：有父卡片就回父卡片，根层卡片才回「下载区」首页。
+  const backHref = card?.parentId
+    ? `/downloads/card/${card.parentId}`
+    : '/downloads';
+  const backLabel = card?.parentId
+    ? `← ${cards.find((entry) => entry.id === card.parentId)?.title ?? '上一级'}`
+    : '← 下载区';
+  const BackLink = (
+    <p>
+      <Link href={backHref} className="muted">
+        {backLabel}
+      </Link>
+    </p>
+  );
+
   if (!card) {
     return (
       <div>
@@ -43,11 +58,7 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
     const children = cards.filter((entry) => entry.parentId === cardId);
     return (
       <div>
-        <p>
-          <Link href="/downloads" className="muted">
-            ← 下载区
-          </Link>
-        </p>
+        {BackLink}
         <h1 className="page-title">{card.title}</h1>
         {card.subtitle && <p className="muted">{card.subtitle}</p>}
         {card.subtitleUrl && (
@@ -68,11 +79,7 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
 
   return (
     <div>
-      <p>
-        <Link href="/downloads" className="muted">
-          ← 下载区
-        </Link>
-      </p>
+      {BackLink}
       <h1 className="page-title">{card.title}</h1>
       {card.subtitle && <p className="muted">{card.subtitle}</p>}
       {resources.length === 0 && <p className="muted">暂无已发布资源。</p>}
