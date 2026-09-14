@@ -35,6 +35,26 @@ const STATE_META: Record<string, { label: string; className: string }> = {
   deleted: { label: '已注销', className: 'badge-state-deleted' },
 };
 
+/**
+ * 等级徽章颜色：低→高按「绿 → 紫 → 红」渐变；
+ * Lv999 红色；Lv1000（满级）黑金色。
+ */
+function levelBadgeStyle(level: number): React.CSSProperties {
+  if (level >= 1000) {
+    return {
+      background: 'linear-gradient(135deg, #3d3208 0%, #0b0b0d 100%)',
+      color: '#ffd35c',
+      border: '1px solid #8a6d1f',
+    };
+  }
+  if (level >= 999) {
+    return { background: '#dc2626', color: '#fff' };
+  }
+  const ratio = Math.min(level / 999, 1);
+  const hue = ratio < 0.5 ? 120 + (270 - 120) * ratio * 2 : 270 + (360 - 270) * (ratio - 0.5) * 2;
+  return { background: `hsl(${Math.round(hue)} 70% 42%)`, color: '#fff' };
+}
+
 export interface AdminUser {
   id: string;
   username: string;
@@ -199,7 +219,9 @@ export function UsersPanel({
               {/* 状态/权限/等级徽章 */}
               <span className={`badge ${roleMeta.className}`}>{roleMeta.label}</span>
               <span className={`badge ${stateMeta.className}`}>{stateMeta.label}</span>
-              <span className="badge badge-neutral">Lv{user.level}</span>
+              <span className="badge" style={levelBadgeStyle(user.level)}>
+                Lv{user.level}
+              </span>
               {remaining && (
                 <span className="badge badge-state-banned">
                   {remaining}
@@ -430,7 +452,18 @@ export function UsersPanel({
               <DetailRow label="ID">@{detailFor.username}</DetailRow>
               <DetailRow label="邮箱">{detailFor.email}</DetailRow>
               <DetailRow label="GitHub">
-                {detailFor.githubUsername ? `已绑定 @${detailFor.githubUsername}` : '未绑定'}
+                {detailFor.githubUsername ? (
+                  <a
+                    href={`https://github.com/${encodeURIComponent(detailFor.githubUsername)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="uname"
+                  >
+                    @{detailFor.githubUsername} ↗
+                  </a>
+                ) : (
+                  '未绑定'
+                )}
               </DetailRow>
               <DetailRow label="注册时间">
                 {new Date(detailFor.createdAt).toLocaleString('zh-CN')}

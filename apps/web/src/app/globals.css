@@ -1034,18 +1034,18 @@ button.primary:hover {
 }
 
 .badge-role-member {
-  background: #eef2f7;
-  color: #3f4a5c;
+  background: #dcfce7;
+  color: #166534;
 }
 
 .badge-role-admin {
-  background: color-mix(in srgb, var(--accent) 14%, #ffffff);
-  color: var(--accent-strong);
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .badge-role-owner {
-  background: #f9e9b8;
-  color: #8a5a00;
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .badge-state-active {
@@ -1069,8 +1069,8 @@ button.primary:hover {
 }
 
 .badge-state-deleting {
-  background: #fef9c3;
-  color: #854d0e;
+  background: #e5e7eb;
+  color: #4b5563;
 }
 
 .badge-state-deleted {
