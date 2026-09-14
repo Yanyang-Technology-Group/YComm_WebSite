@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { PageBack } from './page-back';
 
 interface FollowedUser {
   id: string;
@@ -48,11 +49,7 @@ export function FollowListPage({
 
   return (
     <div>
-      <p>
-        <Link href={`/users/${encodeURIComponent(username)}`} className="muted">
-          ← 返回主页
-        </Link>
-      </p>
+      <PageBack fallback={`/users/${encodeURIComponent(username)}`} label="返回主页" />
       <h1 className="page-title">{kindLabel}列表</h1>
       {!visible ? (
         <p className="muted">

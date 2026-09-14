@@ -67,10 +67,14 @@ export function CardsPanel() {
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   /** 选中卡片的编辑框是否收缩。 */
   const [editCollapsed, setEditCollapsed] = useState(false);
+  /** 顶部「卡片编辑器」整体是否收起。 */
+  const [editorCollapsed, setEditorCollapsed] = useState(false);
   const [myRole, setMyRole] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const titleRef = useRef<HTMLInputElement | null>(null);
+  /** 是否首次加载（首载时把手风琴默认收起来，之后刷新不再重置折叠状态）。 */
+  const initialLoadRef = useRef(true);
 
   const selected = cards.find((card) => card.id === selectedId) ?? null;
   const containers = cards.filter((card) => card.kind === 'container');
@@ -113,6 +117,14 @@ export function CardsPanel() {
     try {
       const data = await apiFetch<{ cards: AdminCard[] }>('/api/admin/cards');
       setCards(data.cards);
+      // 手风琴默认态只在首次加载时生效：所有含子卡片的容器卡片先收起来（同一层最多展开一个）
+      if (initialLoadRef.current) {
+        initialLoadRef.current = false;
+        const parentsWithChildren = new Set<string>(
+          data.cards.filter((card) => card.parentId !== null).map((card) => card.parentId as string),
+        );
+        setCollapsedIds(parentsWithChildren);
+      }
     } catch {
       setCards([]);
     }
@@ -286,12 +298,25 @@ export function CardsPanel() {
     }
   }
 
-  /** 折叠/展开某张容器卡片的子层（伸缩式）。 */
+  /** 折叠/展开某张容器卡片的子层；同层手风琴：展开一个时其他同级容器自动收起。 */
   function toggleCollapse(cardId: string) {
     setCollapsedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(cardId)) next.delete(cardId);
-      else next.add(cardId);
+      if (next.has(cardId)) {
+        next.delete(cardId);
+        return next;
+      }
+      // 展开时：同一层的其他容器卡片全部收起（同层最多一个展开）
+      const target = cards.find((card) => card.id === cardId);
+      if (target) {
+        for (const sibling of cards.filter(
+          (card) =>
+            card.kind === 'container' && card.parentId === target.parentId && card.id !== cardId,
+        )) {
+          next.add(sibling.id);
+        }
+      }
+      next.delete(cardId);
       return next;
     });
   }
@@ -301,6 +326,29 @@ export function CardsPanel() {
       cards.filter((card) => card.parentId !== null).map((card) => card.parentId as string),
     );
     setCollapsedIds(collapsed ? parentsWithChildren : new Set());
+  }
+
+  /** 在指定卡片前插入一张新卡（同层后面的卡片自动后移一层）。 */
+  async function insertBefore(card: AdminCard) {
+    setMessage(null);
+    try {
+      await apiFetch('/api/admin/cards', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          title: '新卡片',
+          subtitle: '',
+          kind: 'container',
+          visibility: 'public',
+          insertBeforeId: card.id,
+        }),
+      });
+      await refresh();
+      router.refresh();
+      setMessage(`已在「${card.title}」前面插入一张卡片，同层后面的卡片已自动后移`);
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : '插入失败');
+    }
   }
 
   /** 站长审核卡片：通过即公开可见。 */
@@ -330,7 +378,7 @@ export function CardsPanel() {
 
     return (
       <div key={parentId ?? 'root'} style={{ display: 'grid', gap: '0.6rem' }}>
-        {depth > 0 && !collapsedIds.has(parentId as string) && (
+        {depth > 0 && (
           <p className="card-editor-level-title" style={{ marginLeft: (depth - 1) * 18 }}>
             「{parentTitle(parentId)}」内的子卡片 · 第 {depth} 层（{items.length}）
           </p>
@@ -412,20 +460,28 @@ export function CardsPanel() {
           depth === 0 && <p style={{ color: 'var(--muted)' }}>还没有卡片，先新增一张。</p>
         )}
 
-        {/* 折叠的子层不渲染；审核通过/拒绝按钮在选中卡片的编辑框里 */}
-        {!collapsedIds.has(parentId as string) &&
-          subContainers.map((child) => renderLevel(child.id, depth + 1))}
+        {/* 子层：容器卡片只要被折叠，整棵子树都不渲染 */}
+        {subContainers.map((child) => (collapsedIds.has(child.id) ? null : renderLevel(child.id, depth + 1)))}
       </div>
     );
   }
 
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: '1rem 1.1rem', background: 'var(--surface)' }}>
-      <h3 style={{ margin: 0 }}>下载区卡片门户</h3>
-      <p style={{ margin: '0.25rem 0 0.8rem', color: 'var(--muted)', fontSize: '0.85rem' }}>
-        卡片无限套娃（子卡片可折叠/展开）；管理员新建的卡片要<strong>站长审核</strong>后才对外可见。
-        点击卡片可编辑并移动层级，拖动圆点改尺寸。
-      </p>
+    <div>
+      {/* 编辑器固定在页面顶部，可收起/展开 */}
+      <div className="card-editor-pin">
+        <div className="card-editor-pin-bar">
+          <strong>卡片编辑器</strong>
+          <button type="button" onClick={() => setEditorCollapsed((value) => !value)}>
+            {editorCollapsed ? '▸ 展开编辑器' : '▾ 收起编辑器'}
+          </button>
+        </div>
+        {!editorCollapsed && (
+          <div className="card-editor-pin-body">
+          <p style={{ margin: '0 0 0.6rem', color: 'var(--muted)', fontSize: '0.85rem' }}>
+            卡片无限套娃（子卡片可折叠，同层最多展开一个）；管理员新建的卡片要<strong>站长审核</strong>后才对外可见。
+            点击卡片可编辑并移动层级，拖动圆点改尺寸。
+          </p>
 
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
         <button type="button" onClick={() => setAllCollapsed(true)}>全部折叠</button>
@@ -521,6 +577,13 @@ export function CardsPanel() {
                 ⇥ 插入同级卡片
               </button>
             )}
+            <button
+              type="button"
+              title="在选中卡片前面插入一张卡片，后面的卡片自动后移一层"
+              onClick={() => void insertBefore(selected)}
+            >
+              ⇢ 插到前面
+            </button>
           </div>
 
           {!editCollapsed && (
@@ -614,6 +677,9 @@ export function CardsPanel() {
       )}
 
       {message && <p style={{ color: message.includes('失败') ? '#dc2626' : 'var(--accent-strong)' }}>{message}</p>}
+          </div>
+        )}
+      </div>
 
       {renderLevel(null, 0)}
     </div>

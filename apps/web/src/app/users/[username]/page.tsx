@@ -4,6 +4,7 @@ import { apiGet } from '../../../lib/server-api';
 import { FollowButton } from '../../../components/follow-button';
 import { ProfileManageActions } from '../../../components/profile-manage-actions';
 import { MarkdownContent } from '../../../components/markdown-content';
+import { PageBack } from '../../../components/page-back';
 
 export const metadata: Metadata = { title: '主页' };
 export const dynamic = 'force-dynamic';
@@ -44,12 +45,8 @@ export default async function UserPage({ params }: { params: Promise<{ username:
   if (!profile) {
     return (
       <div style={{ maxWidth: 560, margin: '0 auto' }}>
+        <PageBack fallback="/forum" label="返回论坛" />
         <p className="muted">用户不存在，或该账号已注销/封禁。</p>
-        <p>
-          <Link href="/forum" className="muted">
-            ← 返回论坛
-          </Link>
-        </p>
       </div>
     );
   }
@@ -58,6 +55,7 @@ export default async function UserPage({ params }: { params: Promise<{ username:
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <PageBack fallback="/forum" label="返回" />
       <div className="panel" style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         {profile.avatarPath ? (
           <img src={profile.avatarPath} alt={profile.displayName} className="avatar" style={{ width: 76, height: 76, fontSize: '2rem' }} />

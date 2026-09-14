@@ -10,6 +10,7 @@ import {
 } from '../../../../components/forum-form';
 import { AuthorSanctions } from '../../../../components/author-sanctions';
 import { MarkdownContent } from '../../../../components/markdown-content';
+import { PageBack } from '../../../../components/page-back';
 
 export const metadata: Metadata = { title: '主题' };
 export const dynamic = 'force-dynamic';
@@ -50,11 +51,7 @@ export default async function TopicPage({
   if (!topic) {
     return (
       <div>
-        <p>
-          <Link href={`/forum/${slug}`} className="muted">
-            ← 返回版块
-          </Link>
-        </p>
+        <PageBack fallback={`/forum/${slug}`} label="返回版块" />
         <p className="muted">主题不存在或不可见{result.status === 401 ? '：请先登录' : ''}</p>
       </div>
     );
@@ -65,11 +62,7 @@ export default async function TopicPage({
 
   return (
     <div className="topic-page">
-      <p>
-        <Link href={`/forum/${slug}`} className="muted">
-          ← 返回版块
-        </Link>
-      </p>
+      <PageBack fallback={`/forum/${slug}`} label="返回版块" />
 
       {/* 楼主区：主题标题下直接放楼主内容（头像与名字在内容左下角） */}
       <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>

@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { playAnim } from '../lib/anim';
 
 /**
- * Edge 式主题选择：深色一档 + 浅色一档，各选一个色系，按系统深浅自动切换。
- * 深色档基础统一用深灰（不偏蓝），色系只决定强调色；浅色档统一浅灰底。
+ * 主题选择：上面选颜色（一个色系同时用于深浅两档），下面选明暗
+ * （深色 / 浅色 / 跟随系统）。底色用 light-dark() 由 color-scheme 自动切换，
+ * 所以「固定深色 / 固定浅色 / 跟随系统」都只是改 <html> 的 color-scheme。
  */
 export const THEME_FAMILIES = [
   { id: 'azure', label: '晏阳蓝', dark: '#24466e', light: '#bcd3f0' },
@@ -17,74 +18,93 @@ export const THEME_FAMILIES = [
 
 export type ThemeFamilyId = (typeof THEME_FAMILIES)[number]['id'];
 
-/** 「无」= 该档不做强调色，用系统默认灰（深色深灰 / 浅色浅灰）。 */
+/** 「无」= 不加任何强调色，用纯系统灰（深色深灰 / 浅色浅灰）。 */
 export type ThemeChoice = ThemeFamilyId | 'none';
 
-const STORAGE_KEY = 'ycomm_theme_pair';
+/** 明暗：跟随系统 / 固定深色 / 固定浅色。 */
+export type ThemeMode = 'auto' | 'dark' | 'light';
+
+const COLOUR_KEY = 'ycomm_theme_colour';
+const MODE_KEY = 'ycomm_theme_mode';
+const PAIR_KEY = 'ycomm_theme_pair';
 const OLD_KEY = 'ycomm_theme';
 
-interface Pair {
-  light: ThemeChoice;
-  dark: ThemeChoice;
-}
-
-const DEFAULT_PAIR: Pair = { light: 'azure', dark: 'azure' };
+const DEFAULT_COLOUR: ThemeChoice = 'azure';
+const DEFAULT_MODE: ThemeMode = 'auto';
 
 function attrFor(choice: ThemeChoice): string {
   // 「无」映射到灰调色系（即系统默认灰组合）。
   return choice === 'none' ? 'slate' : choice;
 }
 
-function isValidChoice(value: string | undefined): boolean {
+function isValidColour(value: string | undefined): value is ThemeChoice {
   return value === 'none' || THEME_FAMILIES.some((family) => family.id === value);
 }
 
-/** 把用户本地深浅两档写入 <html> 两个属性，并持久化。 */
-export function applyThemePair(pair: Pair): void {
+function isValidMode(value: string | undefined): value is ThemeMode {
+  return value === 'auto' || value === 'dark' || value === 'light';
+}
+
+/** 把选中的颜色 + 明暗写入 <html> 三个属性，并持久化。 */
+export function applyTheme(colour: ThemeChoice, mode: ThemeMode): void {
   if (typeof document === 'undefined') return;
-  document.documentElement.dataset.lightTheme = attrFor(pair.light);
-  document.documentElement.dataset.darkTheme = attrFor(pair.dark);
+  const root = document.documentElement;
+  root.dataset.themeColour = attrFor(colour);
+  root.dataset.themeMode = mode;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pair));
+    localStorage.setItem(COLOUR_KEY, colour);
+    localStorage.setItem(MODE_KEY, mode);
   } catch {
     /* localStorage 不可用时仅本次会话生效 */
   }
 }
 
-function initialPair(): Pair {
-  if (typeof document === 'undefined') return DEFAULT_PAIR;
+/** 兼容旧数据：Edge 配对（深浅两档各一色）→ 颜色取深色档（无则浅色档），明暗跟随系统。 */
+function initial(): { colour: ThemeChoice; mode: ThemeMode } {
+  if (typeof document === 'undefined') return { colour: DEFAULT_COLOUR, mode: DEFAULT_MODE };
   try {
-    // 旧版单个主题（azure/pink/mint/light/dark）迁移到配对。
+    const pair = localStorage.getItem(PAIR_KEY);
+    if (pair && !localStorage.getItem(COLOUR_KEY)) {
+      const parsed = JSON.parse(pair) as { light?: string; dark?: string };
+      const colour = isValidColour(parsed.dark)
+        ? (parsed.dark as ThemeChoice)
+        : isValidColour(parsed.light)
+          ? (parsed.light as ThemeChoice)
+          : DEFAULT_COLOUR;
+      return { colour, mode: 'auto' };
+    }
     const legacy = localStorage.getItem(OLD_KEY);
-    if (legacy && !localStorage.getItem(STORAGE_KEY)) {
-      const id = THEME_FAMILIES.some((family) => family.id === legacy) ? (legacy as ThemeFamilyId) : 'azure';
-      return { light: id, dark: id };
+    if (legacy && !localStorage.getItem(COLOUR_KEY)) {
+      return { colour: isValidColour(legacy) ? (legacy as ThemeChoice) : DEFAULT_COLOUR, mode: 'auto' };
     }
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved) as Partial<Pair>;
-      if (parsed.light && parsed.dark) {
-        const light = isValidChoice(parsed.light) ? (parsed.light as ThemeChoice) : 'azure';
-        const dark = isValidChoice(parsed.dark) ? (parsed.dark as ThemeChoice) : 'azure';
-        return { light, dark };
-      }
-    }
+    const savedColour = localStorage.getItem(COLOUR_KEY);
+    const savedMode = localStorage.getItem(MODE_KEY);
+    return {
+      colour: isValidColour(savedColour ?? undefined) ? (savedColour as ThemeChoice) : DEFAULT_COLOUR,
+      mode: isValidMode(savedMode ?? undefined) ? (savedMode as ThemeMode) : DEFAULT_MODE,
+    };
   } catch {
     /* 忽略损坏的存储 */
   }
-  const light = document.documentElement.dataset.lightTheme;
-  const dark = document.documentElement.dataset.darkTheme;
   return {
-    light: isValidChoice(light) ? (light as ThemeChoice) : 'azure',
-    dark: isValidChoice(dark) ? (dark as ThemeChoice) : 'azure',
+    colour: isValidColour(document.documentElement.dataset.themeColour)
+      ? (document.documentElement.dataset.themeColour as ThemeChoice)
+      : DEFAULT_COLOUR,
+    mode: isValidMode(document.documentElement.dataset.themeMode)
+      ? (document.documentElement.dataset.themeMode as ThemeMode)
+      : DEFAULT_MODE,
   };
 }
 
-function FamilySwatch({ mode, family }: { mode: 'dark' | 'light'; family: (typeof THEME_FAMILIES)[number] }) {
+/** 色块：上下斜切展示该色系深浅两色。 */
+function FamilySwatch({ family }: { family: (typeof THEME_FAMILIES)[number] }) {
   return (
     <span
       className="theme-swatch"
-      style={{ background: family[mode], boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }}
+      style={{
+        background: `linear-gradient(135deg, ${family.dark} 0 50%, ${family.light} 50% 100%)`,
+        boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)',
+      }}
     />
   );
 }
@@ -99,74 +119,112 @@ function NoneSwatch() {
   );
 }
 
+const MODES: { id: ThemeMode; label: string; icon: string; hint: string }[] = [
+  { id: 'dark', label: '深色', icon: '☾', hint: '固定深色底' },
+  { id: 'light', label: '浅色', icon: '☀', hint: '固定浅色底' },
+  { id: 'auto', label: '跟随系统', icon: '↺', hint: '按系统深浅自动切换' },
+];
+
 /**
- * 主题选择器（放控制台 → 外观主题）：
- * 上面一行 = 深色色系，下面一行 = 浅色色系，各勾一个；系统深色时用深色档，浅色时用浅色档。
- * 每行最后固定一个「无」：不加强调色，深色配深灰 / 浅色配浅灰（系统默认灰）。
+ * 主题选择器（控制台 → 外观主题）：
+ * 1. 上面选颜色（深浅两档同一色系，可「无」）；
+ * 2. 下面选明暗：深色 / 浅色 / 跟随系统。
  */
 export function ThemePicker() {
-  const [pair, setPair] = useState<Pair>(DEFAULT_PAIR);
+  const [colour, setColour] = useState<ThemeChoice>(DEFAULT_COLOUR);
+  const [mode, setMode] = useState<ThemeMode>(DEFAULT_MODE);
 
   useEffect(() => {
-    setPair(initialPair());
+    const init = initial();
+    setColour(init.colour);
+    setMode(init.mode);
   }, []);
 
-  function choose(mode: 'dark' | 'light', choice: ThemeChoice) {
-    const next = { ...pair, [mode]: choice };
+  function chooseColour(next: ThemeChoice) {
     playAnim('theme');
-    applyThemePair(next);
-    setPair(next);
+    applyTheme(next, mode);
+    setColour(next);
   }
 
-  const row = (mode: 'dark' | 'light', title: string, desc: string) => (
-    <div>
-      <p style={{ margin: '0 0 0.4rem' }}>
-        <strong>{title}</strong>{' '}
-        <span className="muted" style={{ fontWeight: 400, fontSize: '0.85rem' }}>
-          {desc}
-        </span>
-      </p>
-      <div className="theme-picker" style={{ flexWrap: 'wrap' }}>
-        {THEME_FAMILIES.map((family) => {
-          const active = pair[mode] === family.id;
-          return (
-            <button
-              key={family.id}
-              type="button"
-              className={`theme-option${active ? ' active' : ''}`}
-              onClick={() => choose(mode, family.id)}
-              aria-pressed={active}
-            >
-              <FamilySwatch mode={mode} family={family} />
-              <span className="theme-label">
-                {mode === 'dark' ? '深色' : '浅色'} {family.label}
-                {active ? ' ✓' : ''}
-              </span>
-            </button>
-          );
-        })}
-        {/* 「无」固定在每行最后 */}
-        <button
-          key="none"
-          type="button"
-          className={`theme-option${pair[mode] === 'none' ? ' active' : ''}`}
-          onClick={() => choose(mode, 'none')}
-          aria-pressed={pair[mode] === 'none'}
-        >
-          <NoneSwatch />
-          <span className="theme-label">
-            {mode === 'dark' ? '深色' : '浅色'} 无
-            {pair[mode] === 'none' ? ' ✓' : ''}
-          </span>
-        </button>
-      </div>
-    </div>
-  );
+  function chooseMode(next: ThemeMode) {
+    playAnim('theme');
+    applyTheme(colour, next);
+    setMode(next);
+  }
 
   return (
     <div style={{ display: 'grid', gap: '1.1rem' }}>
-      {row('dark', '深色档', '系统为深色模式时使用（基础为深灰）')}
-      {row('light', '浅色档', '系统为浅色模式时使用（基础为浅灰）')}
+      <div>
+        <p style={{ margin: '0 0 0.4rem' }}>
+          <strong>颜色风格</strong>{' '}
+          <span className="muted" style={{ fontWeight: 400, fontSize: '0.85rem' }}>
+            一个色系同时用于深浅两档；「无」= 纯灰不加强调色
+          </span>
+        </p>
+        <div className="theme-picker" style={{ flexWrap: 'wrap' }}>
+          {THEME_FAMILIES.map((family) => {
+            const active = colour === family.id;
+            return (
+              <button
+                key={family.id}
+                type="button"
+                className={`theme-option${active ? ' active' : ''}`}
+                onClick={() => chooseColour(family.id)}
+                aria-pressed={active}
+              >
+                <FamilySwatch family={family} />
+                <span className="theme-label">
+                  {family.label}
+                  {active ? ' ✓' : ''}
+                </span>
+              </button>
+            );
+          })}
+          <button
+            key="none"
+            type="button"
+            className={`theme-option${colour === 'none' ? ' active' : ''}`}
+            onClick={() => chooseColour('none')}
+            aria-pressed={colour === 'none'}
+          >
+            <NoneSwatch />
+            <span className="theme-label">
+              无{colour === 'none' ? ' ✓' : ''}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <p style={{ margin: '0 0 0.4rem' }}>
+          <strong>深色 / 浅色</strong>{' '}
+          <span className="muted" style={{ fontWeight: 400, fontSize: '0.85rem' }}>
+            决定页面用什么明暗底色
+          </span>
+        </p>
+        <div className="theme-picker">
+          {MODES.map((entry) => {
+            const active = mode === entry.id;
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                className={`theme-mode-option${active ? ' active' : ''}`}
+                onClick={() => chooseMode(entry.id)}
+                aria-pressed={active}
+              >
+                <span className="theme-label">
+                  {entry.icon} {entry.label}
+                  {active ? ' ✓' : ''}
+                </span>
+                <span className="muted" style={{ fontSize: '0.75rem', fontWeight: 400 }}>
+                  {entry.hint}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

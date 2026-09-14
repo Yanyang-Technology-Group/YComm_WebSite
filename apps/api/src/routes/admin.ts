@@ -24,7 +24,7 @@ import {
 } from '@ycomm/identity';
 import { listAuditLogs, logAudit } from '@ycomm/audit';
 import { decide, listQueued } from '@ycomm/moderation';
-import { createCard, deleteCard, listAllCards, listAllResources, reviewCard, updateCard } from '@ycomm/downloads';
+import { createCard, deleteCard, insertCardBefore, listAllCards, listAllResources, reviewCard, updateCard } from '@ycomm/downloads';
 import {
   archiveBoard,
   createBoard,
@@ -85,6 +85,8 @@ const boardUpdateSchema = z.object({
 
 const cardCreateSchema = z.object({
   parentId: z.string().nullable().optional(),
+  /** 非空时：把新卡插到这张卡片前面（同层后面的卡片 position 自动 +1 后移）。 */
+  insertBeforeId: z.string().optional(),
   title: z.string().min(1).max(80),
   subtitle: z.string().max(200).optional(),
   subtitleUrl: z.string().max(2000).nullable().optional(),
@@ -463,22 +465,38 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
     const auth = c.get('auth');
     if (!auth) throw errors.unauthenticated();
-    const card = await createCard(
-      handle.db,
-      {
-        parentId: body.parentId ?? null,
-        title: body.title,
-        subtitle: body.subtitle,
-        subtitleUrl: body.subtitleUrl,
-        kind: body.kind,
-        redirectUrl: body.redirectUrl,
-        w: body.w,
-        h: body.h,
-        visibility: body.visibility,
-        position: body.position,
-      },
-      auth.subject.role,
-    );
+    const card = body.insertBeforeId
+      ? await insertCardBefore(
+          handle.db,
+          body.insertBeforeId,
+          {
+            title: body.title,
+            subtitle: body.subtitle,
+            subtitleUrl: body.subtitleUrl,
+            kind: body.kind,
+            redirectUrl: body.redirectUrl,
+            w: body.w,
+            h: body.h,
+            visibility: body.visibility,
+          },
+          auth.subject.role,
+        )
+      : await createCard(
+          handle.db,
+          {
+            parentId: body.parentId ?? null,
+            title: body.title,
+            subtitle: body.subtitle,
+            subtitleUrl: body.subtitleUrl,
+            kind: body.kind,
+            redirectUrl: body.redirectUrl,
+            w: body.w,
+            h: body.h,
+            visibility: body.visibility,
+            position: body.position,
+          },
+          auth.subject.role,
+        );
     await auditAdmin(handle.db, c, {
       action: 'admin.card.created',
       targetType: 'download_card',

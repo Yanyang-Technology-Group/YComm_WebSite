@@ -36,8 +36,7 @@ const STATE_META: Record<string, { label: string; className: string }> = {
 };
 
 /**
- * 等级徽章颜色：低→高按「绿 → 紫 → 红」渐变；
- * Lv999 红色；Lv1000（满级）黑金色。
+ * 等级徽章颜色：低→高按「绿 → 紫 → 红」渐变；Lv999 红色；Lv1000（满级）黑金色。
  */
 function levelBadgeStyle(level: number): React.CSSProperties {
   if (level >= 1000) {
@@ -216,7 +215,7 @@ export function UsersPanel({
                   @{user.username} · {user.email}
                 </div>
               </div>
-              {/* 状态/权限/等级徽章 */}
+              {/* 状态/权限/等级徽章：角色=站长红/管理蓝/成员绿，状态=绿/橙/红/灰，等级=渐变 */}
               <span className={`badge ${roleMeta.className}`}>{roleMeta.label}</span>
               <span className={`badge ${stateMeta.className}`}>{stateMeta.label}</span>
               <span className="badge" style={levelBadgeStyle(user.level)}>

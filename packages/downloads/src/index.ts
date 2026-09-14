@@ -17,6 +17,7 @@ export {
   createCard,
   deleteCard,
   getCard,
+  insertCardBefore,
   listAllCards,
   listCards,
   listVisibleCards,

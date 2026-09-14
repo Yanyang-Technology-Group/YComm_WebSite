@@ -12,6 +12,7 @@ import {
   createCard,
   createResource,
   getResource,
+  insertCardBefore,
   listPublishedResources,
   listVisibleCards,
   registerDownloadDeciders,
@@ -414,6 +415,43 @@ describe('card portal nesting', () => {
     // 尺寸也可以单独改（编辑框里的宽/高）。
     const resized = await updateCard(handle.db, loose.id, { w: 3, h: 2 });
     expect([resized.w, resized.h]).toEqual([3, 2]);
+  });
+
+  it('insertCardBefore 插到两张卡片中间，同层后面的卡片自动后移', async () => {
+    const first = await seedCard({ parentId: null, title: '第一张', kind: 'container' });
+    const middle = await seedCard({ parentId: null, title: '第二张', kind: 'container' });
+    const last = await seedCard({ parentId: null, title: '第三张', kind: 'container' });
+
+    // 「插到第二张前面」：新卡接管第二张的位置，第二张及后面全部后移一位。
+    const inserted = await insertCardBefore(
+      handle.db,
+      middle.id,
+      { title: '插到中间', kind: 'container' },
+      'owner',
+    );
+
+    expect(inserted.parent_id).toBeNull();
+    const order = (await listVisibleCards(handle.db, null)).map((card) => card.title);
+    expect(order).toEqual(['第一张', '插到中间', '第二张', '第三张']);
+    const middleAfter = (await listVisibleCards(handle.db, null)).find((card) => card.id === middle.id);
+    expect(middleAfter?.position).toBeGreaterThan(inserted.position);
+    // 第一张最前、第三张最后的位置不变，只是中间整体后移。
+    const rootIds = (await listVisibleCards(handle.db, null)).map((card) => card.id);
+    expect(rootIds[0]).toBe(first.id);
+    expect(rootIds[rootIds.length - 1]).toBe(last.id);
+
+    // 子卡片层：插到子卡片前面，新卡归属同一父卡片。
+    const parent = await seedCard({ parentId: null, title: '父卡片', kind: 'container' });
+    const childOne = await seedCard({ parentId: parent.id, title: '子一', kind: 'container' });
+    const childTwo = await seedCard({ parentId: parent.id, title: '子二', kind: 'container' });
+    const insertedChild = await insertCardBefore(handle.db, childTwo.id, { title: '子插中间', kind: 'container' }, 'owner');
+    expect(insertedChild.parent_id).toBe(parent.id);
+    const childIds = (await listVisibleCards(handle.db, null))
+      .filter((card) => card.parent_id === parent.id)
+      .map((card) => card.id);
+    expect(childIds[0]).toBe(childOne.id);
+    const childOrder = childIds.map((id) => id === childOne.id ? '子一' : id === childTwo.id ? '子二' : '子插中间');
+    expect(childOrder).toEqual(['子一', '子插中间', '子二']);
   });
 
   it('下载卡片要站长审核：管理员建的默认待审核，站长通过后才可见', async () => {

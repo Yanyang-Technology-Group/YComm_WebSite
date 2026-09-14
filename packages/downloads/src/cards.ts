@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import type { AccessSubject } from '@ycomm/access';
@@ -107,6 +107,19 @@ export interface CreateCardInput {
   subtitleUrl?: string | null;
 }
 
+/** 同层下一张卡片的 position（新建卡片默认排在末尾）。 */
+async function nextPosition(db: Db, parentId: string | null): Promise<number> {
+  const rows = await db
+    .select({ max: sql<number>`COALESCE(MAX(${schema.downloadCards.position}), -1)` })
+    .from(schema.downloadCards)
+    .where(
+      parentId === null
+        ? isNull(schema.downloadCards.parent_id)
+        : eq(schema.downloadCards.parent_id, parentId),
+    );
+  return (rows[0]?.max ?? -1) + 1;
+}
+
 export async function createCard(
   db: Db,
   input: CreateCardInput,
@@ -126,12 +139,46 @@ export async function createCard(
       w: input.w ?? 1,
       h: input.h ?? 1,
       visibility: input.visibility ?? 'public',
-      position: input.position ?? 0,
+      position: input.position ?? (await nextPosition(db, input.parentId)),
       status,
     })
     .returning();
   if (!created) throw errors.internal(undefined, '卡片创建失败');
   return created;
+}
+
+/**
+ * 在两张卡片中间插一张新卡。
+ *
+ * 语义：新卡接管目标卡片的 `position`，目标卡片及其后所有同层卡片整体后移一位
+ * （即「插入到第 N 位，原来的第 N 位变成第 N+1 位」）。返回新卡。
+ */
+export async function insertCardBefore(
+  db: Db,
+  beforeCardId: string,
+  input: Omit<CreateCardInput, 'parentId' | 'position'>,
+  createdByRole?: 'member' | 'admin' | 'owner',
+): Promise<CardRow> {
+  const target = await getCard(db, beforeCardId);
+  if (!target) throw errors.notFound('找不到要插入位置的卡片');
+
+  const parentId = target.parent_id;
+  const position = target.position ?? 0;
+
+  // 同层里 position >= 目标位置的卡片整体后移一位，腾出这个位置。
+  await db
+    .update(schema.downloadCards)
+    .set({ position: sql`${schema.downloadCards.position} + 1`, updated_at: new Date() })
+    .where(
+      and(
+        parentId === null
+          ? isNull(schema.downloadCards.parent_id)
+          : eq(schema.downloadCards.parent_id, parentId),
+        gte(schema.downloadCards.position, position),
+      ),
+    );
+
+  return createCard(db, { ...input, parentId, position }, createdByRole);
 }
 
 export interface UpdateCardInput {

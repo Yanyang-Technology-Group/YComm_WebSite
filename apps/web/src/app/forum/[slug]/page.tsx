@@ -1,8 +1,8 @@
-import Link from 'next/link';
 import type { Metadata } from 'next';
 import { apiGet } from '../../../lib/server-api';
 import { NewTopicFab } from '../../../components/forum-form';
 import { TopicRow, type TopicRowData } from '../../../components/topic-row';
+import { PageBack } from '../../../components/page-back';
 
 export const metadata: Metadata = { title: '版块' };
 export const dynamic = 'force-dynamic';
@@ -27,11 +27,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
 
   return (
     <div>
-      <p>
-        <Link href="/forum" className="muted">
-          ← 全部版块
-        </Link>
-      </p>
+      <PageBack fallback="/forum" label="全部版块" />
       <h1 className="page-title">{board?.name ?? slug}</h1>
       {board && <p className="muted">{board.description}</p>}
 

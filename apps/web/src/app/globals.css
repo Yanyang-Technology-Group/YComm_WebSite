@@ -1,169 +1,109 @@
 /* =============================================================
    全局样式与主题变量 —— 晏阳社区
-   主题采用「Edge 式配对」：浅色一档 + 深色一档，按系统深浅自动切换。
-   色系：晏阳蓝 / 猛男粉 / 草神绿 / 灰调。
+   主题：上面选一个颜色（深浅两档同一色系），下面选明暗
+   （深色 / 浅色 / 跟随系统）。深浅两套值写在 light-dark() 里，
+   具体用哪套由 <html> 的 color-scheme 决定 —— 所以「固定深色 /
+   固定浅色 / 跟随系统」只是改 color-scheme，无需翻 CSS。
    规则：
    - 浅色：基础一律浅灰，色系只决定强调色（按钮/链接/选中态）；
    - 深色：基础一律深灰（不偏蓝），色系只决定强调色。
    视觉：克制的圆角、清晰的边界、充足的间距。
    ============================================================= */
 :root {
+  /* 默认浅色（未挂 data-theme-mode 时按浅色渲染） */
+  color-scheme: light;
+}
+
+html[data-theme-mode='auto'] {
   color-scheme: light dark;
 }
+html[data-theme-mode='dark'] {
+  color-scheme: dark;
+}
+html[data-theme-mode='light'] {
+  color-scheme: light;
+}
 
-/* ---- 浅色档（系统 light 时生效；靠 html[data-light-theme] 选色系） ---- */
-html,
-html[data-light-theme='azure'] {
-  --bg: #f5f5f7;
-  --surface: #ffffff;
-  --text: #1d2126;
-  --muted: #6b7280;
-  --border: #e2e3e7;
-  --accent: #5d94e8;
-  --accent-strong: #3d76c9;
-  --accent-soft: #eaf1fb;
-  --header-bg: #ffffff;
-  --header-text: #1d2126;
+/* 阴影颜色跟明暗走（light-dark() 只能用于颜色值，阴影分开写）。 */
+html {
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
   --shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
 }
-
-html[data-light-theme='pink'] {
-  --bg: #f7f4f4;
-  --surface: #ffffff;
-  --text: #2a2024;
-  --muted: #84727a;
-  --border: #eadfe1;
-  --accent: #f0899a;
-  --accent-strong: #d95f74;
-  --accent-soft: #fdeef1;
-  --header-bg: #ffffff;
-  --header-text: #2a2024;
-  --shadow-sm: 0 1px 2px rgba(80, 30, 45, 0.05);
-  --shadow: 0 1px 3px rgba(80, 30, 45, 0.06), 0 8px 24px rgba(80, 30, 45, 0.06);
-}
-
-html[data-light-theme='mint'] {
-  --bg: #f4f6f3;
-  --surface: #ffffff;
-  --text: #1d2921;
-  --muted: #66736b;
-  --border: #e0e6dd;
-  --accent: #62b35c;
-  --accent-strong: #478f42;
-  --accent-soft: #eaf5e7;
-  --header-bg: #ffffff;
-  --header-text: #1d2921;
-  --shadow-sm: 0 1px 2px rgba(30, 80, 45, 0.05);
-  --shadow: 0 1px 3px rgba(30, 80, 45, 0.06), 0 8px 24px rgba(30, 80, 45, 0.06);
-}
-
-html[data-light-theme='orange'] {
-  --bg: #f8f4f0;
-  --surface: #ffffff;
-  --text: #2b231d;
-  --muted: #857a6f;
-  --border: #eadfd2;
-  --accent: #ec8a2e;
-  --accent-strong: #d06f14;
-  --accent-soft: #fdeee0;
-  --header-bg: #ffffff;
-  --header-text: #2b231d;
-  --shadow-sm: 0 1px 2px rgba(90, 50, 10, 0.05);
-  --shadow: 0 1px 3px rgba(90, 50, 10, 0.06), 0 8px 24px rgba(90, 50, 10, 0.06);
-}
-
-html[data-light-theme='slate'] {
-  --bg: #f4f4f5;
-  --surface: #ffffff;
-  --text: #1f2226;
-  --muted: #6d7178;
-  --border: #e0e1e4;
-  --accent: #7d848d;
-  --accent-strong: #5c636c;
-  --accent-soft: #ececef;
-  --header-bg: #ffffff;
-  --header-text: #1f2226;
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
-}
-
-/* ---- 深色档（系统 dark 时生效；基础一律深灰，不偏蓝） ---- */
 @media (prefers-color-scheme: dark) {
-  html[data-dark-theme='azure'] {
-    --bg: #0d0f13;
-    --surface: #16181d;
-    --text: #e6e9ee;
-    --muted: #9097a3;
-    --border: #272b33;
-    --accent: #6ea8f0;
-    --accent-strong: #8dbdf3;
-    --accent-soft: #1c2431;
-    --header-bg: #101318;
-    --header-text: #e6e9ee;
+  html[data-theme-mode='auto'] {
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
   }
+}
+html[data-theme-mode='dark'] {
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
+}
 
-  html[data-dark-theme='pink'] {
-    --bg: #100e10;
-    --surface: #191518;
-    --text: #ede2e6;
-    --muted: #a08a92;
-    --border: #2e262a;
-    --accent: #e78a9c;
-    --accent-strong: #efa9b6;
-    --accent-soft: #2c1f24;
-    --header-bg: #141114;
-    --header-text: #ede2e6;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
-  }
+/* ---- 色系：每个色系一档，深浅两套值都写在 light-dark() 里 ---- */
+html[data-theme-colour='azure'] {
+  --bg: light-dark(#f5f5f7, #0d0f13);
+  --surface: light-dark(#ffffff, #16181d);
+  --text: light-dark(#1d2126, #e6e9ee);
+  --muted: light-dark(#6b7280, #9097a3);
+  --border: light-dark(#e2e3e7, #272b33);
+  --accent: light-dark(#5d94e8, #6ea8f0);
+  --accent-strong: light-dark(#3d76c9, #8dbdf3);
+  --accent-soft: light-dark(#eaf1fb, #1c2431);
+  --header-bg: light-dark(#ffffff, #101318);
+  --header-text: light-dark(#1d2126, #e6e9ee);
+}
 
-  html[data-dark-theme='mint'] {
-    --bg: #0e1110;
-    --surface: #171a18;
-    --text: #e4eae5;
-    --muted: #8d9a91;
-    --border: #27302a;
-    --accent: #79c776;
-    --accent-strong: #98d695;
-    --accent-soft: #1b241e;
-    --header-bg: #111412;
-    --header-text: #e4eae5;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
-  }
+html[data-theme-colour='pink'] {
+  --bg: light-dark(#f7f4f4, #100e10);
+  --surface: light-dark(#ffffff, #191518);
+  --text: light-dark(#2a2024, #ede2e6);
+  --muted: light-dark(#84727a, #a08a92);
+  --border: light-dark(#eadfe1, #2e262a);
+  --accent: light-dark(#f0899a, #e78a9c);
+  --accent-strong: light-dark(#d95f74, #efa9b6);
+  --accent-soft: light-dark(#fdeef1, #2c1f24);
+  --header-bg: light-dark(#ffffff, #141114);
+  --header-text: light-dark(#2a2024, #ede2e6);
+}
 
-  html[data-dark-theme='orange'] {
-    --bg: #12100d;
-    --surface: #1a1713;
-    --text: #efe8e0;
-    --muted: #a7988a;
-    --border: #2e2a25;
-    --accent: #f0993a;
-    --accent-strong: #f5b26a;
-    --accent-soft: #2b2117;
-    --header-bg: #151210;
-    --header-text: #efe8e0;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
-  }
+html[data-theme-colour='mint'] {
+  --bg: light-dark(#f4f6f3, #0e1110);
+  --surface: light-dark(#ffffff, #171a18);
+  --text: light-dark(#1d2921, #e4eae5);
+  --muted: light-dark(#66736b, #8d9a91);
+  --border: light-dark(#e0e6dd, #27302a);
+  --accent: light-dark(#62b35c, #79c776);
+  --accent-strong: light-dark(#478f42, #98d695);
+  --accent-soft: light-dark(#eaf5e7, #1b241e);
+  --header-bg: light-dark(#ffffff, #111412);
+  --header-text: light-dark(#1d2921, #e4eae5);
+}
 
-  html[data-dark-theme='slate'] {
-    --bg: #0d0e11;
-    --surface: #16171b;
-    --text: #e5e6ea;
-    --muted: #8e9198;
-    --border: #26282e;
-    --accent: #99a0aa;
-    --accent-strong: #b7bcc4;
-    --accent-soft: #212329;
-    --header-bg: #101114;
-    --header-text: #e5e6ea;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
-  }
+html[data-theme-colour='orange'] {
+  --bg: light-dark(#f8f4f0, #12100d);
+  --surface: light-dark(#ffffff, #1a1713);
+  --text: light-dark(#2b231d, #efe8e0);
+  --muted: light-dark(#857a6f, #a7988a);
+  --border: light-dark(#eadfd2, #2e2a25);
+  --accent: light-dark(#ec8a2e, #f0993a);
+  --accent-strong: light-dark(#d06f14, #f5b26a);
+  --accent-soft: light-dark(#fdeee0, #2b2117);
+  --header-bg: light-dark(#ffffff, #151210);
+  --header-text: light-dark(#2b231d, #efe8e0);
+}
+
+html[data-theme-colour='slate'] {
+  --bg: light-dark(#f4f4f5, #0d0e11);
+  --surface: light-dark(#ffffff, #16171b);
+  --text: light-dark(#1f2226, #e5e6ea);
+  --muted: light-dark(#6d7178, #8e9198);
+  --border: light-dark(#e0e1e4, #26282e);
+  --accent: light-dark(#7d848d, #99a0aa);
+  --accent-strong: light-dark(#5c636c, #b7bcc4);
+  --accent-soft: light-dark(#ececef, #212329);
+  --header-bg: light-dark(#ffffff, #101114);
+  --header-text: light-dark(#1f2226, #e5e6ea);
 }
 
 * {
@@ -402,19 +342,11 @@ a:hover {
   margin: 0 0 1.25rem;
   padding: 0.7rem 0.9rem;
   border-radius: 8px;
-  background: #fff6e5;
-  border: 1px solid #f0d199;
-  color: #8a5b00;
+  background: light-dark(#fff6e5, #2a2113);
+  border: 1px solid light-dark(#f0d199, #4d3c1c);
+  color: light-dark(#8a5b00, #f0c884);
   font-size: 0.9rem;
   line-height: 1.6;
-}
-
-@media (prefers-color-scheme: dark) {
-  .oauth-alert {
-    background: #2a2113;
-    border-color: #4d3c1c;
-    color: #f0c884;
-  }
 }
 
 /* ===== 帖子正文（含内嵌图片 / Markdown） ===== */
@@ -620,6 +552,28 @@ a.uname:hover,
   border-top: 1px dashed var(--border);
 }
 
+/* 页面左上角「← 返回」按钮 */
+.page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.3rem 0.55rem;
+  margin: 0 0 0.75rem;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.page-back:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
 /* 小文字按钮（封禁/禁言/删除等） */
 .text-btn {
   background: none;
@@ -645,7 +599,126 @@ a.uname:hover,
   color: #b91c1c;
 }
 
-/* ===== 论坛三栏：左右栏与中间区分开 ===== */
+/* ===== 论坛三栏：可拖拽调宽 ===== */
+.site-main:has(.forum-shell) {
+  max-width: 1440px;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.forum-shell {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  min-height: 60vh;
+}
+
+.forum-shell.resizing .fcol-main {
+  user-select: none;
+}
+
+.fcol {
+  min-width: 0;
+}
+
+.fcol-left {
+  width: 200px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 5.25rem;
+  padding: 0.5rem 1rem 2rem 0.25rem;
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+}
+
+.fcol-main {
+  flex: 1;
+  min-width: 0;
+  padding: 0 1.5rem;
+}
+
+.fcol-right {
+  width: 250px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 5.25rem;
+  padding: 0.5rem 0.25rem 2rem 1rem;
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+}
+
+/* 分隔条：可拖（col-resize），拖动中显示淡虚线 */
+.fcol-resizer {
+  flex-shrink: 0;
+  width: 10px;
+  align-self: stretch;
+  background: none;
+  border: none;
+  cursor: col-resize;
+  touch-action: none;
+  position: relative;
+  padding: 0;
+}
+
+.fcol-resizer::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.fcol-resizer:hover::before,
+.fcol-resizer:active::before {
+  opacity: 1;
+}
+
+.forum-shell.resizing .fcol-resizer::before {
+  opacity: 1;
+  border-left: 2px dashed var(--accent-strong);
+}
+
+@media (max-width: 900px) {
+  .forum-shell {
+    flex-direction: column;
+  }
+
+  .fcol-left,
+  .fcol-right {
+    position: static;
+    width: 100% !important;
+    max-height: none;
+    overflow: visible;
+    padding: 0.25rem 0 0.5rem;
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .fcol-left .app-nav-title,
+  .fcol-right .app-nav-title {
+    width: 100%;
+    margin-bottom: 0.1rem;
+  }
+
+  .fcol-left .app-nav-link,
+  .fcol-right .app-nav-link {
+    white-space: nowrap;
+  }
+
+  .fcol-resizer {
+    display: none;
+  }
+
+  .fcol-main {
+    padding: 1.25rem 0;
+  }
+}
 .forum-sidebar .panel,
 .forum-info .panel {
   background: color-mix(in srgb, var(--accent) 6%, var(--surface));
@@ -1101,12 +1174,10 @@ select:focus {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-/* 深色模式下浏览器自动填表配色修正 */
-@media (prefers-color-scheme: dark) {
-  input:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
-    -webkit-text-fill-color: var(--text);
-  }
+/* 浏览器自动填表配色修正（跟随当前 surface/text，深浅都适用） */
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--text);
 }
 
 /* ===== 卡片 / 文本：边界清楚、间距从容 ===== */
@@ -1559,6 +1630,31 @@ select:focus {
 }
 
 .theme-option.active {
+  border-color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+/* 明暗选项（深色 / 浅色 / 跟随系统）：竖排两行文字 */
+.theme-mode-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.theme-mode-option:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.theme-mode-option.active {
   border-color: var(--accent-strong);
   background: var(--accent-soft);
 }

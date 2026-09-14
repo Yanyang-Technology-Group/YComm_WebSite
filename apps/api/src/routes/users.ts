@@ -49,8 +49,10 @@ export function usersRoutes(): Hono<{ Variables: AppVariables }> {
   router.get('/:username/following', async (c) => {
     const handle = await getDb();
     const auth = c.get('auth');
-    const target = await resolveUsername(handle.db, c.req.param('username'));
-    const visible = (await getPublicProfile(handle.db, target.id, auth?.userId ?? null)).followingListVisible;
+    const username = c.req.param('username');
+    const target = await resolveUsername(handle.db, username);
+    // 按用户名查（之前误传 id → 永远匹配不到用户，列表直接 404，前端就显示「不可见」）
+    const visible = (await getPublicProfile(handle.db, username, auth?.userId ?? null)).followingListVisible;
     if (!visible) throw errors.forbidden('对方设置了关注列表可见度，暂不可见');
     const items: FollowedUserView[] = await listFollowingUsers(handle.db, target.id, auth?.userId ?? null);
     return c.json({ ok: true, data: { items } });
@@ -59,8 +61,9 @@ export function usersRoutes(): Hono<{ Variables: AppVariables }> {
   router.get('/:username/followers', async (c) => {
     const handle = await getDb();
     const auth = c.get('auth');
-    const target = await resolveUsername(handle.db, c.req.param('username'));
-    const visible = (await getPublicProfile(handle.db, target.id, auth?.userId ?? null)).followersListVisible;
+    const username = c.req.param('username');
+    const target = await resolveUsername(handle.db, username);
+    const visible = (await getPublicProfile(handle.db, username, auth?.userId ?? null)).followersListVisible;
     if (!visible) throw errors.forbidden('对方设置了粉丝列表可见度，暂不可见');
     const items: FollowedUserView[] = await listFollowerUsers(handle.db, target.id, auth?.userId ?? null);
     return c.json({ ok: true, data: { items } });
