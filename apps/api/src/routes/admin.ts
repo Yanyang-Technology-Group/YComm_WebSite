@@ -71,6 +71,8 @@ const boardCreateSchema = z.object({
   description: z.string().max(500).default(''),
   sortOrder: z.number().int().optional(),
   visibility: z.enum(['public', 'login', 'invite']).default('public'),
+  /** 谁可以发主题/帖子：all=所有人 / staff=仅管理员与站长。 */
+  postingPolicy: z.enum(['all', 'staff']).default('all'),
 });
 
 const boardUpdateSchema = z.object({
@@ -78,12 +80,14 @@ const boardUpdateSchema = z.object({
   description: z.string().max(500).optional(),
   sortOrder: z.number().int().optional(),
   visibility: z.enum(['public', 'login', 'invite']).optional(),
+  postingPolicy: z.enum(['all', 'staff']).optional(),
 });
 
 const cardCreateSchema = z.object({
   parentId: z.string().nullable().optional(),
   title: z.string().min(1).max(80),
   subtitle: z.string().max(200).optional(),
+  subtitleUrl: z.string().max(2000).nullable().optional(),
   kind: z.enum(['container', 'redirect', 'resources']).default('container'),
   redirectUrl: z.string().max(2000).nullable().optional(),
   w: z.number().int().min(1).max(6).optional(),
@@ -96,6 +100,7 @@ const cardUpdateSchema = z.object({
   parentId: z.string().nullable().optional(),
   title: z.string().min(1).max(80).optional(),
   subtitle: z.string().max(200).optional(),
+  subtitleUrl: z.string().max(2000).nullable().optional(),
   kind: z.enum(['container', 'redirect', 'resources']).optional(),
   redirectUrl: z.string().max(2000).nullable().optional(),
   w: z.number().int().min(1).max(6).optional(),
@@ -426,6 +431,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
         parentId: body.parentId ?? null,
         title: body.title,
         subtitle: body.subtitle,
+        subtitleUrl: body.subtitleUrl,
         kind: body.kind,
         redirectUrl: body.redirectUrl,
         w: body.w,
@@ -457,6 +463,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       parentId: body.parentId,
       title: body.title,
       subtitle: body.subtitle,
+      subtitleUrl: body.subtitleUrl,
       kind: body.kind,
       redirectUrl: body.redirectUrl,
       w: body.w,
@@ -519,13 +526,14 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       description: body.description,
       sortOrder: body.sortOrder,
       policy: parseAccessPolicy({ visibility: body.visibility }),
+      postingPolicy: body.postingPolicy,
     });
     const view: BoardView = { ...board, policy: parseAccessPolicy(board.access_policy) };
     await auditAdmin(handle.db, c, {
       action: 'admin.board.created',
       targetType: 'board',
       targetId: board.id,
-      meta: { slug: board.slug, name: board.name, visibility: body.visibility },
+      meta: { slug: board.slug, name: board.name, visibility: body.visibility, postingPolicy: board.posting_policy },
     });
     return c.json({ ok: true, data: { board: adminBoard(view) } }, 201);
   });
@@ -538,6 +546,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       description: body.description,
       sortOrder: body.sortOrder,
       policy: body.visibility !== undefined ? parseAccessPolicy({ visibility: body.visibility }) : undefined,
+      postingPolicy: body.postingPolicy,
     });
     const view: BoardView = { ...board, policy: parseAccessPolicy(board.access_policy) };
     await auditAdmin(handle.db, c, {
@@ -588,6 +597,7 @@ function adminBoard(board: BoardView) {
     visibility: board.policy.visibility,
     minLevel: board.policy.minLevel,
     requireInvite: board.policy.requireInvite,
+    postingPolicy: board.posting_policy,
     archivedAt: board.archived_at,
     createdAt: board.created_at,
   };
@@ -598,6 +608,7 @@ function adminCard(card: {
   parent_id: string | null;
   title: string;
   subtitle: string;
+  subtitle_url: string | null;
   kind: string;
   redirect_url: string | null;
   w: number;
@@ -611,6 +622,7 @@ function adminCard(card: {
     parentId: card.parent_id,
     title: card.title,
     subtitle: card.subtitle,
+    subtitleUrl: card.subtitle_url,
     kind: card.kind,
     redirectUrl: card.redirect_url,
     w: card.w,

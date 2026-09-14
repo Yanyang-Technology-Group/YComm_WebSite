@@ -13,6 +13,8 @@ interface AdminBoard {
   visibility: 'public' | 'login' | 'invite';
   minLevel: number;
   requireInvite: boolean;
+  /** 谁可以发主题/帖子：all=所有人 / staff=仅管理员与站长。 */
+  postingPolicy?: 'all' | 'staff';
   archivedAt: string | null;
   createdAt: string;
 }
@@ -21,6 +23,11 @@ const VIS_LABELS: Record<AdminBoard['visibility'], string> = {
   public: '所有人可读',
   login: '需登录',
   invite: '需邀请码',
+};
+
+const POSTING_LABELS: Record<'all' | 'staff', string> = {
+  all: '所有人可发帖',
+  staff: '仅管理员/站长可发帖',
 };
 
 export function BoardManager() {
@@ -66,6 +73,7 @@ export function BoardManager() {
             name: String(fd.get('name') ?? '').trim(),
             description: String(fd.get('description') ?? '').trim(),
             visibility: String(fd.get('visibility') ?? 'public'),
+            postingPolicy: String(fd.get('postingPolicy') ?? 'all'),
             sortOrder: Number(fd.get('sortOrder') ?? 100) || 100,
           }),
         }),
@@ -81,6 +89,7 @@ export function BoardManager() {
       description: board.description,
       sortOrder: String(board.sortOrder),
       visibility: board.visibility,
+      postingPolicy: board.postingPolicy ?? 'all',
     });
   }
 
@@ -95,6 +104,7 @@ export function BoardManager() {
             description: draft.description?.trim() ?? board.description,
             sortOrder: Number(draft.sortOrder) || board.sortOrder,
             visibility: draft.visibility,
+            postingPolicy: (draft.postingPolicy ?? 'all') as 'all' | 'staff',
           }),
         }),
       '已保存',
@@ -135,6 +145,10 @@ export function BoardManager() {
             <option value="login">需登录</option>
             <option value="invite">需邀请码</option>
           </select>
+          <select name="postingPolicy" defaultValue="all" style={inputStyle}>
+            <option value="all">所有人可发帖</option>
+            <option value="staff">仅管理员/站长可发帖</option>
+          </select>
           <input name="sortOrder" type="number" placeholder="排序（越小越靠前）" defaultValue={100} style={inputStyle} />
         </div>
         <button type="submit" className="primary" style={{ marginTop: '0.6rem' }}>
@@ -165,6 +179,15 @@ export function BoardManager() {
                     <option value="public">所有人可读</option>
                     <option value="login">需登录</option>
                     <option value="invite">需邀请码</option>
+                  </select>
+                  <select
+                    value={draft.postingPolicy ?? 'all'}
+                    onChange={(e) => setDraft({ ...draft, postingPolicy: e.target.value })}
+                    style={inputStyle}
+                    aria-label="发帖权限"
+                  >
+                    <option value="all">所有人可发帖</option>
+                    <option value="staff">仅管理员/站长可发帖</option>
                   </select>
                   <input
                     value={draft.description ?? ''}
@@ -203,6 +226,9 @@ export function BoardManager() {
                     </div>
                   )}
                   <div className="badge">{VIS_LABELS[board.visibility]}</div>
+                  <div className={`badge ${(board.postingPolicy ?? 'all') === 'staff' ? 'badge-warn' : 'badge-state-active'}`}>
+                    {POSTING_LABELS[board.postingPolicy ?? 'all']}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   <span className="muted">排序 {board.sortOrder}</span>

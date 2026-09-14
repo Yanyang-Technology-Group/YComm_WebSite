@@ -8,6 +8,7 @@
  */
 export {
   archiveBoard,
+  assertCanPostInBoard,
   createBoard,
   getBoardById,
   getBoardBySlug,

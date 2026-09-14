@@ -10,6 +10,7 @@ interface AdminCard {
   parentId: string | null;
   title: string;
   subtitle: string;
+  subtitleUrl: string | null;
   kind: string;
   redirectUrl: string | null;
   w: number;
@@ -127,6 +128,7 @@ export function CardsPanel() {
     const payload: Record<string, unknown> = {
       title: String(fd.get('title') ?? ''),
       subtitle: String(fd.get('subtitle') ?? ''),
+      subtitleUrl: String(fd.get('subtitleUrl') ?? '').trim() || null,
       kind,
       visibility: String(fd.get('visibility') ?? 'public'),
       parentId: newParentId || null,
@@ -167,6 +169,7 @@ export function CardsPanel() {
         body: JSON.stringify({
           title: String(fd.get('title') ?? ''),
           subtitle: String(fd.get('subtitle') ?? ''),
+          subtitleUrl: String(fd.get('subtitleUrl') ?? '').trim() || null,
           kind,
           visibility: String(fd.get('visibility') ?? 'public'),
           // 允许把已有卡片移动到另一张卡片里（真正的「套娃」开关）。
@@ -427,6 +430,7 @@ export function CardsPanel() {
             style={{ flex: '1 1 160px', padding: '0.4rem' }}
           />
           <input name="subtitle" placeholder="副标题（可选）" style={{ flex: '1 1 160px', padding: '0.4rem' }} />
+          <input name="subtitleUrl" placeholder="简介文字跳转链接（可选，https://…）" style={{ flex: '1 1 200px', padding: '0.4rem' }} />
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <select name="kind" style={{ padding: '0.4rem' }}>
@@ -472,6 +476,7 @@ export function CardsPanel() {
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <input name="title" defaultValue={selected.title} placeholder="标题" required style={{ flex: '1 1 160px', padding: '0.4rem' }} />
             <input name="subtitle" defaultValue={selected.subtitle} placeholder="副标题" style={{ flex: '1 1 160px', padding: '0.4rem' }} />
+            <input name="subtitleUrl" defaultValue={selected.subtitleUrl ?? ''} placeholder="简介文字跳转链接（可选）" style={{ flex: '1 1 200px', padding: '0.4rem' }} />
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <select name="kind" defaultValue={selected.kind} style={{ padding: '0.4rem' }}>

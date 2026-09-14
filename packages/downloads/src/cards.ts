@@ -103,6 +103,8 @@ export interface CreateCardInput {
   h?: number;
   visibility?: CardVisibility;
   position?: number;
+  /** 简介里附带的文字跳转链接（直达地址）。 */
+  subtitleUrl?: string | null;
 }
 
 export async function createCard(
@@ -118,6 +120,7 @@ export async function createCard(
       parent_id: input.parentId,
       title: input.title.trim(),
       subtitle: input.subtitle ?? '',
+      subtitle_url: input.subtitleUrl ?? null,
       kind: input.kind,
       redirect_url: input.redirectUrl ?? null,
       w: input.w ?? 1,
@@ -135,6 +138,7 @@ export interface UpdateCardInput {
   parentId?: string | null;
   title?: string;
   subtitle?: string;
+  subtitleUrl?: string | null;
   kind?: CardKind;
   redirectUrl?: string | null;
   w?: number;
@@ -150,6 +154,7 @@ export async function updateCard(db: Db, cardId: string, patch: UpdateCardInput)
       ...(patch.parentId !== undefined ? { parent_id: patch.parentId } : {}),
       ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
       ...(patch.subtitle !== undefined ? { subtitle: patch.subtitle } : {}),
+      ...(patch.subtitleUrl !== undefined ? { subtitle_url: patch.subtitleUrl } : {}),
       ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
       ...(patch.redirectUrl !== undefined ? { redirect_url: patch.redirectUrl } : {}),
       ...(patch.w !== undefined ? { w: patch.w } : {}),

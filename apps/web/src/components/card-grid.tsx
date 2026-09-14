@@ -5,6 +5,7 @@ export interface PublicCard {
   parentId: string | null;
   title: string;
   subtitle: string;
+  subtitleUrl: string | null;
   kind: string;
   redirectUrl: string | null;
   w: number;
@@ -21,6 +22,7 @@ export function CardGrid({ cards }: { cards: PublicCard[] }) {
           <>
             <div className="card-tile-title">{card.title}</div>
             {card.subtitle && <div className="card-tile-subtitle">{card.subtitle}</div>}
+            {card.subtitleUrl && <span className="card-tile-kind">🔗 简介链接</span>}
             {card.kind === 'redirect' && <span className="card-tile-kind">↗ 外链</span>}
             {card.kind === 'resources' && <span className="card-tile-kind">📦 资源</span>}
           </>

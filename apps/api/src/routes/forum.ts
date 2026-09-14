@@ -5,6 +5,7 @@ import { errors } from '@ycomm/kernel';
 import { PERMISSION } from '@ycomm/config';
 import { assertCanViewResource, assertPermission, assertSubjectCanAct } from '@ycomm/access';
 import {
+  assertCanPostInBoard,
   createPost,
   createTopic,
   deletePost,
@@ -129,6 +130,8 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
       id: board.id,
       policy: board.policy,
     });
+    // 发帖权限：仅管理员/站长的版块，普通用户与游客不能发主题。
+    assertCanPostInBoard(auth?.subject ?? null, board);
 
     const result = await createTopic(handle.db, {
       boardId: board.id,
@@ -180,6 +183,8 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
     const board = await getBoardById(handle.db, topic.board_id);
     if (!board) throw errors.notFound('主题不存在');
     await assertCanViewResource(handle.db, auth?.subject ?? null, { type: 'board', id: board.id, policy: board.policy });
+    // 发帖权限：仅管理员/站长的版块，普通用户与游客不能回帖。
+    assertCanPostInBoard(auth?.subject ?? null, board);
 
     let authorId: string | null = null;
     let authorRole: 'member' | 'admin' | 'owner' | 'guest' = 'guest';

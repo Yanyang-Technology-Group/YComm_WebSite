@@ -90,7 +90,22 @@ export default async function TopicPage({
           {/* 底部一行：左 = 头像 + 名字（楼主徽章）；右 = 点赞/转发/管理按钮 */}
           <div className="post-footer">
             <div className="post-author">
-              {post.authorAvatarPath ? (
+              {post.authorUsername ? (
+                <Link href={`/users/${encodeURIComponent(post.authorUsername)}`}>
+                  {post.authorAvatarPath ? (
+                    <img
+                      src={post.authorAvatarPath}
+                      alt={post.authorDisplayName ?? '访客'}
+                      className="avatar"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="avatar avatar-fallback">
+                      {(post.authorDisplayName ?? '访客').slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                </Link>
+              ) : post.authorAvatarPath ? (
                 <img
                   src={post.authorAvatarPath}
                   alt={post.authorDisplayName ?? '访客'}

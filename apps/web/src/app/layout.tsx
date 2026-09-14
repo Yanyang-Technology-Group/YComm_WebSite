@@ -42,7 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const branding = getSiteBranding();
 
   return (
-    <html lang="zh-CN" data-theme="azure" className={noto.variable}>
+    <html lang="zh-CN" data-light-theme="azure" data-dark-theme="azure" className={noto.variable}>
       <body>
         {/* 切换页面 / 主题时的渐变幕布（CSS 驱动，见 globals.css） */}
         <div className="anim-veil" aria-hidden="true" />

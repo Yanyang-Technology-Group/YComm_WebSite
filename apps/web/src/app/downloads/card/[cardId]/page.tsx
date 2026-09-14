@@ -50,6 +50,13 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
         </p>
         <h1 className="page-title">{card.title}</h1>
         {card.subtitle && <p className="muted">{card.subtitle}</p>}
+        {card.subtitleUrl && (
+          <p style={{ margin: '0 0 0.75rem' }}>
+            <a href={card.subtitleUrl} target="_blank" rel="noopener noreferrer" className="uname" style={{ fontSize: '0.95rem' }}>
+              → 直达链接
+            </a>
+          </p>
+        )}
         {children.length === 0 ? <p className="muted">这个卡片里还没有内容。</p> : <CardGrid cards={children} />}
       </div>
     );

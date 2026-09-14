@@ -1,87 +1,169 @@
 /* =============================================================
    全局样式与主题变量 —— 晏阳社区
-   主题：晏阳蓝(azure 默认) / 猛男粉(pink) / 草神绿(mint) / 浅色(light) / 深色(dark)
-   视觉：克制的圆角、清晰的边界、充足的间距、靠排版而不是装饰撑起层次。
+   主题采用「Edge 式配对」：浅色一档 + 深色一档，按系统深浅自动切换。
+   色系：晏阳蓝 / 猛男粉 / 草神绿 / 灰调。
+   规则：
+   - 浅色：基础一律浅灰，色系只决定强调色（按钮/链接/选中态）；
+   - 深色：基础一律深灰（不偏蓝），色系只决定强调色。
+   视觉：克制的圆角、清晰的边界、充足的间距。
    ============================================================= */
-:root,
-[data-theme='azure'] {
-  --bg: #f3f6fa;
+:root {
+  color-scheme: light dark;
+}
+
+/* ---- 浅色档（系统 light 时生效；靠 html[data-light-theme] 选色系） ---- */
+html,
+html[data-light-theme='azure'] {
+  --bg: #f5f5f7;
   --surface: #ffffff;
-  --text: #1c2533;
-  --muted: #68748a;
-  --border: #dde5f0;
-  --accent: #5da4fa;
-  --accent-strong: #2f81e8;
-  --accent-soft: #e9f2fe;
+  --text: #1d2126;
+  --muted: #6b7280;
+  --border: #e2e3e7;
+  --accent: #5d94e8;
+  --accent-strong: #3d76c9;
+  --accent-soft: #eaf1fb;
   --header-bg: #ffffff;
-  --header-text: #1c2533;
+  --header-text: #1d2126;
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
   --shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
-  color-scheme: light;
 }
 
-[data-theme='pink'] {
-  --bg: #fbf3f5;
+html[data-light-theme='pink'] {
+  --bg: #f7f4f4;
   --surface: #ffffff;
-  --text: #3a1f28;
-  --muted: #8f6b76;
-  --border: #f2dde3;
-  --accent: #ff9999;
-  --accent-strong: #e95863;
-  --accent-soft: #ffecef;
+  --text: #2a2024;
+  --muted: #84727a;
+  --border: #eadfe1;
+  --accent: #f0899a;
+  --accent-strong: #d95f74;
+  --accent-soft: #fdeef1;
   --header-bg: #ffffff;
-  --header-text: #3a1f28;
+  --header-text: #2a2024;
   --shadow-sm: 0 1px 2px rgba(80, 30, 45, 0.05);
   --shadow: 0 1px 3px rgba(80, 30, 45, 0.06), 0 8px 24px rgba(80, 30, 45, 0.06);
-  color-scheme: light;
 }
 
-[data-theme='mint'] {
-  --bg: #f1f8ee;
+html[data-light-theme='mint'] {
+  --bg: #f4f6f3;
   --surface: #ffffff;
-  --text: #1a3322;
-  --muted: #5c7764;
-  --border: #dcecd2;
-  --accent: #b2ff66;
-  --accent-strong: #4f9426;
-  --accent-soft: #f0fbe2;
+  --text: #1d2921;
+  --muted: #66736b;
+  --border: #e0e6dd;
+  --accent: #62b35c;
+  --accent-strong: #478f42;
+  --accent-soft: #eaf5e7;
   --header-bg: #ffffff;
-  --header-text: #1a3322;
+  --header-text: #1d2921;
   --shadow-sm: 0 1px 2px rgba(30, 80, 45, 0.05);
   --shadow: 0 1px 3px rgba(30, 80, 45, 0.06), 0 8px 24px rgba(30, 80, 45, 0.06);
-  color-scheme: light;
 }
 
-[data-theme='light'] {
-  --bg: #f7f7f8;
+html[data-light-theme='orange'] {
+  --bg: #f8f4f0;
   --surface: #ffffff;
-  --text: #1f1f1f;
-  --muted: #6a6e76;
-  --border: #e3e4e7;
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-soft: #eef4ff;
+  --text: #2b231d;
+  --muted: #857a6f;
+  --border: #eadfd2;
+  --accent: #ec8a2e;
+  --accent-strong: #d06f14;
+  --accent-soft: #fdeee0;
   --header-bg: #ffffff;
-  --header-text: #1f1f1f;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.05);
-  color-scheme: light;
+  --header-text: #2b231d;
+  --shadow-sm: 0 1px 2px rgba(90, 50, 10, 0.05);
+  --shadow: 0 1px 3px rgba(90, 50, 10, 0.06), 0 8px 24px rgba(90, 50, 10, 0.06);
 }
 
-[data-theme='dark'] {
-  --bg: #0e1116;
-  --surface: #171c25;
-  --text: #e4e9f0;
-  --muted: #8d97a8;
-  --border: #262e3c;
-  --accent: #5ea2ef;
-  --accent-strong: #7db4f7;
-  --accent-soft: #1b293d;
-  --header-bg: #10141b;
-  --header-text: #e4e9f0;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
-  color-scheme: dark;
+html[data-light-theme='slate'] {
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --text: #1f2226;
+  --muted: #6d7178;
+  --border: #e0e1e4;
+  --accent: #7d848d;
+  --accent-strong: #5c636c;
+  --accent-soft: #ececef;
+  --header-bg: #ffffff;
+  --header-text: #1f2226;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
+}
+
+/* ---- 深色档（系统 dark 时生效；基础一律深灰，不偏蓝） ---- */
+@media (prefers-color-scheme: dark) {
+  html[data-dark-theme='azure'] {
+    --bg: #0d0f13;
+    --surface: #16181d;
+    --text: #e6e9ee;
+    --muted: #9097a3;
+    --border: #272b33;
+    --accent: #6ea8f0;
+    --accent-strong: #8dbdf3;
+    --accent-soft: #1c2431;
+    --header-bg: #101318;
+    --header-text: #e6e9ee;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  html[data-dark-theme='pink'] {
+    --bg: #100e10;
+    --surface: #191518;
+    --text: #ede2e6;
+    --muted: #a08a92;
+    --border: #2e262a;
+    --accent: #e78a9c;
+    --accent-strong: #efa9b6;
+    --accent-soft: #2c1f24;
+    --header-bg: #141114;
+    --header-text: #ede2e6;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  html[data-dark-theme='mint'] {
+    --bg: #0e1110;
+    --surface: #171a18;
+    --text: #e4eae5;
+    --muted: #8d9a91;
+    --border: #27302a;
+    --accent: #79c776;
+    --accent-strong: #98d695;
+    --accent-soft: #1b241e;
+    --header-bg: #111412;
+    --header-text: #e4eae5;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  html[data-dark-theme='orange'] {
+    --bg: #12100d;
+    --surface: #1a1713;
+    --text: #efe8e0;
+    --muted: #a7988a;
+    --border: #2e2a25;
+    --accent: #f0993a;
+    --accent-strong: #f5b26a;
+    --accent-soft: #2b2117;
+    --header-bg: #151210;
+    --header-text: #efe8e0;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  html[data-dark-theme='slate'] {
+    --bg: #0d0e11;
+    --surface: #16171b;
+    --text: #e5e6ea;
+    --muted: #8e9198;
+    --border: #26282e;
+    --accent: #99a0aa;
+    --accent-strong: #b7bcc4;
+    --accent-soft: #212329;
+    --header-bg: #101114;
+    --header-text: #e5e6ea;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
 }
 
 * {
@@ -274,22 +356,22 @@ a:hover {
 .nav-console {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.28rem 0.85rem 0.28rem 0.3rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  /* 无框：纯文字入口，悬浮才有浅色底 */
+  background: none;
+  border: none;
+  padding: 0.3rem 0.75rem;
+  border-radius: 8px;
   color: var(--text);
   font-weight: 600;
   font-size: 0.9rem;
   transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .nav-console:hover {
-  border-color: var(--accent);
   background: var(--accent-soft);
-  opacity: 1;
+  color: var(--accent-strong);
 }
 
 /* 头像专用入口：圆形，指向我的主页；控制台单独一个「控制台」按钮 */
@@ -327,10 +409,12 @@ a:hover {
   line-height: 1.6;
 }
 
-[data-theme='dark'] .oauth-alert {
-  background: #2a2113;
-  border-color: #4d3c1c;
-  color: #f0c884;
+@media (prefers-color-scheme: dark) {
+  .oauth-alert {
+    background: #2a2113;
+    border-color: #4d3c1c;
+    color: #f0c884;
+  }
 }
 
 /* ===== 帖子正文（含内嵌图片 / Markdown） ===== */
@@ -1018,9 +1102,11 @@ select:focus {
 }
 
 /* 深色模式下浏览器自动填表配色修正 */
-[data-theme='dark'] input:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
-  -webkit-text-fill-color: var(--text);
+@media (prefers-color-scheme: dark) {
+  input:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+    -webkit-text-fill-color: var(--text);
+  }
 }
 
 /* ===== 卡片 / 文本：边界清楚、间距从容 ===== */
@@ -1605,6 +1691,8 @@ html[data-anim='theme'] .page-anim > * {
   padding: 1.25rem 0.25rem;
   border-bottom: 1px solid var(--border);
   transition: background 0.15s ease;
+  /* 整行可点（TopicRow 客户端组件控制跳转） */
+  cursor: pointer;
 }
 
 .topic-block:hover {

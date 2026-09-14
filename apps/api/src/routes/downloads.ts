@@ -81,6 +81,7 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
           parentId: card.parent_id,
           title: card.title,
           subtitle: card.subtitle,
+          subtitleUrl: card.subtitle_url,
           kind: card.kind,
           redirectUrl: card.redirect_url,
           w: card.w,

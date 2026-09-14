@@ -175,6 +175,8 @@ export const downloadCards = pgTable(
     parent_id: uuid('parent_id').references((): AnyPgColumn => downloadCards.id, { onDelete: 'cascade' }),
     title: varchar('title', { length: 80 }).notNull(),
     subtitle: varchar('subtitle', { length: 200 }).notNull().default(''),
+    /** 简介里附带的文字跳转链接（如资源直达地址），null = 没有。 */
+    subtitle_url: text('subtitle_url'),
     kind: downloadCardKindEnum('kind').notNull().default('container'),
     redirect_url: text('redirect_url'),
     w: integer('w').notNull().default(1),

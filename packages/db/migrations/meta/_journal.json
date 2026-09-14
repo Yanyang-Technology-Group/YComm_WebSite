@@ -57,6 +57,20 @@
       "when": 1789337326916,
       "tag": "0007_right_skin",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789386970573,
+      "tag": "0008_lazy_proudstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789387655391,
+      "tag": "0009_demonic_loa",
+      "breakpoints": true
     }
   ]
 }

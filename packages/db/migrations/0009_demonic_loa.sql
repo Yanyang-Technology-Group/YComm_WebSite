@@ -1,0 +1,1 @@
+ALTER TABLE "download_cards" ADD COLUMN "subtitle_url" text;

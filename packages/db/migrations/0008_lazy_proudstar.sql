@@ -1,0 +1,1 @@
+ALTER TABLE "boards" ADD COLUMN "posting_policy" varchar(16) DEFAULT 'all' NOT NULL;

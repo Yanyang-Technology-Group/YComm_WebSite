@@ -33,6 +33,10 @@ export const boards = pgTable(
     ...accessPolicyJsonb,
     topic_count: integer('topic_count').notNull().default(0),
     post_count: integer('post_count').notNull().default(0),
+    /**
+     * 谁可以发主题/帖子：all=所有人 / staff=仅管理员与站长。
+     */
+    posting_policy: varchar('posting_policy', { length: 16 }).notNull().default('all'),
     archived_at: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     created_at: createdAtColumn(),
     updated_at: updatedAtColumn(),

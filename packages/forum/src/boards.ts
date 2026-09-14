@@ -56,6 +56,8 @@ export interface CreateBoardInput {
   parentId?: string | null;
   sortOrder?: number;
   policy?: AccessPolicy;
+  /** 发帖权限：all=所有人 / staff=仅管理员与站长。 */
+  postingPolicy?: 'all' | 'staff';
 }
 
 export async function createBoard(db: Db, input: CreateBoardInput): Promise<BoardRow> {
@@ -74,6 +76,7 @@ export async function createBoard(db: Db, input: CreateBoardInput): Promise<Boar
       parent_id: input.parentId ?? null,
       sort_order: input.sortOrder ?? 100,
       access_policy: input.policy ?? parseAccessPolicy({}),
+      posting_policy: input.postingPolicy ?? 'all',
     })
     .returning();
   if (!created) throw errors.internal(undefined, 'board insert failed');
@@ -83,7 +86,13 @@ export async function createBoard(db: Db, input: CreateBoardInput): Promise<Boar
 export async function updateBoard(
   db: Db,
   boardId: string,
-  patch: { name?: string; description?: string; sortOrder?: number; policy?: AccessPolicy },
+  patch: {
+    name?: string;
+    description?: string;
+    sortOrder?: number;
+    policy?: AccessPolicy;
+    postingPolicy?: 'all' | 'staff';
+  },
 ): Promise<BoardRow> {
   const [updated] = await db
     .update(schema.boards)
@@ -92,12 +101,24 @@ export async function updateBoard(
       ...(patch.description !== undefined ? { description: patch.description } : {}),
       ...(patch.sortOrder !== undefined ? { sort_order: patch.sortOrder } : {}),
       ...(patch.policy !== undefined ? { access_policy: patch.policy } : {}),
+      ...(patch.postingPolicy !== undefined ? { posting_policy: patch.postingPolicy } : {}),
       updated_at: new Date(),
     })
     .where(eq(schema.boards.id, boardId))
     .returning();
   if (!updated) throw errors.notFound('版块不存在');
   return updated;
+}
+
+/**
+ * 发帖权限门：posting_policy='staff' 的版块只有管理员/站长能发主题和回帖。
+ * 返回 true 表示允许；false 抛错。
+ */
+export function assertCanPostInBoard(subject: AccessSubject | null | undefined, board: BoardView): void {
+  if (board.posting_policy !== 'staff') return;
+  if (!subject || (subject.role !== 'admin' && subject.role !== 'owner')) {
+    throw errors.forbidden('该版块仅站长/管理员可以发帖');
+  }
 }
 
 export async function archiveBoard(db: Db, boardId: string): Promise<void> {
