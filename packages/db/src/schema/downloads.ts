@@ -184,6 +184,10 @@ export const downloadCards = pgTable(
     visibility: text('visibility').notNull().default('public'),
     position: integer('position').notNull().default(0),
     /**
+     * 创建者（管理员/站长）；卡片审核通过/拒绝时通知创建者。
+     */
+    created_by: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    /**
      * 卡片审核状态（下载卡片要 owner 审核）：
      * - pending  待站长审核（管理员新建的卡片默认此状态，不对外可见）
      * - approved 已通过（公开可见）

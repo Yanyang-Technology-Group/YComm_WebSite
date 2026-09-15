@@ -138,6 +138,31 @@ export async function listOAuthProviders(db: Db, userId: string): Promise<string
   return rows.map((row) => row.provider);
 }
 
+/**
+ * 解绑第三方登录（如 GitHub）。
+ *
+ * 护栏：没设置过密码的账号不能解绑 —— 该用户平时只靠 GitHub 登录，
+ * 解绑后就再也没有任何登录方式。先在「账号安全」创建密码再解绑。
+ * 没绑过 = 幂等成功。
+ */
+export async function unlinkOAuthAccount(db: Db, userId: string, provider: string): Promise<void> {
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user || user.state === 'deleted') throw errors.notFound('用户不存在');
+
+  const links = await db
+    .select({ id: schema.oauthAccounts.id })
+    .from(schema.oauthAccounts)
+    .where(and(eq(schema.oauthAccounts.user_id, userId), eq(schema.oauthAccounts.provider, provider)))
+    .limit(1);
+  const link = links[0];
+  if (!link) return; // 没绑过
+
+  if (!user.password_hash) {
+    throw errors.forbidden('解绑前请先在「账号安全」创建密码，否则你将没有任何登录方式');
+  }
+  await db.delete(schema.oauthAccounts).where(eq(schema.oauthAccounts.id, link.id));
+}
+
 function sanitizeUsername(username: string): string {
   const cleaned = username.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20);
   return cleaned || `user${Math.random().toString(36).slice(2, 8)}`;

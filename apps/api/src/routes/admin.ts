@@ -7,14 +7,20 @@ import { PERMISSION, parseAccessPolicy } from '@ycomm/config';
 import { assertPermission } from '@ycomm/access';
 import {
   adminCreateInviteCode,
+  assignBadge,
   banUser,
+  createBadge,
   deleteAccountNow,
+  deleteBadge,
   deleteInviteCode,
+  listBadges,
   listInviteCodes,
   listRuntimeSettings,
+  listUserBadges,
   listUsers,
   muteUser,
   resetUserPassword,
+  revokeBadge,
   setRuntimeSetting,
   setUserRole,
   toPublicUser,
@@ -24,7 +30,8 @@ import {
 } from '@ycomm/identity';
 import { listAuditLogs, logAudit } from '@ycomm/audit';
 import { decide, listQueued } from '@ycomm/moderation';
-import { createCard, deleteCard, insertCardBefore, listAllCards, listAllResources, reviewCard, updateCard } from '@ycomm/downloads';
+import { createNotification } from '@ycomm/notify';
+import { createCard, deleteCard, insertCardBefore, listAllCards, listAllResources, moveCard, reviewCard, updateCard } from '@ycomm/downloads';
 import {
   archiveBoard,
   createBoard,
@@ -113,6 +120,16 @@ const cardUpdateSchema = z.object({
 
 const cardReviewSchema = z.object({
   decision: z.enum(['approve', 'reject']),
+});
+
+const cardMoveSchema = z.object({
+  direction: z.enum(['up', 'down']),
+});
+
+const badgeSchema = z.object({
+  name: z.string().min(1).max(20),
+  colorFrom: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  colorTo: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
 });
 
 const captchaBodySchema = z.object({ captchaToken: z.string().min(1).optional() });
@@ -240,6 +257,20 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       c.req.param('userId'),
       { reason: body.reason, until: body.until ? new Date(body.until) : null },
     );
+    // 处罚通知（淡橙）：被封禁的用户也还能看通知（登录态仍有效）。
+    await createNotification(handle.db, {
+      userId: updated.id,
+      kind: 'admin.sanction',
+      title: '你的账号已被封禁',
+      body: [
+        body.reason ? `原因：${body.reason}` : '',
+        body.until ? `至 ${new Date(body.until).toLocaleString('zh-CN')}` : '封禁解除前无法使用账号',
+      ]
+        .filter(Boolean)
+        .join('｜'),
+      isAdmin: true,
+      linkUrl: `/users/${encodeURIComponent(updated.username)}`,
+    });
     return c.json({ ok: true, data: { user: adminUser(updated) } });
   });
 
@@ -262,6 +293,19 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       c.req.param('userId'),
       { until: body.until ? new Date(body.until) : null, reason: body.reason },
     );
+    await createNotification(handle.db, {
+      userId: updated.id,
+      kind: 'admin.sanction',
+      title: '你的账号已被禁言',
+      body: [
+        body.reason ? `原因：${body.reason}` : '',
+        body.until ? `至 ${new Date(body.until).toLocaleString('zh-CN')}` : '解除前无法发言',
+      ]
+        .filter(Boolean)
+        .join('｜'),
+      isAdmin: true,
+      linkUrl: `/users/${encodeURIComponent(updated.username)}`,
+    });
     return c.json({ ok: true, data: { user: adminUser(updated) } });
   });
 
@@ -308,6 +352,74 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       body.newPassword,
     );
     return c.json({ ok: true, data: { user: adminUser(updated) } });
+  });
+
+  // ---- 徽章系统（定义 + 分配） --------------------------------------
+  router.get('/badges', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const handle = await getDb();
+    const badges = await listBadges(handle.db);
+    return c.json({ ok: true, data: { badges } });
+  });
+
+  router.post('/badges', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const body = await parseBody(c, badgeSchema);
+    const handle = await getDb();
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const badge = await createBadge(
+      handle.db,
+      { name: body.name, colorFrom: body.colorFrom, colorTo: body.colorTo },
+      auth.userId,
+    );
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: 'admin.badge.created',
+      targetType: 'badge',
+      targetId: badge.id,
+      meta: { name: badge.name },
+    });
+    return c.json({ ok: true, data: { badge } }, 201);
+  });
+
+  router.delete('/badges/:badgeId', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const handle = await getDb();
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    await deleteBadge(handle.db, c.req.param('badgeId'));
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: 'admin.badge.deleted',
+      targetType: 'badge',
+      targetId: c.req.param('badgeId'),
+    });
+    return c.json({ ok: true, data: null });
+  });
+
+  /** 某个用户挂着的徽章（管理面板/主页详情用）。 */
+  router.get('/users/:userId/badges', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const handle = await getDb();
+    const badges = await listUserBadges(handle.db, c.req.param('userId'));
+    return c.json({ ok: true, data: { badges } });
+  });
+
+  router.post('/users/:userId/badges/:badgeId', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const handle = await getDb();
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    await assignBadge(handle.db, c.req.param('userId'), c.req.param('badgeId'), auth.userId);
+    const badges = await listUserBadges(handle.db, c.req.param('userId'));
+    return c.json({ ok: true, data: { badges } });
+  });
+
+  router.delete('/users/:userId/badges/:badgeId', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const handle = await getDb();
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    await revokeBadge(handle.db, c.req.param('userId'), c.req.param('badgeId'));
+    const badges = await listUserBadges(handle.db, c.req.param('userId'));
+    return c.json({ ok: true, data: { badges } });
   });
 
   router.get('/settings', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
@@ -478,6 +590,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
             w: body.w,
             h: body.h,
             visibility: body.visibility,
+            createdById: auth.userId,
           },
           auth.subject.role,
         )
@@ -494,6 +607,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
             h: body.h,
             visibility: body.visibility,
             position: body.position,
+            createdById: auth.userId,
           },
           auth.subject.role,
         );
@@ -551,6 +665,21 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       targetId: cardId,
       meta: { title: card.title },
     });
+    // 审核结果通知创建者（淡橙）。
+    if (card.created_by && card.created_by !== auth.userId) {
+      await createNotification(handle.db, {
+        userId: card.created_by,
+        kind: body.decision === 'approve' ? 'admin.card.approved' : 'admin.card.rejected',
+        title:
+          body.decision === 'approve'
+            ? `你的下载卡片「${card.title}」已通过审核`
+            : `你的下载卡片「${card.title}」被拒绝`,
+        body: body.decision === 'approve' ? '现在已对外可见。' : '可在卡片编辑器中修改后重新提交。',
+        isAdmin: true,
+        cardId,
+        linkUrl: `/downloads/card/${cardId}`,
+      });
+    }
     return c.json({ ok: true, data: { card: adminCard(card) } });
   });
 
@@ -564,6 +693,21 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       targetId: cardId,
     });
     return c.json({ ok: true, data: null });
+  });
+
+  /** 卡片排序：上移/下移（同层内交换 position）。 */
+  router.post('/cards/:cardId/move', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const body = await parseBody(c, cardMoveSchema);
+    const handle = await getDb();
+    const cardId = c.req.param('cardId');
+    const moved = await moveCard(handle.db, cardId, body.direction);
+    await auditAdmin(handle.db, c, {
+      action: `admin.card.moved_${body.direction}`,
+      targetType: 'download_card',
+      targetId: cardId,
+      meta: { title: moved.title, position: moved.position, parentId: moved.parent_id },
+    });
+    return c.json({ ok: true, data: { card: adminCard(moved) } });
   });
 
   // ---- 版块管理（新增 / 改名 / 排序 / 访问设置 / 归档删除） ------------

@@ -24,7 +24,7 @@ export {
   type NewInviteCodeInput,
 } from './invites';
 export { hashPassword, verifyPassword } from './password';
-export { findOrCreateOAuthUser, linkOAuthAccount, listOAuthProviders, type OAuthProfile } from './oauth';
+export { findOrCreateOAuthUser, linkOAuthAccount, listOAuthProviders, unlinkOAuthAccount, type OAuthProfile } from './oauth';
 export {
   bindInviteCode,
   changeEmail,
@@ -32,8 +32,13 @@ export {
   getInviteBinding,
   getUserById,
   setPassword,
+  setThemePreference,
+  THEME_COLOURS,
+  THEME_MODES,
   updateProfile,
   type InviteBindingView,
+  type ThemeColour,
+  type ThemeMode,
   type UpdateProfileInput,
 } from './profile';
 export {
@@ -78,4 +83,15 @@ export {
   type SocialVisibility,
   type UserProfileView,
 } from './social';
+export {
+  assignBadge,
+  createBadge,
+  deleteBadge,
+  listBadges,
+  listBadgesForUsers,
+  listUserBadges,
+  revokeBadge,
+  type BadgeView,
+} from './badges';
+export { searchUsers, type UserSearchResult } from './search';
 export type { PublicUser, SessionWithUser, UserRecord } from './types';

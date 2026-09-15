@@ -10,6 +10,7 @@ import { getSession } from '../lib/session';
 import { CaptchaField } from './captcha-field';
 import { CaptchaGateModal } from './captcha-gate-modal';
 import { remainingLabel, SanctionDialog, type SanctionKind } from './sanction-dialog';
+import { BadgeAssigner } from './badge-assigner';
 
 const row: React.CSSProperties = {
   border: '1px solid #e4e4e7',
@@ -422,6 +423,9 @@ export function UsersPanel({
                 关闭
               </button>
             </div>
+
+            <p className="section-title" style={{ marginBottom: '0.4rem' }}>徽章</p>
+            <BadgeAssigner userId={manageFor.id} />
           </div>
         </div>
       )}

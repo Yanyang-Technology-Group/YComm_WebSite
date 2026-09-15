@@ -8,4 +8,5 @@ export * from './forum';
 export * from './downloads';
 export * from './moderation';
 export * from './notify';
+export * from './badges';
 export * from './system';

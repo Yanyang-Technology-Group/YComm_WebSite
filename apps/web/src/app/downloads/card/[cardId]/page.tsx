@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { apiGet } from '../../../../lib/server-api';
 import { CardGrid, type PublicCard } from '../../../../components/card-grid';
+import { MarkdownContent } from '../../../../components/markdown-content';
 
 export const metadata: Metadata = { title: '下载区' };
 export const dynamic = 'force-dynamic';
@@ -60,13 +61,10 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
       <div>
         {BackLink}
         <h1 className="page-title">{card.title}</h1>
-        {card.subtitle && <p className="muted">{card.subtitle}</p>}
-        {card.subtitleUrl && (
-          <p style={{ margin: '0 0 0.75rem' }}>
-            <a href={card.subtitleUrl} target="_blank" rel="noopener noreferrer" className="uname" style={{ fontSize: '0.95rem' }}>
-              → 直达链接
-            </a>
-          </p>
+        {card.subtitle && (
+          <div style={{ margin: '0 0 0.75rem' }}>
+            <MarkdownContent text={card.subtitle} />
+          </div>
         )}
         {children.length === 0 ? <p className="muted">这个卡片里还没有内容。</p> : <CardGrid cards={children} />}
       </div>
@@ -81,7 +79,11 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
     <div>
       {BackLink}
       <h1 className="page-title">{card.title}</h1>
-      {card.subtitle && <p className="muted">{card.subtitle}</p>}
+      {card.subtitle && (
+        <div style={{ margin: '0 0 0.75rem' }}>
+          <MarkdownContent text={card.subtitle} />
+        </div>
+      )}
       {resources.length === 0 && <p className="muted">暂无已发布资源。</p>}
       {resources.map((resource) => (
         <Link key={resource.id} href={`/downloads/${resource.id}`} className="card topic-link">

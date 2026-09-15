@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { invalidateSession } from '../lib/session';
+import { resetThemeToDefault } from './theme-toggle';
 
 export function LogoutButton() {
   const [pending, setPending] = useState(false);
@@ -13,6 +14,8 @@ export function LogoutButton() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
       invalidateSession();
+      // 主题按账号走：退出时回到默认，避免把上一个账号的配色留给下一个人。
+      resetThemeToDefault();
       // 硬跳转：带「已注销」的结果让服务端重新渲染头部状态。
       window.location.assign('/');
     } catch {

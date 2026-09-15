@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { NotificationList } from './notification-list';
 
 interface BoardNav {
   slug: string;
@@ -119,9 +120,7 @@ export function ForumShell({ children }: { children: React.ReactNode }) {
 
       <aside className="fcol fcol-right" style={rightStyle}>
         <p className="app-nav-title">通知中心</p>
-        <p className="muted" style={{ fontSize: '0.85rem' }}>
-          点赞 / 分享 / 浏览 / 管理员操作等通知将显示在这里（开发中）。
-        </p>
+        <NotificationList compact />
         <p className="app-nav-title">快捷</p>
         {isBoardPage && (
           <Link href="/forum" className="app-nav-link">

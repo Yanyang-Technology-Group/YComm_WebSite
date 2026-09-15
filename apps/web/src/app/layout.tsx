@@ -4,9 +4,14 @@ import localFont from 'next/font/local';
 import { getSiteBranding } from '@ycomm/config';
 import { SessionNav } from '../components/session-nav';
 import { SiteNav } from '../components/site-nav';
+import { SearchBox } from '../components/search-box';
+import { ThemeSync } from '../components/theme-toggle';
 import { GuestPrompt } from '../components/guest-prompt';
 import { PageTransition } from '../components/page-transition';
 import './globals.css';
+
+/** 首帧前应用本地主题（避免闪白）；账号主题由 ThemeSync 登录后校正。 */
+const THEME_BOOT_SCRIPT = `(function(){try{var c=localStorage.getItem('ycomm_theme_colour')||'azure';var m=localStorage.getItem('ycomm_theme_mode')||'auto';var r=document.documentElement;r.dataset.themeColour=(c==='none'?'slate':c);r.dataset.themeMode=m;}catch(e){}})();`;
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +49,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="zh-CN" data-theme-colour="azure" data-theme-mode="auto" className={noto.variable}>
       <body>
+        {/* 主题：先按本地缓存上色，登录后按账号主题校正（按账号生效） */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        <ThemeSync />
         {/* 切换页面 / 主题时的渐变幕布（CSS 驱动，见 globals.css） */}
         <div className="anim-veil" aria-hidden="true" />
         <header className="site-header">
@@ -54,6 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </Link>
             {/* 导航与登录态都由客户端直连 /api/auth/me 判定，保证与真实会话一致 */}
             <SiteNav />
+            <SearchBox />
             <span className="flex-spacer" />
             <nav className="site-actions">
               <SessionNav />

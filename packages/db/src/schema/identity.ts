@@ -62,6 +62,13 @@ export const users = pgTable(
      * 主页可见度：public 公开 / mutual 互关可见 / private 仅自己。
      */
     homepage_visibility: varchar('homepage_visibility', { length: 16 }).notNull().default('public'),
+    /**
+     * 主题偏好（按账号存，换设备/换浏览器登录也是同一套）：
+     * - theme_colour: azure/pink/mint/orange/slate/none，NULL = 从未设置（默认 azure）
+     * - theme_mode:   auto/dark/light，NULL = 从未设置（默认 auto 跟随系统）
+     */
+    theme_colour: varchar('theme_colour', { length: 16 }),
+    theme_mode: varchar('theme_mode', { length: 8 }),
     created_at: createdAtColumn(),
     updated_at: updatedAtColumn(),
     last_seen_at: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }),

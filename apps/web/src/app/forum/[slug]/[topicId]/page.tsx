@@ -11,6 +11,7 @@ import {
 import { AuthorSanctions } from '../../../../components/author-sanctions';
 import { MarkdownContent } from '../../../../components/markdown-content';
 import { PageBack } from '../../../../components/page-back';
+import { UserBadges, type UserBadgeView } from '../../../../components/user-badges';
 
 export const metadata: Metadata = { title: '主题' };
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,7 @@ interface Post {
   authorUsername: string | null;
   authorDisplayName: string | null;
   authorAvatarPath: string | null;
+  authorBadges: UserBadgeView[];
   position: number;
   content_md: string;
   created_at: string;
@@ -121,6 +123,7 @@ export default async function TopicPage({
                 ) : (
                   <span className="uname">{post.authorDisplayName ?? '访客'}</span>
                 )}
+                <UserBadges badges={post.authorBadges} />
                 {post.position === 1 && <span className="badge badge-role-owner">楼主</span>}
                 <span className="muted" style={{ fontWeight: 400 }}>
                   {post.position > 1 ? `#${post.position}` : ''} ·{' '}
@@ -132,7 +135,7 @@ export default async function TopicPage({
 
             <div className="post-actions">
               <LikeButton postId={post.id} initialLiked={liked.includes(post.id)} />
-              <ShareButton />
+              <ShareButton topicId={topic.id} />
               <DeletePostButton postId={post.id} authorId={post.author_id} />
             </div>
 

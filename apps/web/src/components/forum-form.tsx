@@ -199,8 +199,8 @@ export function LikeButton({ postId, initialLiked }: { postId: string; initialLi
   );
 }
 
-/** 转发：把当前页面链接复制到剪贴板（纯图标按钮）。 */
-export function ShareButton({ text }: { text?: string }) {
+/** 转发：把当前页面链接复制到剪贴板（纯图标按钮）；登录用户同时上报分享通知给楼主。 */
+export function ShareButton({ text, topicId }: { text?: string; topicId?: string }) {
   const [copied, setCopied] = useState(false);
 
   async function share() {
@@ -208,6 +208,12 @@ export function ShareButton({ text }: { text?: string }) {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
+      // 分享事件上报：通知楼主（失败静默，不打断复制）。
+      if (topicId) {
+        void apiFetch(`/api/forum/topics/${topicId}/share`, { method: 'POST' }).catch(() => {
+          /* 忽略 */
+        });
+      }
     } catch {
       alert('复制失败，请手动复制地址栏链接');
     }

@@ -103,6 +103,7 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
   const [homepageMd, setHomepageMd] = useState('');
   const [deletePrompt, setDeletePrompt] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [unlinkBusy, setUnlinkBusy] = useState(false);
 
   useEffect(() => {
     void load();
@@ -271,6 +272,25 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
         }),
       '注册码已绑定',
     );
+  }
+
+  /** 解绑 GitHub：调 API 后直接从 /me 刷新绑定状态。 */
+  async function unlinkGithub() {
+    if (!window.confirm('确定解绑 GitHub？解绑后这个 GitHub 账号就能重新绑定到别的账号了。')) return;
+    setUnlinkBusy(true);
+    try {
+      const data = await apiFetch<{ oauthProviders: string[] }>('/api/auth/oauth/unlink', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ provider: 'github' }),
+      });
+      setProfile((prev) => (prev ? { ...prev, oauthProviders: data.oauthProviders } : prev));
+      setMsg(null);
+    } catch (caught) {
+      alert(caught instanceof Error ? caught.message : '解绑失败');
+    } finally {
+      setUnlinkBusy(false);
+    }
   }
 
   /** 注销也要人机验证。 */
@@ -547,9 +567,23 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
             <div className="panel" style={{ marginBottom: 0 }}>
               <p className="panel-title">GitHub 绑定</p>
               {githubBound ? (
-                <p className="muted" style={{ margin: 0 }}>
-                  已绑定 GitHub，可用 GitHub 一键登录。
-                </p>
+                <>
+                  <p className="muted" style={{ margin: '0 0 0.5rem' }}>
+                    已绑定 GitHub，可用 GitHub 一键登录。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void unlinkGithub()}
+                    disabled={unlinkBusy}
+                    title="解绑后这个 GitHub 账号可以重新绑定到别的账号"
+                  >
+                    {unlinkBusy ? '解绑中…' : '解绑 GitHub'}
+                  </button>
+                  <p className="muted" style={{ margin: '0.4rem 0 0', fontSize: '0.82rem' }}>
+                    解绑后仍可用用户名/邮箱 + 密码登录；该 GitHub 账号也可以重新绑定到其他账号。
+                    {!profile.hasPassword && '（你的账号还没有密码，请先在「账号安全」创建密码再解绑）'}
+                  </p>
+                </>
               ) : (
                 <>
                   <p className="muted" style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>

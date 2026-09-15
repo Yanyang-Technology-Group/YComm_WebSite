@@ -15,3 +15,14 @@ export {
   renderVerifyEmail,
   type RenderedMail,
 } from './templates';
+export {
+  createNotification,
+  hasRecentNotification,
+  listNotificationGroups,
+  markNotificationsRead,
+  notificationUnreadCount,
+  type CreateNotificationInput,
+  type NotificationActor,
+  type NotificationGroup,
+  type NotificationKind,
+} from './in-app';

@@ -71,6 +71,20 @@
       "when": 1789387655391,
       "tag": "0009_demonic_loa",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789397189495,
+      "tag": "0010_far_william_stryker",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789471367112,
+      "tag": "0011_tricky_raza",
+      "breakpoints": true
     }
   ]
 }

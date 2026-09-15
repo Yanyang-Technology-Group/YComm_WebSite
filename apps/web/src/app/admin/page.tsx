@@ -5,9 +5,10 @@ export const metadata: Metadata = { title: '管理后台' };
 export const dynamic = 'force-dynamic';
 
 const MENU = [
-  { href: '/admin/users', title: '用户管理', desc: '角色 / 封禁 / 禁言 / 注销 / 改密' },
+  { href: '/admin/users', title: '用户管理', desc: '角色 / 封禁 / 禁言 / 注销 / 改密 / 徽章' },
   { href: '/admin/boards', title: '版块管理', desc: '新增版块 / 删除归档 / 访问设置' },
-  { href: '/admin/cards', title: '下载区卡片', desc: '无限套娃 / 可见度 / 拖拽尺寸 / 站长审核' },
+  { href: '/admin/cards', title: '下载区卡片', desc: '无限套娃 / 可见度 / 拖拽尺寸 / 顺序 / 站长审核' },
+  { href: '/admin/badges', title: '徽章管理', desc: '创建徽章（文字 + 渐变色），分配在用户管理里' },
   { href: '/admin/moderation', title: '审核队列', desc: '论坛内容 / 下载资源 / 失效链接' },
   { href: '/admin/audit', title: '操作日志', desc: '管理员做了什么，全部留痕' },
   { href: '/admin/settings', title: '违禁词与注册码', desc: '违禁词拦截 / 注册码创建' },

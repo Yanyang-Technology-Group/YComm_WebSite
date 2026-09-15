@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull, ne, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import type { AccessSubject } from '@ycomm/access';
@@ -105,6 +105,8 @@ export interface CreateCardInput {
   position?: number;
   /** 简介里附带的文字跳转链接（直达地址）。 */
   subtitleUrl?: string | null;
+  /** 创建者（管理员/站长）；审核通过/拒绝时通知创建者。 */
+  createdById?: string | null;
 }
 
 /** 同层下一张卡片的 position（新建卡片默认排在末尾）。 */
@@ -140,6 +142,7 @@ export async function createCard(
       h: input.h ?? 1,
       visibility: input.visibility ?? 'public',
       position: input.position ?? (await nextPosition(db, input.parentId)),
+      created_by: input.createdById ?? null,
       status,
     })
     .returning();
@@ -218,6 +221,77 @@ export async function updateCard(db: Db, cardId: string, patch: UpdateCardInput)
 
 export async function deleteCard(db: Db, cardId: string): Promise<void> {
   await db.delete(schema.downloadCards).where(eq(schema.downloadCards.id, cardId));
+}
+
+/** 在根层/父卡片内上移或下移一张卡片（交换 position，超出边界则不动）。 */
+export async function moveCard(
+  db: Db,
+  cardId: string,
+  direction: 'up' | 'down',
+): Promise<CardRow> {
+  const target = await getCard(db, cardId);
+  if (!target) throw errors.notFound('卡片不存在');
+  const parentId = target.parent_id;
+
+  const siblings = await db
+    .select()
+    .from(schema.downloadCards)
+    .where(
+      and(
+        parentId === null
+          ? isNull(schema.downloadCards.parent_id)
+          : eq(schema.downloadCards.parent_id, parentId),
+        ne(schema.downloadCards.id, cardId),
+      ),
+    )
+    .orderBy(asc(schema.downloadCards.position), asc(schema.downloadCards.created_at));
+
+  const ordered = [...siblings, target].sort(
+    (a, b) => (a.position - b.position) || (a.created_at.getTime() - b.created_at.getTime()),
+  );
+  const index = ordered.findIndex((card) => card.id === cardId);
+  const neighborIndex = direction === 'up' ? index - 1 : index + 1;
+  const neighbor = ordered[neighborIndex];
+  if (!neighbor) return target; // 已经是最前/最后
+
+  await db
+    .update(schema.downloadCards)
+    .set({ position: neighbor.position, updated_at: new Date() })
+    .where(eq(schema.downloadCards.id, cardId));
+  await db
+    .update(schema.downloadCards)
+    .set({ position: target.position, updated_at: new Date() })
+    .where(eq(schema.downloadCards.id, neighbor.id));
+
+  const [updated] = await db
+    .select()
+    .from(schema.downloadCards)
+    .where(eq(schema.downloadCards.id, cardId))
+    .limit(1);
+  if (!updated) throw errors.internal(undefined, '卡片移动失败');
+  return updated;
+}
+
+/** 前台搜索卡片：仅已通过审核 + 对当前访问者可见。 */
+export async function searchCards(
+  db: Db,
+  subject: AccessSubject | null,
+  query: string,
+  limit = 8,
+): Promise<CardRow[]> {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const rows = await listAllCards(db);
+  const inviteBound = subject ? await hasInviteBinding(db, subject.id) : false;
+  return rows
+    .filter((row) => row.status === 'approved' && canSee(subject, row.visibility, inviteBound))
+    .filter(
+      (row) =>
+        row.title.toLowerCase().includes(q) ||
+        row.subtitle.toLowerCase().includes(q) ||
+        (row.subtitle_url ?? '').toLowerCase().includes(q),
+    )
+    .slice(0, limit);
 }
 
 export type CardReviewDecision = 'approve' | 'reject';

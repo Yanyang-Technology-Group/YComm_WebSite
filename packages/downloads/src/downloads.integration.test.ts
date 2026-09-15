@@ -15,6 +15,7 @@ import {
   insertCardBefore,
   listPublishedResources,
   listVisibleCards,
+  moveCard,
   registerDownloadDeciders,
   reportDeadLinkByResource,
   reviewCard,
@@ -452,6 +453,27 @@ describe('card portal nesting', () => {
     expect(childIds[0]).toBe(childOne.id);
     const childOrder = childIds.map((id) => id === childOne.id ? '子一' : id === childTwo.id ? '子二' : '子插中间');
     expect(childOrder).toEqual(['子一', '子插中间', '子二']);
+  });
+
+  it('moveCard 上移/下移交换同层顺序，边界不越界', async () => {
+    const cardA = await seedCard({ parentId: null, title: 'A', kind: 'container' });
+    const cardB = await seedCard({ parentId: null, title: 'B', kind: 'container' });
+    const cardC = await seedCard({ parentId: null, title: 'C', kind: 'container' });
+    const titles = async () => (await listVisibleCards(handle.db, null)).map((card) => card.title);
+
+    expect(await titles()).toEqual(['A', 'B', 'C']);
+
+    // B 下移 → A C B（B 与 C 交换）
+    await moveCard(handle.db, cardB.id, 'down');
+    expect(await titles()).toEqual(['A', 'C', 'B']);
+
+    // A 上移（已在最前）→ 不动
+    await moveCard(handle.db, cardA.id, 'up');
+    expect(await titles()).toEqual(['A', 'C', 'B']);
+
+    // C 上移 → A C B → C 与 A 交换 = C A B
+    await moveCard(handle.db, cardC.id, 'up');
+    expect(await titles()).toEqual(['C', 'A', 'B']);
   });
 
   it('下载卡片要站长审核：管理员建的默认待审核，站长通过后才可见', async () => {

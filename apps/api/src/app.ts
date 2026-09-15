@@ -13,6 +13,7 @@ import { downloadsRoutes } from './routes/downloads';
 import { adminRoutes } from './routes/admin';
 import { uploadRoutes } from './routes/uploads';
 import { usersRoutes } from './routes/users';
+import { notificationsRoutes } from './routes/notifications';
 
 /** Small request logger — one JSON line per request, status and duration. */
 function requestLogger() {
@@ -73,6 +74,7 @@ export function createApp(): Hono {
   app.route('/api/admin', adminRoutes());
   app.route('/api/uploads', uploadRoutes());
   app.route('/api/users', usersRoutes());
+  app.route('/api/notifications', notificationsRoutes());
 
   return app;
 }

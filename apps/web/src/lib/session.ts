@@ -6,6 +6,10 @@ export interface SessionUser {
   role: string;
   /** 头像图片地址（站内上传路径或外链），未设置时为 null。 */
   avatarPath?: string | null;
+  /** 账号主题颜色（azure/pink/mint/orange/slate/none）；null = 从未设置。 */
+  themeColour?: string | null;
+  /** 账号明暗（auto/dark/light）；null = 从未设置。 */
+  themeMode?: string | null;
 }
 
 interface CacheEntry {

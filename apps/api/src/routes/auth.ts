@@ -27,7 +27,9 @@ import {
   reviveIfPendingDeletion,
   revokeSession,
   setPassword,
+  setThemePreference,
   toPublicUser,
+  unlinkOAuthAccount,
   updateProfile,
   verifyEmail,
   verifyPassword,
@@ -101,6 +103,11 @@ const changePasswordSchema = z.object({
 const changeEmailSchema = z.object({ email: z.string().trim().min(3).max(255) });
 
 const bindInviteSchema = z.object({ code: z.string().trim().min(1).max(10) });
+const oauthUnlinkSchema = z.object({ provider: z.enum(['github', 'google']) });
+const themeSchema = z.object({
+  colour: z.enum(['azure', 'pink', 'mint', 'orange', 'slate', 'none']),
+  mode: z.enum(['auto', 'dark', 'light']),
+});
 
 const setPasswordSchema = z.object({ newPassword: z.string().min(8).max(200) });
 
@@ -264,7 +271,19 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   router.get('/me', async (c) => {
     const auth = c.get('auth');
     if (!auth) throw errors.unauthenticated();
-    return c.json({ ok: true, data: { user: auth.user } });
+    // 主题偏好跟着会话一起下发：前端据此把主题切成该账号自己的配色（按账号生效）。
+    const handle = await getDb();
+    const user = await getUserById(handle.db, auth.userId);
+    return c.json({
+      ok: true,
+      data: {
+        user: {
+          ...auth.user,
+          themeColour: user.theme_colour,
+          themeMode: user.theme_mode,
+        },
+      },
+    });
   });
 
   // ---- 账号注销（邮箱确认 → 3 天冷静期） --------------------------------
@@ -340,6 +359,9 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
           muteReason: user.mute_reason,
           bannedUntil: user.banned_until,
           banReason: user.ban_reason,
+          // 主题偏好（按账号存）：NULL = 从未设置，前端用「晏阳蓝 + 跟随系统」。
+          themeColour: user.theme_colour,
+          themeMode: user.theme_mode,
         },
       },
     });
@@ -404,6 +426,35 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
     await bindInviteCode(handle.db, auth.userId, body.code);
     return c.json({ ok: true, data: null });
+  });
+
+  /** 保存主题偏好（按账号存）：颜色 + 明暗。 */
+  router.post('/theme', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const body = await parseBody(c, themeSchema);
+    const handle = await getDb();
+    await setThemePreference(handle.db, auth.userId, body.colour, body.mode);
+    return c.json({ ok: true, data: { themeColour: body.colour, themeMode: body.mode } });
+  });
+
+  /** 解绑第三方登录（GitHub）：没设置密码的账号不允许解绑（否则无法再登录）。 */
+  router.post('/oauth/unlink', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const body = await parseBody(c, oauthUnlinkSchema);
+    const handle = await getDb();
+    await unlinkOAuthAccount(handle.db, auth.userId, body.provider);
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: 'auth.oauth_unlink',
+      targetType: 'user',
+      targetId: auth.userId,
+      meta: { provider: body.provider },
+    });
+    const oauthProviders = await listOAuthProviders(handle.db, auth.userId);
+    return c.json({ ok: true, data: { oauthProviders } });
   });
 
   router.get('/me/topics', async (c) => {

@@ -142,7 +142,6 @@ export function CardsPanel() {
     const payload: Record<string, unknown> = {
       title: String(fd.get('title') ?? ''),
       subtitle: String(fd.get('subtitle') ?? ''),
-      subtitleUrl: String(fd.get('subtitleUrl') ?? '').trim() || null,
       kind,
       visibility: String(fd.get('visibility') ?? 'public'),
       parentId: newParentId || null,
@@ -183,7 +182,6 @@ export function CardsPanel() {
         body: JSON.stringify({
           title: String(fd.get('title') ?? ''),
           subtitle: String(fd.get('subtitle') ?? ''),
-          subtitleUrl: String(fd.get('subtitleUrl') ?? '').trim() || null,
           kind,
           visibility: String(fd.get('visibility') ?? 'public'),
           // 允许把已有卡片移动到另一张卡片里（真正的「套娃」开关）。
@@ -368,6 +366,23 @@ export function CardsPanel() {
     }
   }
 
+  /** 同层内上移/下移卡片。 */
+  async function move(card: AdminCard, direction: 'up' | 'down') {
+    setMessage(null);
+    try {
+      await apiFetch(`/api/admin/cards/${card.id}/move`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ direction }),
+      });
+      setMessage(direction === 'up' ? `「${card.title}」已上移` : `「${card.title}」已下移`);
+      await refresh();
+      router.refresh();
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : '移动失败');
+    }
+  }
+
   /**
    * 树形渲染：每一层单独一个网格，子层带缩进和「属于哪张卡片」的标题。
    * 容器卡片可以折叠/展开它的子层（伸缩式）。
@@ -500,8 +515,11 @@ export function CardsPanel() {
             required
             style={{ flex: '1 1 160px', padding: '0.4rem' }}
           />
-          <input name="subtitle" placeholder="副标题（可选）" style={{ flex: '1 1 160px', padding: '0.4rem' }} />
-          <input name="subtitleUrl" placeholder="简介文字跳转链接（可选，https://…）" style={{ flex: '1 1 200px', padding: '0.4rem' }} />
+          <input
+            name="subtitle"
+            placeholder="简介（支持 Markdown，[链接文字](https://…) 直接内嵌链接）"
+            style={{ flex: '1 1 320px', padding: '0.4rem' }}
+          />
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <select name="kind" style={{ padding: '0.4rem' }}>
@@ -584,14 +602,22 @@ export function CardsPanel() {
             >
               ⇢ 插到前面
             </button>
+            <span title="同层内调整顺序" style={{ display: 'inline-flex', gap: '0.3rem' }}>
+              <button type="button" title="上移一层" onClick={() => void move(selected, 'up')}>↑ 上移</button>
+              <button type="button" title="下移一层" onClick={() => void move(selected, 'down')}>↓ 下移</button>
+            </span>
           </div>
 
           {!editCollapsed && (
             <>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <input name="title" defaultValue={selected.title} placeholder="标题" required style={{ flex: '1 1 160px', padding: '0.4rem' }} />
-            <input name="subtitle" defaultValue={selected.subtitle} placeholder="副标题" style={{ flex: '1 1 160px', padding: '0.4rem' }} />
-            <input name="subtitleUrl" defaultValue={selected.subtitleUrl ?? ''} placeholder="简介文字跳转链接（可选）" style={{ flex: '1 1 200px', padding: '0.4rem' }} />
+            <input
+              name="subtitle"
+              defaultValue={selected.subtitle}
+              placeholder="简介（支持 Markdown，[链接文字](https://…) 直接内嵌链接）"
+              style={{ flex: '1 1 320px', padding: '0.4rem' }}
+            />
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <select name="kind" defaultValue={selected.kind} style={{ padding: '0.4rem' }}>

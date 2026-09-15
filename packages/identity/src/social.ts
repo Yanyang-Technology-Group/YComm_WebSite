@@ -3,6 +3,7 @@ import type { PgColumn } from 'drizzle-orm/pg-core';
 import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import type { UserRecord } from './types';
+import { listUserBadges, type BadgeView } from './badges';
 
 /**
  * 关注 / 粉丝（社交向量）。
@@ -128,6 +129,8 @@ export interface UserProfileView {
   followingListVisible: boolean;
   followersListVisible: boolean;
   homepageVisible: boolean;
+  /** 挂在这个用户身上的徽章（多徽章，用户名旁展示）。 */
+  badges: BadgeView[];
   isSelf: boolean;
 }
 
@@ -178,6 +181,7 @@ export async function getPublicProfile(
     followingListVisible: await listsVisibleTo(db, user, viewerId, 'following'),
     followersListVisible: await listsVisibleTo(db, user, viewerId, 'followers'),
     homepageVisible: await listsVisibleTo(db, user, viewerId, 'homepage'),
+    badges: await listUserBadges(db, user.id),
     isSelf: viewerId === user.id,
   };
 }

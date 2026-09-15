@@ -52,6 +52,40 @@ export async function updateProfile(db: Db, userId: string, input: UpdateProfile
   return updated;
 }
 
+/** 主题色系可选值（与前端 THEME_FAMILIES 对应；none = 不加任何强调色）。 */
+export const THEME_COLOURS = ['azure', 'pink', 'mint', 'orange', 'slate', 'none'] as const;
+export type ThemeColour = (typeof THEME_COLOURS)[number];
+
+/** 明暗可选值：auto 跟随系统 / dark 固定深色 / light 固定浅色。 */
+export const THEME_MODES = ['auto', 'dark', 'light'] as const;
+export type ThemeMode = (typeof THEME_MODES)[number];
+
+/**
+ * 保存主题偏好到账号（颜色 + 明暗）。
+ *
+ * 这样换设备、换浏览器登录同一个账号也是同一套主题；
+ * 新账号第一次登录时这两列是 NULL → 前端用「晏阳蓝 + 跟随系统」。
+ */
+export async function setThemePreference(
+  db: Db,
+  userId: string,
+  colour: ThemeColour,
+  mode: ThemeMode,
+): Promise<void> {
+  if (!THEME_COLOURS.includes(colour)) {
+    throw errors.validation({ issues: [{ path: 'colour', message: '主题颜色取值无效' }] });
+  }
+  if (!THEME_MODES.includes(mode)) {
+    throw errors.validation({ issues: [{ path: 'mode', message: '明暗取值无效' }] });
+  }
+  const [updated] = await db
+    .update(schema.users)
+    .set({ theme_colour: colour, theme_mode: mode, updated_at: new Date() })
+    .where(eq(schema.users.id, userId))
+    .returning({ id: schema.users.id });
+  if (!updated) throw errors.notFound('用户不存在');
+}
+
 /**
  * 给没有密码的账号（GitHub 登录创建）创建密码。
  * 创建之后就可以用用户名/邮箱 + 密码登录了；有密码的账号不允许走这条路

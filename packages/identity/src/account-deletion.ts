@@ -29,6 +29,17 @@ function releasedIdentity(user: Pick<UserRecord, 'id'>) {
   };
 }
 
+/**
+ * 注销最终生效时，断开第三方登录（GitHub 等）关联。
+ *
+ * 不解除的话，oauth_accounts 上那条记录永远指着这个已注销账号：
+ * 本人（或把 GitHub 转让后的新主人）再想用这个 GitHub 账号登录/绑定时，
+ * 会被当成「已经绑定到其他用户」。所以注销 = 让位。
+ */
+async function releaseOAuthLinks(db: Db, userId: string): Promise<void> {
+  await db.delete(schema.oauthAccounts).where(eq(schema.oauthAccounts.user_id, userId));
+}
+
 /** 封禁/禁言期间不允许自助注销（管理员仍可直接注销）。 */
 function assertDeletionAllowed(user: UserRecord): void {
   if (user.state === 'banned') {
@@ -52,6 +63,8 @@ export async function releaseDeletedIdentity(db: Db, userId: string): Promise<vo
     .update(schema.users)
     .set({ ...releasedIdentity(user), updated_at: new Date() })
     .where(eq(schema.users.id, user.id));
+  // 顺手把 GitHub 等第三方绑定也让位（历史数据里可能还留着）。
+  await releaseOAuthLinks(db, user.id);
 }
 
 /**
@@ -79,6 +92,7 @@ export async function releaseIdentityIfDeletionDone(db: Db, user: UserRecord): P
       .set({ state: 'deleted', ...releasedIdentity(user), updated_at: new Date() })
       .where(eq(schema.users.id, user.id));
     await revokeAllSessionsForUser(db, user.id);
+    await releaseOAuthLinks(db, user.id);
     return true;
   }
   return false;
@@ -187,7 +201,11 @@ export async function reviveIfPendingDeletion(db: Db, user: UserRecord): Promise
     })
     .where(eq(schema.users.id, user.id))
     .returning();
-  if (!within) await revokeAllSessionsForUser(db, user.id);
+  if (!within) {
+    await revokeAllSessionsForUser(db, user.id);
+    // GitHub 等第三方绑定一起让位。
+    await releaseOAuthLinks(db, user.id);
+  }
   return updated ?? null;
 }
 
@@ -204,5 +222,7 @@ export async function deleteAccountNow(db: Db, userId: string): Promise<void> {
       .set({ state: 'deleted', deleted_at: new Date(), ...releasedIdentity(user), updated_at: new Date() })
       .where(eq(schema.users.id, userId));
     await revokeAllSessionsForUser(tx as unknown as Db, userId);
+    // GitHub 等第三方绑定也让位，同一个 GitHub 之后可以绑到别的账号。
+    await releaseOAuthLinks(tx as unknown as Db, userId);
   });
 }

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { playAnim } from '../lib/anim';
+import { apiFetch } from '../lib/api';
+import { getSession } from '../lib/session';
 
 /**
  * 主题选择：上面选颜色（一个色系同时用于深浅两档），下面选明暗
@@ -62,6 +64,15 @@ export function applyTheme(colour: ThemeChoice, mode: ThemeMode): void {
 /** 兼容旧数据：Edge 配对（深浅两档各一色）→ 颜色取深色档（无则浅色档），明暗跟随系统。 */
 function initial(): { colour: ThemeChoice; mode: ThemeMode } {
   if (typeof document === 'undefined') return { colour: DEFAULT_COLOUR, mode: DEFAULT_MODE };
+
+  // 以「当前实际生效的主题」为准（根布局的首帧脚本 + ThemeSync 已经把账号主题写进 <html>），
+  // 直接读 dataset，避免本地缓存与账号主题不一致时选错高亮项。
+  const domColour = document.documentElement.dataset.themeColour;
+  const domMode = document.documentElement.dataset.themeMode;
+  if (isValidColour(domColour) && isValidMode(domMode)) {
+    return { colour: domColour, mode: domMode };
+  }
+
   try {
     const pair = localStorage.getItem(PAIR_KEY);
     if (pair && !localStorage.getItem(COLOUR_KEY)) {
@@ -86,14 +97,7 @@ function initial(): { colour: ThemeChoice; mode: ThemeMode } {
   } catch {
     /* 忽略损坏的存储 */
   }
-  return {
-    colour: isValidColour(document.documentElement.dataset.themeColour)
-      ? (document.documentElement.dataset.themeColour as ThemeChoice)
-      : DEFAULT_COLOUR,
-    mode: isValidMode(document.documentElement.dataset.themeMode)
-      ? (document.documentElement.dataset.themeMode as ThemeMode)
-      : DEFAULT_MODE,
-  };
+  return { colour: DEFAULT_COLOUR, mode: DEFAULT_MODE };
 }
 
 /** 色块：上下斜切展示该色系深浅两色。 */
@@ -125,6 +129,72 @@ const MODES: { id: ThemeMode; label: string; icon: string; hint: string }[] = [
   { id: 'auto', label: '跟随系统', icon: '↺', hint: '按系统深浅自动切换' },
 ];
 
+/** 浏览器本地缓存的主题（游客也用，先上色避免闪白）。 */
+export function readStoredTheme(): { colour: ThemeChoice; mode: ThemeMode } {
+  if (typeof localStorage === 'undefined') return { colour: DEFAULT_COLOUR, mode: DEFAULT_MODE };
+  try {
+    const colour = localStorage.getItem(COLOUR_KEY) ?? undefined;
+    const mode = localStorage.getItem(MODE_KEY) ?? undefined;
+    return {
+      colour: isValidColour(colour) ? colour : DEFAULT_COLOUR,
+      mode: isValidMode(mode) ? mode : DEFAULT_MODE,
+    };
+  } catch {
+    return { colour: DEFAULT_COLOUR, mode: DEFAULT_MODE };
+  }
+}
+
+/** 把主题存进账号（按账号生效，换设备登录也是同一套）；游客只存本地。 */
+async function persistTheme(colour: ThemeChoice, mode: ThemeMode): Promise<void> {
+  try {
+    const session = await getSession();
+    if (!session) return;
+    await apiFetch('/api/auth/theme', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ colour, mode }),
+    });
+  } catch {
+    /* 保存失败不影响本次已生效的主题 */
+  }
+}
+
+/**
+ * 退出登录：回到默认（晏阳蓝 + 跟随系统），
+ * 不把上一个账号的配色留给同一台电脑上的下一个人。
+ */
+export function resetThemeToDefault(): void {
+  applyTheme(DEFAULT_COLOUR, DEFAULT_MODE);
+}
+
+/**
+ * 主题同步（挂在根布局，全站生效）：
+ * 1) 先用浏览器缓存立刻上色（避免闪烁）；
+ * 2) 已登录时以「账号里的主题」为准 —— 换设备、换账号登录都会切到该账号自己的配色；
+ *    从未设置过的新账号 → 用默认「晏阳蓝 + 跟随系统」。
+ */
+export function ThemeSync() {
+  useEffect(() => {
+    const stored = readStoredTheme();
+    applyTheme(stored.colour, stored.mode);
+
+    let active = true;
+    void getSession().then((session) => {
+      if (!active || !session) return; // 未登录：保持本地缓存
+      const colour = isValidColour(session.themeColour ?? undefined)
+        ? (session.themeColour as ThemeChoice)
+        : DEFAULT_COLOUR;
+      const mode = isValidMode(session.themeMode ?? undefined) ? (session.themeMode as ThemeMode) : DEFAULT_MODE;
+      applyTheme(colour, mode);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return null;
+}
+
 /**
  * 主题选择器（控制台 → 外观主题）：
  * 1. 上面选颜色（深浅两档同一色系，可「无」）；
@@ -144,12 +214,14 @@ export function ThemePicker() {
     playAnim('theme');
     applyTheme(next, mode);
     setColour(next);
+    void persistTheme(next, mode);
   }
 
   function chooseMode(next: ThemeMode) {
     playAnim('theme');
     applyTheme(colour, next);
     setMode(next);
+    void persistTheme(colour, next);
   }
 
   return (

@@ -5,6 +5,7 @@ import { FollowButton } from '../../../components/follow-button';
 import { ProfileManageActions } from '../../../components/profile-manage-actions';
 import { MarkdownContent } from '../../../components/markdown-content';
 import { PageBack } from '../../../components/page-back';
+import { UserBadges, type UserBadgeView } from '../../../components/user-badges';
 
 export const metadata: Metadata = { title: '主页' };
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,7 @@ interface UserProfileView {
   followingListVisible: boolean;
   followersListVisible: boolean;
   homepageVisible: boolean;
+  badges: UserBadgeView[];
   isSelf: boolean;
 }
 
@@ -72,6 +74,7 @@ export default async function UserPage({ params }: { params: Promise<{ username:
             <span className="muted">@{profile.username}</span>
             <span className="badge badge-role-admin">{ROLE_LABEL[profile.role] ?? profile.role}</span>
             <span className="badge badge-neutral">Lv{profile.level}</span>
+            <UserBadges badges={profile.badges ?? []} size="md" />
             {profile.targetFollowsViewer && profile.viewerFollowsTarget && (
               <span className="badge badge-state-active">互关</span>
             )}

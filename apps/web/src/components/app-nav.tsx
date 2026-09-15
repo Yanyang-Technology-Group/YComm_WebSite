@@ -25,6 +25,7 @@ const ADMIN_LINKS = [
   { href: '/admin/users', label: '用户管理' },
   { href: '/admin/boards', label: '版块管理' },
   { href: '/admin/cards', label: '下载区卡片' },
+  { href: '/admin/badges', label: '徽章管理' },
   { href: '/admin/moderation', label: '审核队列' },
   { href: '/admin/audit', label: '操作日志' },
   { href: '/admin/settings', label: '违禁词与注册码' },
