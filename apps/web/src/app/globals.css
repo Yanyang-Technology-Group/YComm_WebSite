@@ -1794,17 +1794,6 @@ input:-webkit-autofill {
   margin-top: 0.3rem;
 }
 
-.card-tile-kind {
-  display: inline-block;
-  margin-top: 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--accent-strong);
-  background: var(--accent-soft);
-  border-radius: 4px;
-  padding: 0.08rem 0.5rem;
-}
-
 /* 后台卡片编辑器（固定网格单位，便于拖拽换算尺寸） */
 .card-editor-grid {
   display: grid;

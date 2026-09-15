@@ -26,15 +26,9 @@ export function CardGrid({ cards }: { cards: PublicCard[] }) {
             {card.subtitle && (
               <div className="card-tile-subtitle">
                 {/* 外链卡整卡可点，简介只当纯文本展示，避免链接嵌链接 */}
-                {isRedirect ? (
-                  card.subtitle
-                ) : (
-                  <MarkdownContent text={card.subtitle} />
-                )}
+                {isRedirect ? card.subtitle : <MarkdownContent text={card.subtitle} />}
               </div>
             )}
-            {isRedirect && <span className="card-tile-kind">↗ 外链</span>}
-            {card.kind === 'resources' && <span className="card-tile-kind">📦 资源</span>}
           </>
         );
         if (card.kind === 'redirect' && card.redirectUrl) {
