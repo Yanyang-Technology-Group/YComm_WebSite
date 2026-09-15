@@ -6,16 +6,15 @@ import { apiFetch } from '../lib/api';
 import { getSession } from '../lib/session';
 
 /**
- * 主题选择：上面选颜色（一个色系同时用于深浅两档），下面选明暗
- * （深色 / 浅色 / 跟随系统）。底色用 light-dark() 由 color-scheme 自动切换，
- * 所以「固定深色 / 固定浅色 / 跟随系统」都只是改 <html> 的 color-scheme。
+ * 主题选择：上面选颜色，下面选明暗（深色 / 浅色）。
+ * 底色用 light-dark() 由 color-scheme 决定，所以「深色/浅色」只是改 <html> 的 color-scheme。
+ * 「跟随系统」不再是可选项：只有账号从未设置过时才按系统深浅走一次，之后由用户选定的明暗固定。
  */
 export const THEME_FAMILIES = [
   { id: 'azure', label: '晏阳蓝', dark: '#24466e', light: '#bcd3f0' },
   { id: 'pink', label: '猛男粉', dark: '#5c2c38', light: '#f3c2cb' },
-  { id: 'mint', label: '草神绿', dark: '#2a4a2c', light: '#c4e3b8' },
+  { id: 'mint', label: '纳西妲绿', dark: '#2a4a2c', light: '#c4e3b8' },
   { id: 'orange', label: '活力橙', dark: '#66370f', light: '#ffd2a1' },
-  { id: 'slate', label: '灰调', dark: '#3a3f47', light: '#d8d9dc' },
 ] as const;
 
 export type ThemeFamilyId = (typeof THEME_FAMILIES)[number]['id'];
@@ -23,7 +22,10 @@ export type ThemeFamilyId = (typeof THEME_FAMILIES)[number]['id'];
 /** 「无」= 不加任何强调色，用纯系统灰（深色深灰 / 浅色浅灰）。 */
 export type ThemeChoice = ThemeFamilyId | 'none';
 
-/** 明暗：跟随系统 / 固定深色 / 固定浅色。 */
+/**
+ * 明暗：dark 固定深色 / light 固定浅色 / auto 跟随系统（仅作为「从未设置过」时的默认值，
+ * 不出现在选项里 —— 用户一旦选了深色或浅色就固定下来）。
+ */
 export type ThemeMode = 'auto' | 'dark' | 'light';
 
 const COLOUR_KEY = 'ycomm_theme_colour';
@@ -37,6 +39,12 @@ const DEFAULT_MODE: ThemeMode = 'auto';
 function attrFor(choice: ThemeChoice): string {
   // 「无」映射到灰调色系（即系统默认灰组合）。
   return choice === 'none' ? 'slate' : choice;
+}
+
+/** 灰调已经撤掉，历史上选过灰调的账号统一按「无」显示与高亮。 */
+function normalizeColour(value: string | undefined): ThemeChoice | null {
+  if (value === 'slate') return 'none';
+  return isValidColour(value) ? value : null;
 }
 
 function isValidColour(value: string | undefined): value is ThemeChoice {
@@ -67,9 +75,9 @@ function initial(): { colour: ThemeChoice; mode: ThemeMode } {
 
   // 以「当前实际生效的主题」为准（根布局的首帧脚本 + ThemeSync 已经把账号主题写进 <html>），
   // 直接读 dataset，避免本地缓存与账号主题不一致时选错高亮项。
-  const domColour = document.documentElement.dataset.themeColour;
+  const domColour = normalizeColour(document.documentElement.dataset.themeColour);
   const domMode = document.documentElement.dataset.themeMode;
-  if (isValidColour(domColour) && isValidMode(domMode)) {
+  if (domColour && isValidMode(domMode)) {
     return { colour: domColour, mode: domMode };
   }
 
@@ -77,21 +85,17 @@ function initial(): { colour: ThemeChoice; mode: ThemeMode } {
     const pair = localStorage.getItem(PAIR_KEY);
     if (pair && !localStorage.getItem(COLOUR_KEY)) {
       const parsed = JSON.parse(pair) as { light?: string; dark?: string };
-      const colour = isValidColour(parsed.dark)
-        ? (parsed.dark as ThemeChoice)
-        : isValidColour(parsed.light)
-          ? (parsed.light as ThemeChoice)
-          : DEFAULT_COLOUR;
+      const colour = normalizeColour(parsed.dark) ?? normalizeColour(parsed.light) ?? DEFAULT_COLOUR;
       return { colour, mode: 'auto' };
     }
     const legacy = localStorage.getItem(OLD_KEY);
     if (legacy && !localStorage.getItem(COLOUR_KEY)) {
-      return { colour: isValidColour(legacy) ? (legacy as ThemeChoice) : DEFAULT_COLOUR, mode: 'auto' };
+      return { colour: normalizeColour(legacy) ?? DEFAULT_COLOUR, mode: 'auto' };
     }
     const savedColour = localStorage.getItem(COLOUR_KEY);
     const savedMode = localStorage.getItem(MODE_KEY);
     return {
-      colour: isValidColour(savedColour ?? undefined) ? (savedColour as ThemeChoice) : DEFAULT_COLOUR,
+      colour: normalizeColour(savedColour ?? undefined) ?? DEFAULT_COLOUR,
       mode: isValidMode(savedMode ?? undefined) ? (savedMode as ThemeMode) : DEFAULT_MODE,
     };
   } catch {
@@ -123,10 +127,10 @@ function NoneSwatch() {
   );
 }
 
+/** 明暗选项：只有深色 / 浅色（「跟随系统」仅作为从未设置时的默认，不列出来）。 */
 const MODES: { id: ThemeMode; label: string; icon: string; hint: string }[] = [
   { id: 'dark', label: '深色', icon: '☾', hint: '固定深色底' },
   { id: 'light', label: '浅色', icon: '☀', hint: '固定浅色底' },
-  { id: 'auto', label: '跟随系统', icon: '↺', hint: '按系统深浅自动切换' },
 ];
 
 /** 浏览器本地缓存的主题（游客也用，先上色避免闪白）。 */
@@ -136,7 +140,7 @@ export function readStoredTheme(): { colour: ThemeChoice; mode: ThemeMode } {
     const colour = localStorage.getItem(COLOUR_KEY) ?? undefined;
     const mode = localStorage.getItem(MODE_KEY) ?? undefined;
     return {
-      colour: isValidColour(colour) ? colour : DEFAULT_COLOUR,
+      colour: normalizeColour(colour) ?? DEFAULT_COLOUR,
       mode: isValidMode(mode) ? mode : DEFAULT_MODE,
     };
   } catch {
@@ -181,9 +185,7 @@ export function ThemeSync() {
     let active = true;
     void getSession().then((session) => {
       if (!active || !session) return; // 未登录：保持本地缓存
-      const colour = isValidColour(session.themeColour ?? undefined)
-        ? (session.themeColour as ThemeChoice)
-        : DEFAULT_COLOUR;
+      const colour = normalizeColour(session.themeColour ?? undefined) ?? DEFAULT_COLOUR;
       const mode = isValidMode(session.themeMode ?? undefined) ? (session.themeMode as ThemeMode) : DEFAULT_MODE;
       applyTheme(colour, mode);
     });
@@ -197,8 +199,8 @@ export function ThemeSync() {
 
 /**
  * 主题选择器（控制台 → 外观主题）：
- * 1. 上面选颜色（深浅两档同一色系，可「无」）；
- * 2. 下面选明暗：深色 / 浅色 / 跟随系统。
+ * 1. 上面选颜色（晏阳蓝 / 猛男粉 / 纳西妲绿 / 活力橙 / 无）；
+ * 2. 下面选明暗：深色 / 浅色（从未设置过时才跟随系统）。
  */
 export function ThemePicker() {
   const [colour, setColour] = useState<ThemeChoice>(DEFAULT_COLOUR);
@@ -265,6 +267,11 @@ export function ThemePicker() {
             </span>
           </button>
         </div>
+        {colour === 'none' && (
+          <p className="muted" style={{ margin: '0.4rem 0 0', fontSize: '0.8rem' }}>
+            已选「无」：不加任何强调色（历史上选的「灰调」也按这里显示）。
+          </p>
+        )}
       </div>
 
       <div>
@@ -296,6 +303,11 @@ export function ThemePicker() {
             );
           })}
         </div>
+        {mode === 'auto' && (
+          <p className="muted" style={{ margin: '0.4rem 0 0', fontSize: '0.8rem' }}>
+            当前按系统深浅显示（还没固定过）；点「深色」或「浅色」就会固定下来。
+          </p>
+        )}
       </div>
     </div>
   );
