@@ -26,3 +26,4 @@ export {
   type NotificationGroup,
   type NotificationKind,
 } from './in-app';
+export { createNotificationEventBus, getNotificationEventBus, type NotificationEventBus, type NotificationChangedEvent, type RealtimeEvent } from './events';

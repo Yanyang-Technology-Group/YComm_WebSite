@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./realtime": {
+      "types": "./src/realtime/server.ts",
+      "default": "./src/realtime/server.ts"
     }
   },
   "scripts": {
@@ -24,6 +28,11 @@
     "@ycomm/kernel": "*",
     "@ycomm/moderation": "*",
     "hono": "^4.13.7",
-    "zod": "^4.0.0"
+    "ws": "^8.21.3",
+    "zod": "^4.0.0",
+    "@ycomm/notify": "*"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
   }
 }

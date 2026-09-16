@@ -44,6 +44,8 @@ ENV NEXT_PUBLIC_APP_VERSION=$APP_VERSION
 COPY . .
 RUN npm run build
 
+# Custom Node server (tsx runtime retained above) serves Next HTTP + /api/ws.
+# Do not switch to `next start` or standalone output: they bypass WS upgrades.
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
