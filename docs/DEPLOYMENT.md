@@ -101,3 +101,55 @@ DATABASE_URL=postgres://... BACKUP_TARGET=/mnt/backups/ycomm ./scripts/backup.sh
 
 完整变量清单见 [`.env.example`](../.env.example)，均有安全默认值；生产环境必须设置
 `DB_PASSWORD` 与 `SESSION_SECRET`。
+## WebSocket 实时通知
+
+`npm run dev` / `npm run start` 现在启动 `apps/web/server.ts`：自定义 Node server 在同一 **3000** 端口处理 Next HTTP 请求和 `/api/ws` Upgrade。Next App Router → Hono 的 `/api/*` HTTP 转发保持不变，`/api/healthz` 仍是原有数据库健康探针。生产先 `npm run build`，再 `npm run start`；不要改用 `next start`、Next standalone server 或无长连接能力的 Serverless 平台。镜像保留 `tsx` 和工作区源文件作为运行依赖。
+
+生产必须设置 `SITE_URL=https://你的域名`，否则启动时明确报错。外部地址为 `wss://你的域名/api/ws`。TLS 在可信代理/Tunnel 终止，后端端口只暴露给代理；代理必须传递 Cookie、Origin、Upgrade、Connection，并覆盖 `X-Forwarded-Proto: https`。只有 `TRUST_PROXY_HEADERS=true` 时才接受该转发头。**不能让公网客户端直接访问并伪造转发头**；Compose 保持宿主机 `127.0.0.1:3000` 绑定。容器内部监听 `0.0.0.0:3000`，不是公网发布。
+
+Origin 必须等于 `SITE_URL` 的 origin（协议、主机和端口，不含路径），缺失也拒绝。Flutter 原生客户端需要显式发送该 Origin 及 CookieJar 中匹配站点 HTTPS URL 的会话 Cookie。本地未设置 SITE_URL 时仅接受 localhost、127.0.0.1 和 ::1 的 HTTP/HTTPS Origin；设置后严格匹配。已有 Cookie 始终 Secure + HttpOnly，未降低安全属性；原生设备本地联调建议用 HTTPS 开发代理，不能指望 Secure Cookie 自动发送到 ws/http。
+
+Nginx TLS 虚拟主机中的示例（HTTP 和 WS 共用代理）：
+
+```nginx
+# http {} 内
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+# server {}（需已有 listen 443 ssl 和证书）内
+location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_read_timeout 90s;
+}
+```
+
+Cloudflare Tunnel 的现有 HTTP 服务 `http://localhost:3000` 可以同时代理 WebSocket，无需新增 TCP 服务、路径或端口；站点的 WebSockets 开关应启用。Cloudflare 更新可能断开长连接，客户端必须重连并 REST 补拉。参见 [Tunnel WebSocket 支持](https://developers.cloudflare.com/cloudflare-one/faq/cloudflare-tunnels-faq/) 和 [Cloudflare WebSockets](https://developers.cloudflare.com/network/websockets/)。
+
+服务端每 30 秒 ping，下一周期未 pong 则终止连接；定期及推送前复查会话。每用户最多 8 条连接，总计最多 1000 条，最多 100 个待鉴权握手；握手最长 5 秒。慢消费者受 64 KiB 发送缓冲和 64 个待验证事件限制。SIGTERM/SIGINT 关闭监听、订阅与连接，10 秒退出兜底。客户端事件协议、拒绝及关闭码见 [API 文档](API.md)。
+
+### 单实例范围与验证
+
+进程内通知总线通过进程共享存储跨 Next 服务端打包模块复用，不存储消息，不提供补发、顺序或恰好一次保证。部署期间/离线期间的实时提示会丢失；客户端在 ready、重连、前台恢复时从 REST 拉取通知。标记已读当前只通过 REST 返回权威未读数，不额外广播。
+
+多实例或 PM2 cluster **不能**依赖该总线。需替换 `packages/notify/src/events.ts` 的 `NotificationEventBus.publish/subscribe` 实现，使用 Redis Pub/Sub 或 PostgreSQL LISTEN/NOTIFY，使每个实例收到提示再向自身连接投递；保持 `userId` 定向及轻量协议不变。若需要可靠投递，还需事务 outbox/持久化消费者。不要把通知创建放进未提交事务后就直接发送事件；当前调用点都在独立成功的写入之后发布。
+
+验证命令：
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run test:realtime:smoke
+# 可选：同一端到端用例检查开发服务器
+npm run test:realtime:smoke -- --dev
+```
+
+smoke 使用临时 PGlite 数据库与临时端口，验证登录的 Secure/HttpOnly Cookie、原样 healthz、ready、真实 REST 管理操作产生实时事件以及 REST 未读数，不访问部署数据库。该脚本模拟可信代理的 HTTPS 转发头，公网 TLS/Cloudflare 链路仍应在实际部署后做一次客户端验证。

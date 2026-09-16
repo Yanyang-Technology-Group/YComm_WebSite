@@ -38,7 +38,10 @@ services:
       DATABASE_DRIVER: postgres
       DATABASE_URL: postgres://ycomm:${DB_PASSWORD:?}@db:5432/ycomm
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
-      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      SITE_URL: ${SITE_URL:?set public HTTPS SITE_URL in .env}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-__Host-ycomm_session}
+      # Only enable behind a trusted proxy; never publish port 3000 publicly.
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
       SITE_NAME: ${SITE_NAME:-YComm}
       SITE_TAGLINE: ${SITE_TAGLINE:-}
       SITE_DESCRIPTION: ${SITE_DESCRIPTION:-}

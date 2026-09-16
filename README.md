@@ -36,7 +36,7 @@ web → api → 领域包 → kernel / db
 
 ```bash
 cp .env.example .env
-# 填上 DB_PASSWORD 和 SESSION_SECRET（openssl rand -base64 48）
+# 填上 DB_PASSWORD、SESSION_SECRET（openssl rand -base64 48）和 HTTPS SITE_URL
 docker compose up -d --build
 ```
 
@@ -72,7 +72,11 @@ npm run dev                 # http://localhost:3000
 - 站长身份不可通过角色授予产生，只能由现任站长走「转移站长身份」（`SYSTEM_OWNER_TRANSFER`）流程移交。
 - 站长密码丢失：用 `npm run owner:recover -- --password <新密码>` 在服务器控制台重置（无需邮件、无需 Web 会话），同时撤销其全部会话。详见 [docs/DATABASE.md](docs/DATABASE.md)。
 
+通知实时通道为 `wss://<host>/api/ws`，与 HTTP 共用 3000 端口。`npm run dev/start` 使用自定义 Node server；生产必须通过 HTTPS 反向代理或 Cloudflare Tunnel 访问。REST 仍是通知数据的权威来源；当前事件总线仅支持单实例。
+
 ## 文档
+
+- REST / WebSocket 与 Flutter 接入：[docs/API.md](docs/API.md)
 
 - 部署与运维：[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 - 数据库命令（迁移/种子/站长引导/救急重置）：[docs/DATABASE.md](docs/DATABASE.md)
