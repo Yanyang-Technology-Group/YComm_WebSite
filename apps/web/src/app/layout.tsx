@@ -74,7 +74,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </main>
         <footer className="site-footer">
           <div className="site-footer-inner">
-            <span>© 2025-2026 晏阳技术组</span>
+            <span>© 2025-2026 晏阳技术组，本站支持IPV4与IPV6</span>
             <span className="footer-sep" aria-hidden="true">
               ·
             </span>
