@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
+import { getNotificationEventBus } from './events';
 
 /**
  * 站内通知中心（notifications 表）。
@@ -56,6 +57,10 @@ export async function createNotification(db: Db, input: CreateNotificationInput)
     post_id: input.postId ?? null,
     card_id: input.cardId ?? null,
     is_admin: input.isAdmin ?? false,
+  });
+  getNotificationEventBus().publish(input.userId, {
+    type: 'notification.changed',
+    data: { reason: 'created', at: new Date().toISOString() },
   });
 }
 

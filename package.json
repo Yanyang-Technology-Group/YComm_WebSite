@@ -27,7 +27,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "licenses": "node scripts/check-licenses.mjs",
-    "verify": "npm run lint && npm run typecheck && npm run test && npm run licenses"
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run licenses",
+    "test:realtime:smoke": "node --import tsx scripts/smoke-realtime.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
