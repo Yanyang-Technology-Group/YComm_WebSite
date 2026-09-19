@@ -1,220 +1,178 @@
 import type { ReactNode } from 'react';
+import { parseMarkdown, type Align, type BlockNode, type InlineNode } from '../lib/markdown';
 
 /**
- * 安全的最小 Markdown 渲染器（论坛帖子 / 用户主页共用）。
+ * Markdown 渲染（论坛帖子 / 用户主页 / 卡片简介共用）。
  *
- * - 支持：标题、段落、**加粗**、*斜体*、`行内代码`、```代码块```、
- *   - 无序列表 / 1. 有序列表、> 引用、--- 分割线、[链接](url)、![图片](url)
- * - 不做 dangerouslySetInnerHTML：所有文本由 React 转义；
- *   链接与图片只放行 http(s) 与站内 /api/uploads/ 路径。
+ * 解析在 `lib/markdown.ts`（纯函数、可单测），这里只负责把节点树变成 React 元素：
+ * 全程不使用 dangerouslySetInnerHTML，文本由 React 转义，链接/图片只放行 http(s)
+ * 与站内 /api/uploads/，所以「内联 HTML」也是安全的。
  */
 
-/** 只允许站内上传路径与 http(s)，避免 javascript: 之类的注入。 */
-function isSafeUrl(url: string): boolean {
-  return url.startsWith('/api/uploads/') || /^https?:\/\//i.test(url);
-}
-
-const MASTER =
-  /(\*\*([^*]+)\*\*)|(\*([^*]+)\*)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)\s]+)\))|(!\[([^\]]*)\]\(([^)\s]+)\))/g;
-
-type Token =
-  | { kind: 'text'; text: string }
-  | { kind: 'bold'; text: string }
-  | { kind: 'italic'; text: string }
-  | { kind: 'code'; text: string }
-  | { kind: 'link'; label: string; url: string }
-  | { kind: 'image'; alt: string; url: string };
-
-function tokenizeInline(input: string): Token[] {
-  const tokens: Token[] = [];
-  const re = new RegExp(MASTER.source, 'g');
-  let last = 0;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(input)) !== null) {
-    if (match.index > last) tokens.push({ kind: 'text', text: input.slice(last, match.index) });
-    if (match[2]) tokens.push({ kind: 'bold', text: match[2] });
-    else if (match[4]) tokens.push({ kind: 'italic', text: match[4] });
-    else if (match[6]) tokens.push({ kind: 'code', text: match[6] });
-    else if (match[12]) tokens.push({ kind: 'image', alt: match[11] ?? '', url: match[12] });
-    else if (match[9]) tokens.push({ kind: 'link', label: match[8] ?? '', url: match[9] });
-    last = match.index + match[0].length;
-  }
-  if (last < input.length) tokens.push({ kind: 'text', text: input.slice(last) });
-  return tokens;
-}
-
-function inline(input: string, keyBase: string): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  let index = 0;
-  for (const token of tokenizeInline(input)) {
-    const key = `${keyBase}-${index++}`;
-    switch (token.kind) {
+function inline(nodes: InlineNode[], keyBase: string): ReactNode[] {
+  return nodes.map((node, index) => {
+    const key = `${keyBase}-${index}`;
+    switch (node.kind) {
       case 'text':
-        nodes.push(token.text);
-        break;
+        return node.text;
       case 'bold':
-        nodes.push(<strong key={key}>{token.text}</strong>);
-        break;
+        return <strong key={key}>{node.text}</strong>;
       case 'italic':
-        nodes.push(<em key={key}>{token.text}</em>);
-        break;
+        return <em key={key}>{node.text}</em>;
+      case 'strike':
+        return <del key={key}>{node.text}</del>;
       case 'code':
-        nodes.push(<code key={key}>{token.text}</code>);
-        break;
+        return <code key={key}>{node.text}</code>;
+      case 'break':
+        return <br key={key} />;
       case 'link':
-        nodes.push(
-          isSafeUrl(token.url) ? (
-            <a key={key} href={token.url} target="_blank" rel="noopener noreferrer">
-              {token.label}
-            </a>
-          ) : (
-            `[${token.label}](${token.url})`
-          ),
+        return (
+          <a key={key} href={node.url} target="_blank" rel="noopener noreferrer">
+            {node.label}
+          </a>
         );
-        break;
       case 'image':
-        nodes.push(
-          isSafeUrl(token.url) ? (
-            <img key={key} src={token.url} alt={token.alt} className="post-image" loading="lazy" />
-          ) : (
-            `![${token.alt}](${token.url})`
-          ),
-        );
-        break;
+        return <img key={key} src={node.url} alt={node.alt} className="post-image" loading="lazy" />;
+      case 'html': {
+        const children = inline(node.children, key);
+        switch (node.tag) {
+          case 'br':
+          case 'wbr':
+            return <br key={key} />;
+          case 'hr':
+            return <hr key={key} />;
+          case 'img':
+            return (
+              <img
+                key={key}
+                src={node.attrs.src ?? ''}
+                alt={node.attrs.alt ?? ''}
+                width={node.attrs.width}
+                height={node.attrs.height}
+                className="post-image"
+                loading="lazy"
+              />
+            );
+          case 'a':
+            return (
+              <a
+                key={key}
+                href={node.attrs.href ?? '#'}
+                title={node.attrs.title}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {children}
+              </a>
+            );
+          case 'details':
+            return (
+              <details key={key} open={node.attrs.open !== undefined}>
+                {children}
+              </details>
+            );
+          // 其余白名单标签：按同名元素渲染（属性已在解析阶段过滤）
+          default: {
+            const Tag = node.tag as 'b';
+            return (
+              <Tag key={key} {...node.attrs}>
+                {children}
+              </Tag>
+            );
+          }
+        }
+      }
     }
-  }
-  return nodes;
+  });
 }
 
-type Block =
-  | { type: 'p'; line: ReactNode[] }
-  | { type: 'h'; level: number; line: ReactNode[] }
-  | { type: 'ul'; items: ReactNode[][] }
-  | { type: 'ol'; items: ReactNode[][] }
-  | { type: 'quote'; line: ReactNode[] }
-  | { type: 'code'; text: string }
-  | { type: 'hr' };
+function alignStyle(align: Align): { textAlign?: 'left' | 'center' | 'right' } {
+  return align ? { textAlign: align } : {};
+}
 
-function blockify(text: string): Block[] {
-  const lines = text.replace(/\r/g, '').split('\n');
-  const blocks: Block[] = [];
-  let i = 0;
-  const isHr = (value: string) => /^-{3,}\s*$/.test(value) || /^\*{3,}\s*$/.test(value) || /^_{3,}\s*$/.test(value);
-
-  while (i < lines.length) {
-    const line = lines[i] ?? '';
-    if (!line.trim()) {
-      i++;
-      continue;
-    }
-
-    // 围栏代码块
-    const fence = line.match(/^```\w*\s*$/);
-    if (fence) {
-      const buf: string[] = [];
-      i++;
-      while (i < lines.length && !/^```/.test(lines[i] ?? '')) {
-        buf.push(lines[i] ?? '');
-        i++;
-      }
-      i++; // 关闭围栏
-      blocks.push({ type: 'code', text: buf.join('\n') });
-      continue;
-    }
-
-    if (isHr(line.trim())) {
-      blocks.push({ type: 'hr' });
-      i++;
-      continue;
-    }
-
-    const heading = line.match(/^(#{1,6})\s+(.*)$/);
-    if (heading) {
-      blocks.push({ type: 'h', level: (heading[1] ?? '').length, line: inline(heading[2] ?? '', `${blocks.length}`) });
-      i++;
-      continue;
-    }
-
-    const quote = line.match(/^>\s?(.*)$/);
-    if (quote) {
-      const buf: string[] = [quote[1] ?? ''];
-      i++;
-      while (i < lines.length && /^>\s?/.test(lines[i] ?? '')) {
-        buf.push((lines[i] ?? '').replace(/^>\s?/, ''));
-        i++;
-      }
-      blocks.push({ type: 'quote', line: inline(buf.join(' '), `${blocks.length}`) });
-      continue;
-    }
-
-    if (/^[-*+]\s+/.test(line) || /^\d+\.\s+/.test(line)) {
-      const ordered = /^\d+\.\s+/.test(line);
-      const items: ReactNode[][] = [];
-      while (i < lines.length && (/^[-*+]\s+/.test(lines[i] ?? '') || /^\d+\.\s+/.test(lines[i] ?? ''))) {
-        items.push(inline((lines[i] ?? '').replace(/^[-*+]|\d+\.\s*/, '').trim(), `${blocks.length}-${items.length}`));
-        i++;
-      }
-      blocks.push(ordered ? { type: 'ol', items } : { type: 'ul', items });
-      continue;
-    }
-
-    // 普通段落：遇到空行或下一个块级起点为止。
-    const buf: string[] = [line.trim()];
-    i++;
-    while (
-      i < lines.length &&
-      (lines[i] ?? '').trim() !== '' &&
-      !/^(#{1,6})\s/.test(lines[i] ?? '') &&
-      !/^-{3,}\s*$/.test((lines[i] ?? '').trim()) &&
-      !/^```/.test(lines[i] ?? '')
-    ) {
-      buf.push((lines[i] ?? '').trim());
-      i++;
-    }
-    blocks.push({ type: 'p', line: inline(buf.join(' '), `${blocks.length}`) });
+function block(node: BlockNode, key: string): ReactNode {
+  switch (node.type) {
+    case 'h':
+      return (
+        <h2 key={key} style={{ fontSize: `${1.1 - (node.level - 1) * 0.08}rem` }}>
+          {inline(node.content, key)}
+        </h2>
+      );
+    case 'p':
+      return <p key={key}>{inline(node.content, key)}</p>;
+    case 'ul':
+      return (
+        <ul key={key}>
+          {node.items.map((item, index) => (
+            <li key={index}>
+              {item.checked !== null && (
+                <input type="checkbox" checked={item.checked} readOnly style={{ marginRight: '0.35rem' }} />
+              )}
+              {inline(item.content, `${key}-${index}`)}
+              {item.children.map((child, childIndex) => block(child, `${key}-${index}-${childIndex}`))}
+            </li>
+          ))}
+        </ul>
+      );
+    case 'ol':
+      return (
+        <ol key={key} start={node.start}>
+          {node.items.map((item, index) => (
+            <li key={index}>
+              {item.checked !== null && (
+                <input type="checkbox" checked={item.checked} readOnly style={{ marginRight: '0.35rem' }} />
+              )}
+              {inline(item.content, `${key}-${index}`)}
+              {item.children.map((child, childIndex) => block(child, `${key}-${index}-${childIndex}`))}
+            </li>
+          ))}
+        </ol>
+      );
+    case 'quote':
+      return <blockquote key={key}>{node.blocks.map((child, index) => block(child, `${key}-${index}`))}</blockquote>;
+    case 'code':
+      return (
+        <pre key={key}>
+          <code className={node.lang ? `language-${node.lang}` : undefined}>{node.text}</code>
+        </pre>
+      );
+    case 'hr':
+      return <hr key={key} />;
+    case 'table':
+      return (
+        <div className="post-table-wrap" key={key}>
+          <table className="post-table">
+            <thead>
+              <tr>
+                {node.header.map((cell, index) => (
+                  <th key={index} style={alignStyle(node.align[index] ?? null)}>
+                    {inline(cell, `${key}-h-${index}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {node.rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {row.map((cell, cellIndex) => (
+                    <td key={cellIndex} style={alignStyle(node.align[cellIndex] ?? null)}>
+                      {inline(cell, `${key}-${rowIndex}-${cellIndex}`)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
   }
-  return blocks;
 }
 
 export function MarkdownContent({ text }: { text: string }) {
-  const blocks = blockify(text);
+  const blocks = parseMarkdown(text);
   return (
     <div className="post-content">
-      {blocks.map((block, index) => {
-        const key = `b-${index}`;
-        switch (block.type) {
-          case 'h':
-            return <h2 key={key} style={{ fontSize: `${1.1 - (block.level - 1) * 0.08}rem` }}>{block.line}</h2>;
-          case 'p':
-            return <p key={key}>{block.line}</p>;
-          case 'ul':
-            return (
-              <ul key={key}>
-                {block.items.map((item, itemIndex) => (
-                  <li key={itemIndex}>{item}</li>
-                ))}
-              </ul>
-            );
-          case 'ol':
-            return (
-              <ol key={key}>
-                {block.items.map((item, itemIndex) => (
-                  <li key={itemIndex}>{item}</li>
-                ))}
-              </ol>
-            );
-          case 'quote':
-            return <blockquote key={key}>{block.line}</blockquote>;
-          case 'code':
-            return (
-              <pre key={key}>
-                <code>{block.text}</code>
-              </pre>
-            );
-          case 'hr':
-            return <hr key={key} />;
-        }
-      })}
+      {blocks.map((node, index) => block(node, `b-${index}`))}
     </div>
   );
 }

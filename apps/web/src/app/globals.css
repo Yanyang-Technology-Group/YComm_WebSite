@@ -536,6 +536,44 @@ mark.search-hit {
   padding: 0;
 }
 
+/* Markdown 表格（GFM） */
+.post-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 0.6rem;
+}
+
+.post-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+}
+
+.post-table th,
+.post-table td {
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.6rem;
+}
+
+.post-table th {
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+
+/* 任务列表的勾选框 */
+.post-content input[type='checkbox'] {
+  vertical-align: baseline;
+  accent-color: var(--accent-strong);
+}
+
+.post-content details {
+  margin: 0 0 0.6rem;
+}
+
+.post-content summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
 .post-content a {
   color: var(--accent-strong);
   text-decoration: underline;
