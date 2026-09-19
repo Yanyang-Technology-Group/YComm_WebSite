@@ -149,7 +149,9 @@ export async function listTopics(
     .from(schema.topics)
     .leftJoin(schema.users, eq(schema.topics.author_id, schema.users.id))
     .where(where)
-    .orderBy(desc(schema.topics.is_pinned), desc(schema.topics.last_post_at))
+    // 置顶（管理员手动置顶，行首有 📌）永远在最上面；其余按「发表时间」倒序 —— 越新越靠上，
+    // 与列表里显示的发表时间一致（之前按最后回复时间排，界面上看着就乱了）。
+    .orderBy(desc(schema.topics.is_pinned), desc(schema.topics.created_at))
     .limit(limit)
     .offset(options.offset ?? 0);
 

@@ -12,6 +12,7 @@ import { AuthorSanctions } from '../../../../components/author-sanctions';
 import { MarkdownContent } from '../../../../components/markdown-content';
 import { PageBack } from '../../../../components/page-back';
 import { UserBadges, type UserBadgeView } from '../../../../components/user-badges';
+import { formatDateTime } from '../../../../lib/time';
 
 export const metadata: Metadata = { title: '主题' };
 export const dynamic = 'force-dynamic';
@@ -71,7 +72,8 @@ export default async function TopicPage({
         {topic.title}
       </h1>
       <p className="muted" style={{ marginTop: 0 }}>
-        {topic.reply_count} 回复 · {topic.view_count} 浏览{topic.is_locked ? ' · 已锁定' : ''}
+        {formatDateTime(topic.created_at)} 发表 · {topic.reply_count} 回复 · {topic.view_count} 浏览
+        {topic.is_locked ? ' · 已锁定' : ''}
       </p>
       <p style={{ marginTop: '0.5rem' }}>
         <DeleteTopicButton topicId={topic.id} authorId={topic.author_id} boardSlug={slug} />
@@ -127,8 +129,8 @@ export default async function TopicPage({
                 {post.position === 1 && <span className="badge badge-role-owner">楼主</span>}
                 <span className="muted" style={{ fontWeight: 400 }}>
                   {post.position > 1 ? `#${post.position}` : ''} ·{' '}
-                  {new Date(post.created_at).toLocaleString('zh-CN')}
-                  {post.edited_at ? ' · 已编辑' : ''}
+                  {formatDateTime(post.created_at)}
+                  {post.edited_at ? ` · 已编辑（${formatDateTime(post.edited_at)}）` : ''}
                 </span>
               </span>
             </div>

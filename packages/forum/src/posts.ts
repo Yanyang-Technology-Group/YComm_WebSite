@@ -120,6 +120,8 @@ export interface TopicPostPreview {
   authorDisplayName: string | null;
   authorAvatarPath: string | null;
   likeCount: number;
+  /** 发表时间（列表里显示）。 */
+  createdAt: string | null;
 }
 
 export interface TopicPreview {
@@ -138,6 +140,7 @@ export async function listTopicPreviews(db: Db, topicIds: string[]): Promise<Map
     .select({
       topic_id: schema.posts.topic_id,
       content_md: schema.posts.content_md,
+      created_at: schema.posts.created_at,
       authorUsername: schema.users.username,
       authorDisplayName: schema.users.display_name,
       authorAvatarPath: schema.users.avatar_path,
@@ -161,6 +164,7 @@ export async function listTopicPreviews(db: Db, topicIds: string[]): Promise<Map
         authorDisplayName: row.authorDisplayName,
         authorAvatarPath: row.authorAvatarPath,
         likeCount: 0,
+        createdAt: row.created_at?.toISOString() ?? null,
       };
     }
   }
@@ -181,6 +185,7 @@ export async function listTopicPreviews(db: Db, topicIds: string[]): Promise<Map
     .select({
       topic_id: schema.posts.topic_id,
       content_md: schema.posts.content_md,
+      created_at: schema.posts.created_at,
       authorUsername: schema.users.username,
       authorDisplayName: schema.users.display_name,
       authorAvatarPath: schema.users.avatar_path,
@@ -209,6 +214,7 @@ export async function listTopicPreviews(db: Db, topicIds: string[]): Promise<Map
       authorDisplayName: row.authorDisplayName,
       authorAvatarPath: row.authorAvatarPath,
       likeCount: row.likeCount,
+      createdAt: row.created_at?.toISOString() ?? null,
     });
   }
 

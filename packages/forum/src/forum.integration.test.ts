@@ -71,6 +71,63 @@ afterEach(async () => {
 });
 
 describe('topics', () => {
+  it('列表按发表时间倒序（越新越靠上）；置顶仍在最前；回复不改变主题顺序', async () => {
+    const boardId = await seedBoard();
+    const author = await seedUser('timeline');
+
+    const older = await createTopic(handle.db, {
+      boardId,
+      authorId: author,
+      authorPostCount: 0,
+      authorRole: 'member',
+      title: '最早发表',
+      contentMd: '一',
+    });
+    // 让 created_at 明确拉开（同一毫秒内创建的排序不稳定）
+    await handle.db
+      .update(schema.topics)
+      .set({ created_at: new Date(Date.now() - 60_000), last_post_at: new Date(Date.now() - 60_000) })
+      .where(eq(schema.topics.id, older.topic.id));
+
+    const middle = await createTopic(handle.db, {
+      boardId,
+      authorId: author,
+      authorPostCount: 0,
+      authorRole: 'member',
+      title: '中间发表',
+      contentMd: '二',
+    });
+    expect(middle.topic.status).toBe('published');
+    const newest = await createTopic(handle.db, {
+      boardId,
+      authorId: author,
+      authorPostCount: 0,
+      authorRole: 'member',
+      title: '最新发表',
+      contentMd: '三',
+    });
+
+    // 给「最早发表」回一帖：旧规则（按最后回复时间排）会把它顶到最上面，新规则不会。
+    await createPost(handle.db, {
+      topicId: older.topic.id,
+      authorId: author,
+      authorPostCount: 0,
+      authorRole: 'member',
+      contentMd: '回复一下',
+    });
+
+    const titles = async () => (await listTopics(handle.db, { boardId })).topics.map((topic) => topic.title);
+    expect(await titles()).toEqual(['最新发表', '中间发表', '最早发表']);
+
+    // 置顶的主题始终在最前面（行首有 📌 标记）。
+    await moderateTopic(handle.db, older.topic.id, 'pin');
+    expect(await titles()).toEqual(['最早发表', '最新发表', '中间发表']);
+
+    // 时间字段都带出来了（列表要显示发表时间）。
+    const listed = (await listTopics(handle.db, { boardId })).topics;
+    expect(listed.find((topic) => topic.id === newest.topic.id)?.created_at).toBeInstanceOf(Date);
+  });
+
   it('new members publish directly (new-member review queue disabled)', async () => {
     const boardId = await seedBoard();
     const newbie = await seedUser('newbie');

@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { formatDateTime } from '../lib/time';
 
 /**
  * 主题行（客户端组件）：
  * - 整行点击进主题；
  * - 作者/回复的头像与用户名可单独点进主页（stopPropagation 不误触整行）；
- * - 用户名统一高亮（粗体加大）。
+ * - 用户名统一高亮（粗体加大）；
+ * - 主题与回复都显示发表时间。
  */
 
 interface PreviewPost {
@@ -16,6 +18,7 @@ interface PreviewPost {
   authorDisplayName: string | null;
   authorAvatarPath: string | null;
   likeCount: number;
+  createdAt: string | null;
 }
 
 export interface TopicRowData {
@@ -133,6 +136,7 @@ export function TopicRow({ topic, slug }: { topic: TopicRowData; slug: string })
             small
           />
           <span className="topic-block-text">{excerpt(reply.contentExcerpt)}</span>
+          {reply.createdAt && <span className="topic-block-time muted">{formatDateTime(reply.createdAt)}</span>}
         </div>
       ))}
 
@@ -144,7 +148,7 @@ export function TopicRow({ topic, slug }: { topic: TopicRowData; slug: string })
           small
           labelOnly
         />{' '}
-        发帖 · {topic.reply_count} 回复 · {topic.view_count} 浏览
+        {formatDateTime(topic.created_at)} 发表 · {topic.reply_count} 回复 · {topic.view_count} 浏览
       </div>
     </div>
   );

@@ -2266,6 +2266,14 @@ html[data-anim='theme'] .page-anim > * {
   white-space: nowrap;
 }
 
+/* 主题列表里每条回复的发表时间（贴右侧） */
+.topic-block-time {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
 .topic-block-meta {
   margin-top: 0.45rem;
 }

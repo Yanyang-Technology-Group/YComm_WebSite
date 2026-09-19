@@ -12,6 +12,7 @@ import { ImagePicker } from './image-picker';
 import { CaptchaGateModal } from './captcha-gate-modal';
 import { MarkdownContent } from './markdown-content';
 import { remainingLabel } from './sanction-dialog';
+import { formatDateTime } from '../lib/time';
 
 interface Profile {
   id: string;
@@ -489,7 +490,7 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
                 <Link key={t.id} href={`/forum/${t.board_slug}/${t.id}`} className="card topic-link">
                   <strong>{t.title}</strong>
                   <span className="muted" style={{ marginLeft: '0.5rem' }}>
-                    {t.reply_count} 回复 · {t.view_count} 浏览
+                    {formatDateTime(t.created_at)} 发表 · {t.reply_count} 回复 · {t.view_count} 浏览
                   </span>
                 </Link>
               ))}
@@ -500,7 +501,9 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
               {posts.length === 0 && <p className="muted">暂无回帖。</p>}
               {posts.map((p) => (
                 <Link key={p.id} href={`/forum/${p.board_slug}/${p.topic_id}`} className="card topic-link">
-                  <div className="muted">回帖于「{p.topic_title}」</div>
+                  <div className="muted">
+                    {formatDateTime(p.created_at)} 回帖于「{p.topic_title}」
+                  </div>
                   <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.9rem' }}>
                     {p.content_md.length > 120 ? `${p.content_md.slice(0, 120)}…` : p.content_md}
                   </div>
