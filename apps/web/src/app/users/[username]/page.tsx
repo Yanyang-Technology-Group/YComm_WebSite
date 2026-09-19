@@ -79,8 +79,19 @@ export default async function UserPage({ params }: { params: Promise<{ username:
               <span className="badge badge-state-active">互关</span>
             )}
           </div>
+          {/* 加入时间 + 粉丝/关注（可点进列表）都放在头像这一行，不再单独占一个面板 */}
           <p className="muted" style={{ margin: '0.4rem 0 0' }}>
-            {joined} 加入 · {profile.followerCount} 粉丝 · 关注 {profile.followingCount}
+            {joined} 加入 ·{' '}
+            <Link href={`/users/${encodeURIComponent(profile.username)}/followers`} className="uname">
+              {profile.followerCount} 粉丝
+            </Link>{' '}
+            ·{' '}
+            <Link href={`/users/${encodeURIComponent(profile.username)}/following`} className="uname">
+              关注 {profile.followingCount}
+            </Link>
+            {!profile.isSelf && (
+              <span style={{ fontSize: '0.8rem' }}>（列表可见度由对方设置）</span>
+            )}
           </p>
           {profile.bio && <p style={{ margin: '0.5rem 0 0' }}>{profile.bio}</p>}
         </div>
@@ -103,20 +114,6 @@ export default async function UserPage({ params }: { params: Promise<{ username:
           )}
         </div>
       </div>
-
-      <div className="panel" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1.25rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
-      <Link href={`/users/${encodeURIComponent(profile.username)}/following`} className="uname">
-        关注 {profile.followingCount}
-      </Link>
-      <Link href={`/users/${encodeURIComponent(profile.username)}/followers`} className="uname">
-        粉丝 {profile.followerCount}
-      </Link>
-      {!profile.isSelf && (
-        <span className="muted" style={{ fontSize: '0.8rem' }}>
-          列表可见度由用户自己设置
-        </span>
-      )}
-    </div>
 
       {profile.homepageMd.trim() ? (
         profile.homepageVisible ? (

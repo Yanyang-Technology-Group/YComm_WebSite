@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "searchable" boolean DEFAULT true NOT NULL;

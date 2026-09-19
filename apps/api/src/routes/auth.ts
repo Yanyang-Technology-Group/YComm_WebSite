@@ -93,6 +93,8 @@ const profileSchema = z.object({
   followingVisibility: z.enum(['public', 'mutual', 'private']).optional(),
   followersVisibility: z.enum(['public', 'mutual', 'private']).optional(),
   homepageVisibility: z.enum(['public', 'mutual', 'private']).optional(),
+  /** 是否允许被别人搜到（控制台 → 隐私设置）。 */
+  searchable: z.boolean().optional(),
 });
 
 const changePasswordSchema = z.object({
@@ -362,6 +364,8 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
           // 主题偏好（按账号存）：NULL = 从未设置，前端用「晏阳蓝 + 跟随系统」。
           themeColour: user.theme_colour,
           themeMode: user.theme_mode,
+          // 隐私：是否允许被别人搜到（默认 true）。
+          searchable: user.searchable,
         },
       },
     });
@@ -380,6 +384,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       followingVisibility: body.followingVisibility,
       followersVisibility: body.followersVisibility,
       homepageVisibility: body.homepageVisibility,
+      searchable: body.searchable,
     });
     return c.json({ ok: true, data: { user: toPublicUser(updated) } });
   });

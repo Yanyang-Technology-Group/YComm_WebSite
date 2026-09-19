@@ -25,6 +25,8 @@ export interface UpdateProfileInput {
   followersVisibility?: SocialVisibility;
   /** 主页可见度。 */
   homepageVisibility?: SocialVisibility;
+  /** 是否允许被别人（导航栏搜索/用户搜索）搜到，默认 true。 */
+  searchable?: boolean;
 }
 
 export async function updateProfile(db: Db, userId: string, input: UpdateProfileInput): Promise<UserRecord> {
@@ -44,6 +46,7 @@ export async function updateProfile(db: Db, userId: string, input: UpdateProfile
       ...(input.followingVisibility !== undefined ? { following_visibility: input.followingVisibility } : {}),
       ...(input.followersVisibility !== undefined ? { followers_visibility: input.followersVisibility } : {}),
       ...(input.homepageVisibility !== undefined ? { homepage_visibility: input.homepageVisibility } : {}),
+      ...(input.searchable !== undefined ? { searchable: input.searchable } : {}),
       updated_at: new Date(),
     })
     .where(eq(schema.users.id, userId))

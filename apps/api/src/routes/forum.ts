@@ -495,6 +495,7 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
   });
 
   // ---- 全站搜索（导航栏搜索框） --------------------------------------
+  // 范围：all 全站 / forum 论坛（结果按板块分组）/ downloads 下载 / users 用户
   router.get('/search', async (c) => {
     const q = (c.req.query('q') ?? '').trim();
     const scope = c.req.query('scope') ?? 'all';
@@ -502,14 +503,19 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
     const subject = c.get('auth')?.subject ?? null;
     const lower = q.toLowerCase();
 
-    const topics: Array<{
-      id: string;
-      title: string;
-      boardSlug: string | null;
-      authorUsername: string | null;
-      authorDisplayName: string | null;
-      createdAt: string;
-      rank: number;
+    /** 论坛结果按板块分组：一组一个板块（板块名 + 主题列表）。 */
+    const forum: Array<{
+      boardId: string;
+      boardSlug: string;
+      boardName: string;
+      topics: Array<{
+        id: string;
+        title: string;
+        authorUsername: string | null;
+        authorDisplayName: string | null;
+        createdAt: string;
+        rank: number;
+      }>;
     }> = [];
     const users: Array<{
       id: string;
@@ -521,40 +527,60 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
       bio: string;
       rank: number;
     }> = [];
-    const cards: Array<{
+    const downloads: Array<{
       id: string;
       title: string;
       subtitle: string;
       rank: number;
     }> = [];
 
-    if (q && (scope === 'all' || scope === 'topics' || scope === 'users' || scope === 'cards')) {
-      if (scope === 'all' || scope === 'topics') {
-        const rows = await searchTopics(handle.db, q, { limit: 8 });
+    const wantForum = scope === 'all' || scope === 'forum';
+    const wantUsers = scope === 'all' || scope === 'users';
+    const wantDownloads = scope === 'all' || scope === 'downloads';
+
+    if (q && (wantForum || wantUsers || wantDownloads)) {
+      if (wantForum) {
+        const rows = await searchTopics(handle.db, q, { limit: 12 });
         const boardIds = [...new Set(rows.map((row) => row.board_id))];
         const boards = boardIds.length
           ? await handle.db
-              .select({ id: schema.boards.id, slug: schema.boards.slug })
+              .select({ id: schema.boards.id, slug: schema.boards.slug, name: schema.boards.name })
               .from(schema.boards)
               .where(inArray(schema.boards.id, boardIds))
           : [];
-        const slugOf = new Map(boards.map((board) => [board.id, board.slug]));
+        const byId = new Map(boards.map((board) => [board.id, board]));
+
+        // 先按板块归组，组内再按相关度排；组之间按「最好成绩」排。
+        const groups = new Map<string, (typeof forum)[number]>();
         for (const row of rows) {
-          topics.push({
+          const board = byId.get(row.board_id);
+          if (!board) continue;
+          let group = groups.get(board.id);
+          if (!group) {
+            group = { boardId: board.id, boardSlug: board.slug, boardName: board.name, topics: [] };
+            groups.set(board.id, group);
+          }
+          group.topics.push({
             id: row.id,
             title: row.title,
-            boardSlug: slugOf.get(row.board_id) ?? null,
             authorUsername: row.authorUsername,
             authorDisplayName: row.authorDisplayName,
             createdAt: row.created_at.toISOString(),
             rank: rankOf(row.title, lower) * 2, // 标题命中权重更高
           });
         }
-        topics.sort((a, b) => b.rank - a.rank);
+        for (const group of groups.values()) {
+          group.topics.sort((a, b) => b.rank - a.rank || (a.createdAt < b.createdAt ? 1 : -1));
+        }
+        forum.push(
+          ...[...groups.values()].sort(
+            (a, b) => (b.topics[0]?.rank ?? 0) - (a.topics[0]?.rank ?? 0),
+          ),
+        );
       }
 
-      if (scope === 'all' || scope === 'users') {
-        const rows = await searchUsers(handle.db, q, 6);
+      if (wantUsers) {
+        const rows = await searchUsers(handle.db, q, 8);
         for (const row of rows) {
           users.push({
             id: row.id,
@@ -571,21 +597,21 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
         users.sort((a, b) => b.rank - a.rank);
       }
 
-      if (scope === 'all' || scope === 'cards') {
-        const rows = await searchCards(handle.db, subject, q, 6);
+      if (wantDownloads) {
+        const rows = await searchCards(handle.db, subject, q, 8);
         for (const row of rows) {
-          cards.push({
+          downloads.push({
             id: row.id,
             title: row.title,
             subtitle: row.subtitle,
             rank: rankOf(row.title, lower) + (row.subtitle.toLowerCase().includes(lower) ? 1 : 0),
           });
         }
-        cards.sort((a, b) => b.rank - a.rank);
+        downloads.sort((a, b) => b.rank - a.rank);
       }
     }
 
-    return c.json({ ok: true, data: { topics, users, cards } });
+    return c.json({ ok: true, data: { forum, users, downloads } });
   });
 
   // ---- moderation queue (forum content) --------------------------------

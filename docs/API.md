@@ -64,7 +64,7 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | `POST /api/auth/delete-account/confirm` | 公开 | JSON：`token` | `null`；确认注销并进入冷静期。 |
 | `POST /api/auth/cancel-deletion` | 登录 | 无 | `null`；冷静期内取消注销。 |
 | `GET /api/auth/profile` | 登录 | 无 | `{ user: ProfileUser }`。 |
-| `PATCH /api/auth/profile` | 登录 | JSON 全可选：`displayName` ≤40、`bio` ≤500、`avatarPath` ≤2000 或 `null`、`homepageMd` ≤8000、`followingVisibility`, `followersVisibility`, `homepageVisibility`（`public\|mutual\|private`） | `{ user: PublicUser }`。 |
+| `PATCH /api/auth/profile` | 登录 | JSON 全可选：`displayName` ≤40、`bio` ≤500、`avatarPath` ≤2000 或 `null`、`homepageMd` ≤8000、`followingVisibility`, `followersVisibility`, `homepageVisibility`（`public\|mutual\|private`）、`searchable`（布尔，是否允许被别人搜到，默认 true） | `{ user: PublicUser }`。 |
 | `POST /api/auth/change-password` | 登录 | JSON：`currentPassword` 1–200、`newPassword` 8–200 | `null`。 |
 | `POST /api/auth/set-password` | 登录 | JSON：`newPassword` 8–200 | `null`；仅用于 OAuth 创建且尚无密码的账号。 |
 | `POST /api/auth/change-email` | 登录 | JSON：`email` 3–255 | `null`；新邮箱进入验证流程。 |
@@ -95,7 +95,7 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | `POST /api/forum/posts/:postId/unlike` | 登录 | Path `postId` | `{ liked: false }`；幂等。 |
 | `POST /api/forum/topics/:topicId/action` | 登录；按动作要求置顶、锁定、删除任意内容或移动主题权限 | Path `topicId`；JSON：`action: pin\|unpin\|lock\|unlock\|delete\|move`；移动时必须 `boardId` | `{ topic }`；写审计，删除他人主题会通知作者。 |
 | `DELETE /api/forum/topics/:topicId` | 登录；自己的主题需 `FORUM_POST_DELETE_OWN`，他人/游客主题需 `FORUM_POST_DELETE_ANY` | Path `topicId` | `null`；软删除并审计。 |
-| `GET /api/forum/search` | 公开/可选会话 | Query：`q`，`scope=all\|topics\|users\|cards`（其他值返回空集合） | `{ topics, users, cards }`；最多分别约 8/6/6 条，带内部排序 `rank`；卡片按访问者可见性过滤。 |
+| `GET /api/forum/search` | 公开/可选会话 | Query：`q`，`scope=all\|forum\|downloads\|users`（其他值返回空集合） | `{ forum, users, downloads }`。`forum` 为**按板块分组**的数组：`{ boardId, boardSlug, boardName, topics[] }`（组内按相关度、组间按最好成绩排序）；`users` 排除注销/封禁与关闭了「允许被搜到」的账号；`downloads` 按访问者可见性过滤。 |
 | `GET /api/forum/moderation/pending` | 权限 `FORUM_CONTENT_AUDIT` | 无 | `{ items: ModerationItem[] }`，仅主题和帖子。 |
 | `POST /api/forum/moderation/:itemId/decide` | 权限 `FORUM_CONTENT_AUDIT` | Path `itemId`；JSON：`decision: approve\|reject`，可选 `note` ≤500 | `null`；只能处理主题/帖子待审项，并写审计。 |
 

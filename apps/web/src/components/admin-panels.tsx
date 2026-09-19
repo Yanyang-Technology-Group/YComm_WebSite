@@ -660,9 +660,21 @@ export function InviteCodesPanel() {
   const [message, setMessage] = useState<string | null>(null);
   /** 弹窗：查看使用某注册码的用户。 */
   const [usesFor, setUsesFor] = useState<InviteCodeItem | null>(null);
+  /** 注册码搜索关键词（按名称 / 注册码过滤）。 */
+  const [query, setQuery] = useState('');
   const [uses, setUses] = useState<InviteUseUser[] | null>(null);
   const [usesLoading, setUsesLoading] = useState(false);
   const [usesError, setUsesError] = useState<string | null>(null);
+
+  /** 搜索过滤后的注册码列表。 */
+  const filtered = (() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (entry) =>
+        entry.code.toLowerCase().includes(q) || (entry.name ?? '').toLowerCase().includes(q),
+    );
+  })();
 
   async function openUses(entry: InviteCodeItem) {
     setUsesFor(entry);
@@ -815,7 +827,26 @@ export function InviteCodesPanel() {
         </button>
       </div>
       {message && <p style={{ color: message.includes('失败') ? '#dc2626' : 'var(--accent)', margin: '0.4rem 0' }}>{message}</p>}
-      {items.length > 0 && (
+      {/* 注册码搜索：按名称或注册码过滤（本地过滤，不额外请求） */}
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', margin: '0.5rem 0' }}>
+        <input
+          type="search"
+          placeholder="搜索注册码（名称或码）…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          style={{ padding: '0.4rem', flex: '1 1 240px', maxWidth: 320 }}
+          aria-label="搜索注册码"
+        />
+        {query && (
+          <button type="button" className="text-btn" onClick={() => setQuery('')}>
+            清除
+          </button>
+        )}
+        <span className="muted" style={{ fontSize: '0.82rem' }}>
+          共 {items.length} 个，匹配 {filtered.length} 个
+        </span>
+      </div>
+      {filtered.length > 0 && (
         <div className="table-scroll">
           <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem', fontSize: '0.9rem' }}>
             <thead>
@@ -829,7 +860,7 @@ export function InviteCodesPanel() {
               </tr>
             </thead>
             <tbody>
-              {items.map((entry) => (
+              {filtered.map((entry) => (
                 <tr key={entry.id}>
                   <td style={tdStyle}>{entry.name ?? '—'}</td>
                   <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{entry.code}</td>

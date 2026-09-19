@@ -36,6 +36,8 @@ interface Profile {
   followingVisibility?: string;
   followersVisibility?: string;
   homepageVisibility?: string;
+  /** 是否允许被别人搜到（默认 true）。 */
+  searchable?: boolean;
   /** 封禁/禁言信息：处罚期间不允许自助注销。 */
   mutedUntil?: string | null;
   muteReason?: string | null;
@@ -187,7 +189,7 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
     );
   }
 
-  /** 隐私设置：关注 / 粉丝 / 主页可见度分开保存。 */
+  /** 隐私设置：关注 / 粉丝 / 主页可见度 + 是否允许被搜到，一起保存。 */
   function submitPrivacy(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -200,6 +202,7 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
             followingVisibility: String(fd.get('followingVisibility') ?? 'public'),
             followersVisibility: String(fd.get('followersVisibility') ?? 'public'),
             homepageVisibility: String(fd.get('homepageVisibility') ?? 'public'),
+            searchable: fd.get('searchable') === 'on',
           }),
         }),
       '隐私设置已保存',
@@ -683,6 +686,14 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
                     </option>
                   ))}
                 </select>
+              </label>
+              {/* 能否被搜到：默认开着；关掉后导航栏搜索/用户搜索都找不到你（主页链接仍可直接访问） */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                <input type="checkbox" name="searchable" defaultChecked={profile.searchable !== false} />
+                允许别人在搜索里找到我
+                <span className="muted" style={{ fontSize: '0.8rem' }}>
+                  （默认开启；关掉后搜索不到你，但主页链接仍可访问）
+                </span>
               </label>
               <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
                 保存隐私设置

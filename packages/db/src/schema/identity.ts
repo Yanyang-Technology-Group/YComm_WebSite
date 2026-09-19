@@ -1,4 +1,4 @@
-import { index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { createdAtColumn, updatedAtColumn } from './helpers';
 
@@ -69,6 +69,11 @@ export const users = pgTable(
      */
     theme_colour: varchar('theme_colour', { length: 16 }),
     theme_mode: varchar('theme_mode', { length: 8 }),
+    /**
+     * 是否允许被别人搜到（控制台 → 隐私设置，默认 true）。
+     * 关掉后：导航栏搜索、用户搜索里都不出现；主页本身仍可通过链接直接访问。
+     */
+    searchable: boolean('searchable').notNull().default(true),
     created_at: createdAtColumn(),
     updated_at: updatedAtColumn(),
     last_seen_at: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }),

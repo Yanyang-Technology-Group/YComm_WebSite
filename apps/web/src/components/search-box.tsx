@@ -7,10 +7,16 @@ import { apiFetch } from '../lib/api';
 interface TopicHit {
   id: string;
   title: string;
-  boardSlug: string | null;
   authorUsername: string | null;
   authorDisplayName: string | null;
   createdAt: string;
+}
+/** 论坛结果按板块分组：一组一个板块。 */
+interface ForumGroupHit {
+  boardId: string;
+  boardSlug: string;
+  boardName: string;
+  topics: TopicHit[];
 }
 interface UserHit {
   id: string;
@@ -21,25 +27,26 @@ interface UserHit {
   level: number;
   bio: string;
 }
-interface CardHit {
+interface DownloadHit {
   id: string;
   title: string;
   subtitle: string;
 }
 interface SearchData {
-  topics: TopicHit[];
+  forum: ForumGroupHit[];
   users: UserHit[];
-  cards: CardHit[];
+  downloads: DownloadHit[];
 }
 
+/** 搜索范围：全站 / 论坛（按板块分组）/ 下载 / 用户。 */
 const SCOPES = [
   { id: 'all', label: '全站' },
-  { id: 'topics', label: '主题' },
+  { id: 'forum', label: '论坛' },
+  { id: 'downloads', label: '下载' },
   { id: 'users', label: '用户' },
-  { id: 'cards', label: '卡片' },
 ] as const;
 
-const EMPTY: SearchData = { topics: [], users: [], cards: [] };
+const EMPTY: SearchData = { forum: [], users: [], downloads: [] };
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -67,7 +74,9 @@ function Highlight({ text, query }: { text: string; query: string }) {
   return <>{parts}</>;
 }
 
-/** 导航栏全站搜索框：范围选择 + 下拉结果 + 橙色高亮 + 相关度排序。 */
+const ROLE_LABEL: Record<string, string> = { owner: '站长', admin: '管理员', member: '成员' };
+
+/** 导航栏搜索框：范围选择（全站/论坛/下载/用户）+ 下拉结果 + 橙色高亮；论坛结果按板块分组。 */
 export function SearchBox() {
   const router = useRouter();
   const pathname = usePathname();
@@ -112,7 +121,11 @@ export function SearchBox() {
     const timer = setTimeout(() => {
       void apiFetch<SearchData>(`/api/forum/search?q=${encodeURIComponent(query)}&scope=${encodeURIComponent(scope)}`)
         .then((result) => {
-          setData(result);
+          setData({
+            forum: result.forum ?? [],
+            users: result.users ?? [],
+            downloads: result.downloads ?? [],
+          });
           setOpen(true);
         })
         .catch(() => setData(EMPTY))
@@ -128,11 +141,12 @@ export function SearchBox() {
   }
 
   const query = q.trim();
-  const total = data.topics.length + data.users.length + data.cards.length;
+  const forumCount = data.forum.reduce((sum, group) => sum + group.topics.length, 0);
+  const total = forumCount + data.users.length + data.downloads.length;
   const scoped = scope !== 'all';
-  const showTopics = !scoped || scope === 'topics';
+  const showForum = !scoped || scope === 'forum';
   const showUsers = !scoped || scope === 'users';
-  const showCards = !scoped || scope === 'cards';
+  const showDownloads = !scoped || scope === 'downloads';
 
   return (
     <div ref={boxRef} className="search-box">
@@ -166,31 +180,45 @@ export function SearchBox() {
         <div className="search-drop">
           {loading && <p className="search-hint">搜索中…</p>}
           {!loading && total === 0 && <p className="search-hint">没有找到与「{query}」相关的结果。</p>}
-          {!loading && showTopics && data.topics.length > 0 && (
-            <section className="search-section">
-              <p className="search-section-title">主题</p>
-              {data.topics.map((topic) => (
-                <button
-                  key={topic.id}
-                  type="button"
-                  className="search-row"
-                  onClick={() => go(topic.boardSlug ? `/forum/${topic.boardSlug}/${topic.id}` : `/forum`)}
-                >
-                  <span className="search-row-main">
-                    <Highlight text={topic.title} query={query} />
+
+          {/* 论坛：按板块分组 */}
+          {!loading &&
+            showForum &&
+            data.forum.map((group) => (
+              <section className="search-section" key={group.boardId}>
+                <p className="search-section-title">
+                  论坛 · {group.boardName}
+                  <span className="muted" style={{ fontWeight: 400 }}>
+                    {' '}
+                    （{group.topics.length}）
                   </span>
-                  <span className="search-row-meta">
-                    {topic.boardSlug ? `#${topic.boardSlug}` : '话题'} · {topic.authorDisplayName ?? topic.authorUsername ?? '访客'}
-                  </span>
-                </button>
-              ))}
-            </section>
-          )}
+                </p>
+                {group.topics.map((topic) => (
+                  <button
+                    key={topic.id}
+                    type="button"
+                    className="search-row"
+                    onClick={() => go(`/forum/${group.boardSlug}/${topic.id}`)}
+                  >
+                    <span className="search-row-main">
+                      <Highlight text={topic.title} query={query} />
+                    </span>
+                    <span className="search-row-meta">{topic.authorDisplayName ?? topic.authorUsername ?? '访客'}</span>
+                  </button>
+                ))}
+              </section>
+            ))}
+
           {!loading && showUsers && data.users.length > 0 && (
             <section className="search-section">
               <p className="search-section-title">用户</p>
               {data.users.map((user) => (
-                <button key={user.id} type="button" className="search-row" onClick={() => go(`/users/${encodeURIComponent(user.username)}`)}>
+                <button
+                  key={user.id}
+                  type="button"
+                  className="search-row"
+                  onClick={() => go(`/users/${encodeURIComponent(user.username)}`)}
+                >
                   <span className="search-row-main">
                     <Highlight text={user.displayName} query={query} />
                     <span className="muted" style={{ fontSize: '0.82rem' }}>
@@ -198,15 +226,18 @@ export function SearchBox() {
                       @<Highlight text={user.username} query={query} />
                     </span>
                   </span>
-                  <span className="search-row-meta">Lv{user.level} · {user.role === 'owner' ? '站长' : user.role === 'admin' ? '管理员' : '成员'}</span>
+                  <span className="search-row-meta">
+                    Lv{user.level} · {ROLE_LABEL[user.role] ?? user.role}
+                  </span>
                 </button>
               ))}
             </section>
           )}
-          {!loading && showCards && data.cards.length > 0 && (
+
+          {!loading && showDownloads && data.downloads.length > 0 && (
             <section className="search-section">
-              <p className="search-section-title">下载卡片</p>
-              {data.cards.map((card) => (
+              <p className="search-section-title">下载</p>
+              {data.downloads.map((card) => (
                 <button key={card.id} type="button" className="search-row" onClick={() => go(`/downloads/card/${card.id}`)}>
                   <span className="search-row-main">
                     <Highlight text={card.title} query={query} />
