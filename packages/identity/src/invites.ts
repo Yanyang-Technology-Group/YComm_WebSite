@@ -140,6 +140,73 @@ export async function deleteInviteCode(db: Db, id: string): Promise<void> {
   }
 }
 
+/** 单条注册码（按 id），用于创建/修改后回显。 */
+async function getInviteCodeRowById(db: Db, id: string): Promise<InviteCodeRow | null> {
+  const rows = await db
+    .select({
+      id: schema.inviteCodes.id,
+      name: schema.inviteCodes.note,
+      code: schema.inviteCodes.code,
+      createdByUsername: schema.users.username,
+      usedCount: schema.inviteCodes.used_count,
+      maxUses: schema.inviteCodes.max_uses,
+      createdAt: schema.inviteCodes.created_at,
+      expiresAt: schema.inviteCodes.expires_at,
+      revokedAt: schema.inviteCodes.revoked_at,
+    })
+    .from(schema.inviteCodes)
+    .leftJoin(schema.users, eq(schema.inviteCodes.created_by, schema.users.id))
+    .where(eq(schema.inviteCodes.id, id))
+    .limit(1);
+  return (rows[0] as InviteCodeRow | undefined) ?? null;
+}
+
+/**
+ * 修改注册码的可绑定账号数（数量）。
+ * 不能小于已经用掉的数量（否则已绑定的人会超过上限）。
+ */
+export async function updateInviteCodeMaxUses(db: Db, id: string, maxUses: number): Promise<InviteCodeRow> {
+  const [row] = await db.select().from(schema.inviteCodes).where(eq(schema.inviteCodes.id, id)).limit(1);
+  if (!row) throw errors.notFound('注册码不存在');
+  if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 100_000) {
+    throw errors.validation({ issues: [{ path: 'maxUses', message: '数量需为 1-100000 的整数' }] });
+  }
+  if (maxUses < row.used_count) {
+    throw errors.validation({
+      issues: [{ path: 'maxUses', message: `不能小于已被绑定的 ${row.used_count} 个` }],
+    });
+  }
+  await db.update(schema.inviteCodes).set({ max_uses: maxUses }).where(eq(schema.inviteCodes.id, id));
+  const updated = await getInviteCodeRowById(db, id);
+  if (!updated) throw errors.notFound('注册码不存在');
+  return updated;
+}
+
+/**
+ * 解绑某个用户绑定的注册码（管理员操作）。
+ * 删掉使用记录并把该注册码的名额还回去（used_count -1），用户之后可以重新绑定。
+ * 没绑定时幂等成功。
+ */
+export async function unbindInviteCode(db: Db, userId: string): Promise<{ code: string | null }> {
+  const rows = await db
+    .select({ useId: schema.inviteCodeUses.id, codeId: schema.inviteCodes.id, code: schema.inviteCodes.code })
+    .from(schema.inviteCodeUses)
+    .innerJoin(schema.inviteCodes, eq(schema.inviteCodeUses.invite_code_id, schema.inviteCodes.id))
+    .where(eq(schema.inviteCodeUses.user_id, userId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return { code: null };
+
+  await db.transaction(async (tx) => {
+    await tx.delete(schema.inviteCodeUses).where(eq(schema.inviteCodeUses.id, row.useId));
+    await tx
+      .update(schema.inviteCodes)
+      .set({ used_count: sql`greatest(${schema.inviteCodes.used_count} - 1, 0)` })
+      .where(eq(schema.inviteCodes.id, row.codeId));
+  });
+  return { code: row.code };
+}
+
 export interface ClaimedInvite {
   codeId: string;
   createdBy: string | null;

@@ -156,6 +156,30 @@ export function UsersPanel({
     }
   }
 
+  /** 解绑该用户绑定的注册码（名额还给注册码，用户之后可重新绑定）。 */
+  async function unbindInvite(user: AdminUser) {
+    if (
+      !window.confirm(
+        `解绑「${user.displayName || user.username}」使用的注册码「${user.inviteCodeUsed ?? ''}」？名额会还回去。`,
+      )
+    ) {
+      return;
+    }
+    setBusy(user.id);
+    setError(null);
+    try {
+      await apiFetch(`/api/admin/users/${user.id}/invite-binding`, { method: 'DELETE' });
+      setManageFor((previous) =>
+        previous && previous.id === user.id ? { ...previous, inviteCodeUsed: null } : previous,
+      );
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '解绑失败');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   /** 站长更改用户密码（两次提示 + 验证码），改完该用户所有会话失效。 */
   async function doResetPassword(user: AdminUser, captchaToken: string | undefined) {
     if (!pwDialog) return;
@@ -392,6 +416,16 @@ export function UsersPanel({
               {manageFor.state === 'muted' && (
                 <button type="button" onClick={() => void act(manageFor, '/unmute')}>
                   解除禁言
+                </button>
+              )}
+              {manageFor.inviteCodeUsed && (
+                <button
+                  type="button"
+                  onClick={() => void unbindInvite(manageFor)}
+                  disabled={busy === manageFor.id}
+                  title="解绑该用户使用的注册码，名额还给注册码"
+                >
+                  解绑注册码（{manageFor.inviteCodeUsed}）
                 </button>
               )}
               {isOwner && manageFor.role !== 'owner' && (
@@ -692,6 +726,60 @@ export function InviteCodesPanel() {
     }
   }
 
+  /** 改数量：编辑中的注册码 id → 输入框里的值。 */
+  const [editingUses, setEditingUses] = useState<Record<string, string>>({});
+
+  async function saveMaxUses(entry: InviteCodeItem) {
+    const raw = editingUses[entry.id] ?? String(entry.maxUses ?? 1);
+    const next = Number(raw);
+    if (!Number.isInteger(next) || next < 1) {
+      setMessage('数量需为 1 以上的整数');
+      return;
+    }
+    setBusy(`uses-${entry.id}`);
+    setMessage(null);
+    try {
+      const data = await apiFetch<{ inviteCode: InviteCodeItem }>(`/api/admin/invites/${entry.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ maxUses: next }),
+      });
+      setItems((previous) => previous.map((item) => (item.id === entry.id ? data.inviteCode : item)));
+      setEditingUses((previous) => {
+        const copy = { ...previous };
+        delete copy[entry.id];
+        return copy;
+      });
+      setMessage(`「${entry.name ?? entry.code}」可绑定数量已改为 ${next}`);
+      router.refresh();
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : '修改失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** 解绑某个玩家的注册码（名额还给注册码）。 */
+  async function unbindUser(user: InviteUseUser) {
+    if (!window.confirm(`解绑「${user.displayName || user.username}」的注册码？名额会还给该注册码。`)) return;
+    setBusy(`unbind-${user.userId}`);
+    setMessage(null);
+    try {
+      await apiFetch(`/api/admin/users/${user.userId}/invite-binding`, { method: 'DELETE' });
+      setUses((previous) => (previous ? previous.filter((item) => item.userId !== user.userId) : previous));
+      setUsesFor((previous) => (previous ? { ...previous, usedCount: Math.max(previous.usedCount - 1, 0) } : previous));
+      setItems((previous) =>
+        previous.map((item) => (item.id === usesFor?.id ? { ...item, usedCount: Math.max(item.usedCount - 1, 0) } : item)),
+      );
+      setMessage(`已解绑「${user.displayName || user.username}」的注册码`);
+      router.refresh();
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : '解绑失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div style={row}>
       <h3 style={{ margin: 0 }}>注册码</h3>
@@ -734,6 +822,7 @@ export function InviteCodesPanel() {
                 <th style={thStyle}>名称</th>
                 <th style={thStyle}>注册码</th>
                 <th style={thStyle}>已用/上限</th>
+                <th style={thStyle}>数量</th>
                 <th style={thStyle}>创建时间</th>
                 <th style={thStyle}></th>
               </tr>
@@ -753,6 +842,30 @@ export function InviteCodesPanel() {
                     >
                       {entry.usedCount}/{entry.maxUses ?? '∞'}
                     </button>
+                  </td>
+                  <td style={tdStyle}>
+                    {/* 改数量：输入新的可绑定账号数 */}
+                    <span style={{ display: 'inline-flex', gap: '0.3rem', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        min={Math.max(entry.usedCount, 1)}
+                        value={editingUses[entry.id] ?? String(entry.maxUses ?? 1)}
+                        onChange={(event) =>
+                          setEditingUses((previous) => ({ ...previous, [entry.id]: event.target.value }))
+                        }
+                        style={{ width: 72, padding: '0.25rem 0.35rem' }}
+                        aria-label="可绑定账号数"
+                      />
+                      {editingUses[entry.id] !== undefined && editingUses[entry.id] !== String(entry.maxUses ?? 1) && (
+                        <button
+                          type="button"
+                          onClick={() => void saveMaxUses(entry)}
+                          disabled={busy === `uses-${entry.id}`}
+                        >
+                          {busy === `uses-${entry.id}` ? '…' : '保存'}
+                        </button>
+                      )}
+                    </span>
                   </td>
                   <td style={tdStyle}>{new Date(entry.createdAt).toLocaleString('zh-CN')}</td>
                   <td style={tdStyle}>
@@ -793,7 +906,7 @@ export function InviteCodesPanel() {
                           {(user.displayName || user.username).slice(0, 1).toUpperCase()}
                         </span>
                       )}
-                      <span>
+                      <span style={{ minWidth: 0, flex: 1 }}>
                         <Link className="uname" href={`/users/${encodeURIComponent(user.username)}`}>
                           {user.displayName || user.username}
                         </Link>
@@ -804,6 +917,16 @@ export function InviteCodesPanel() {
                           {user.state === 'deleted' ? ' · 已注销' : ''}
                         </span>
                       </span>
+                      {/* 解绑：删掉绑定并把名额还给注册码 */}
+                      <button
+                        type="button"
+                        onClick={() => void unbindUser(user)}
+                        disabled={busy === `unbind-${user.userId}`}
+                        style={{ color: '#dc2626' }}
+                        title="解绑这个玩家的注册码"
+                      >
+                        {busy === `unbind-${user.userId}` ? '…' : '解绑'}
+                      </button>
                     </div>
                   ))}
                 </div>

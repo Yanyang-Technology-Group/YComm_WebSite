@@ -181,6 +181,8 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | `GET /api/admin/invites` | `INVITE_CREATE` | 无 | `{ inviteCodes }`。 |
 | `POST /api/admin/invites` | `INVITE_CREATE` | JSON：`name` 1–60；可选 `code` ≤10、`maxUses` 1–1000 | HTTP 201；`{ inviteCode }`；未给 code 时服务端生成。 |
 | `DELETE /api/admin/invites/:inviteId` | `INVITE_CREATE` | Path `inviteId` | `null`。 |
+| `PATCH /api/admin/invites/:inviteId` | `INVITE_CREATE` | Path `inviteId`；JSON：`maxUses` 1–100000（整数） | `{ inviteCode }`；修改可绑定账号数，不能小于已绑定的数量。 |
+| `DELETE /api/admin/users/:userId/invite-binding` | `INVITE_CREATE` | Path `userId` | `{ code }`（解绑掉的注册码，未绑定时为 null）；删除绑定并把名额还给注册码。 |
 | `GET /api/admin/invites/:inviteId/uses` | `INVITE_CREATE` | Path `inviteId` | `{ users }`；每项为 `userId`, `username`, `displayName`, `avatarPath`, `role`, `state`, `usedAt`。 |
 
 ### 下载卡片与论坛版块

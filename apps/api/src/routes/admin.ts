@@ -25,7 +25,9 @@ import {
   setUserRole,
   toPublicUser,
   unbanUser,
+  unbindInviteCode,
   unmuteUser,
+  updateInviteCodeMaxUses,
   type UserRecord,
 } from '@ycomm/identity';
 import { listAuditLogs, logAudit } from '@ycomm/audit';
@@ -43,7 +45,7 @@ import {
 import type { AppVariables } from '../context';
 import { sessionAuth, clientIp } from '../middleware/session';
 import { requirePermission } from '../middleware/permission';
-import { verifyCaptcha } from '../middleware/captcha';
+import { captchaTokenFields, captchaTokenOf, verifyCaptcha } from '../middleware/captcha';
 import { parseBody } from './forum';
 
 const roleSchema = z.object({ role: z.enum(['member', 'admin', 'owner']) });
@@ -132,11 +134,15 @@ const badgeSchema = z.object({
   colorTo: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
 });
 
-const captchaBodySchema = z.object({ captchaToken: z.string().min(1).optional() });
+const inviteUpdateSchema = z.object({
+  maxUses: z.number().int().min(1).max(100_000),
+});
+
+const captchaBodySchema = z.object({ ...captchaTokenFields });
 
 const resetPasswordSchema = z.object({
   newPassword: z.string().min(8).max(200),
-  captchaToken: z.string().min(1).optional(),
+  ...captchaTokenFields,
 });
 
 const adminUser = (user: UserRecord) => ({
@@ -320,7 +326,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
   /** 站长直接注销任意账号：立即生效，无 3 天冷静期；同样要求人机验证。 */
   router.post('/users/:userId/delete', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
     const body = await parseBody(c, captchaBodySchema);
-    await verifyCaptcha(body.captchaToken);
+    await verifyCaptcha(captchaTokenOf(body));
     const handle = await getDb();
     const auth = c.get('auth');
     if (!auth) throw errors.unauthenticated();
@@ -341,7 +347,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
   /** 站长更改任意用户密码（仅 owner）：需人机验证；改完该用户全部会话失效。 */
   router.post('/users/:userId/reset-password', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
     const body = await parseBody(c, resetPasswordSchema);
-    await verifyCaptcha(body.captchaToken);
+    await verifyCaptcha(captchaTokenOf(body));
     const handle = await getDb();
     const auth = c.get('auth');
     if (!auth) throw errors.unauthenticated();
@@ -534,6 +540,35 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       targetId: inviteId,
     });
     return c.json({ ok: true, data: null });
+  });
+
+  /** 修改注册码可绑定的账号数（管理员可改，不能小于已绑定数）。 */
+  router.patch('/invites/:inviteId', requirePermission(PERMISSION.INVITE_CREATE), async (c) => {
+    const body = await parseBody(c, inviteUpdateSchema);
+    const handle = await getDb();
+    const inviteId = c.req.param('inviteId');
+    const updated = await updateInviteCodeMaxUses(handle.db, inviteId, body.maxUses);
+    await auditAdmin(handle.db, c, {
+      action: 'admin.invite.updated',
+      targetType: 'invite_code',
+      targetId: inviteId,
+      meta: { code: updated.code, maxUses: updated.maxUses },
+    });
+    return c.json({ ok: true, data: { inviteCode: updated } });
+  });
+
+  /** 解绑某个用户绑定的注册码：删掉绑定并把名额还给注册码。 */
+  router.delete('/users/:userId/invite-binding', requirePermission(PERMISSION.INVITE_CREATE), async (c) => {
+    const handle = await getDb();
+    const userId = c.req.param('userId');
+    const result = await unbindInviteCode(handle.db, userId);
+    await auditAdmin(handle.db, c, {
+      action: 'admin.invite.unbound',
+      targetType: 'user',
+      targetId: userId,
+      meta: { code: result.code },
+    });
+    return c.json({ ok: true, data: { code: result.code } });
   });
 
   /** 使用了某个注册码的用户列表（注册码列表点「已用/上限」弹窗看）。 */

@@ -19,6 +19,8 @@ export {
   deleteInviteCode,
   generateInviteCode,
   listInviteCodes,
+  unbindInviteCode,
+  updateInviteCodeMaxUses,
   type AdminInviteCodeInput,
   type InviteCodeRow,
   type NewInviteCodeInput,

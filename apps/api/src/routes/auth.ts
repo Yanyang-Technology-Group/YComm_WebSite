@@ -39,7 +39,7 @@ import { listResourcesByAuthor } from '@ycomm/downloads';
 import { logAudit } from '@ycomm/audit';
 import type { AppVariables } from '../context';
 import { clientIp, sessionAuth } from '../middleware/session';
-import { verifyCaptcha } from '../middleware/captcha';
+import { captchaTokenFields, captchaTokenOf, verifyCaptcha } from '../middleware/captcha';
 import { rateLimitByIp } from '../middleware/rate-limit';
 
 /** Parse + validate a JSON body; rejects with the shared validation shape. */
@@ -62,27 +62,27 @@ const registerSchema = z.object({
   email: z.string().trim().min(3).max(255),
   password: z.string().min(1).max(200),
   inviteCode: z.string().trim().min(1).optional(),
-  captchaToken: z.string().min(1).optional(),
+  ...captchaTokenFields,
   agreeTerms: z.boolean().optional(),
 });
 
 const loginSchema = z.object({
   login: z.string().min(1).max(255),
   password: z.string().min(1).max(200),
-  captchaToken: z.string().min(1).optional(),
+  ...captchaTokenFields,
   agreeTerms: z.boolean().optional(),
   /** 勾选 = 15 天内免登录（持久 cookie）；不勾 = 关浏览器即退出。 */
   rememberMe: z.boolean().optional(),
 });
 
-const emailSchema = z.object({ email: z.string().trim().min(3).max(255), captchaToken: z.string().min(1).optional() });
+const emailSchema = z.object({ email: z.string().trim().min(3).max(255), ...captchaTokenFields });
 
 const verificationSchema = z.object({ token: z.string().min(1).max(256) });
 
 const resetSchema = z.object({
   token: z.string().min(1).max(256),
   password: z.string().min(1).max(200),
-  captchaToken: z.string().min(1).optional(),
+  ...captchaTokenFields,
 });
 
 const profileSchema = z.object({
@@ -111,7 +111,7 @@ const themeSchema = z.object({
 
 const setPasswordSchema = z.object({ newPassword: z.string().min(8).max(200) });
 
-const deleteAccountSchema = z.object({ captchaToken: z.string().min(1).optional() });
+const deleteAccountSchema = z.object({ ...captchaTokenFields });
 
 /**
  * Session cookie flags. `__Host-` 前缀强制 Secure + Path=/ + 无 Domain。
@@ -137,7 +137,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
 
     requireAgreeTerms(body.agreeTerms);
-    await verifyCaptcha(body.captchaToken);
+    await verifyCaptcha(captchaTokenOf(body));
 
     const result = await register(handle.db, {
       username: body.username,
@@ -195,7 +195,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
 
     requireAgreeTerms(body.agreeTerms);
-    await verifyCaptcha(body.captchaToken);
+    await verifyCaptcha(captchaTokenOf(body));
 
     let user = await findUserByLogin(handle.db, body.login);
 
@@ -292,7 +292,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     if (!auth) throw errors.unauthenticated();
     const body = await parseBody(c, deleteAccountSchema);
     // 注销也要人机验证，防止外挂批量注销。
-    await verifyCaptcha(body.captchaToken);
+    await verifyCaptcha(captchaTokenOf(body));
     const handle = await getDb();
     await requestAccountDeletion(handle.db, auth.userId);
     await logAudit(handle.db, {
@@ -649,7 +649,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   router.post('/forgot-password', rateLimitByIp('passwordReset'), async (c) => {
     const body = await parseBody(c, emailSchema);
     const handle = await getDb();
-    await verifyCaptcha(body.captchaToken);
+    await verifyCaptcha(captchaTokenOf(body));
     await requestPasswordReset(handle.db, body.email);
     return c.json({ ok: true, data: null });
   });
@@ -657,7 +657,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   router.post('/reset-password', rateLimitByIp('passwordReset'), async (c) => {
     const body = await parseBody(c, resetSchema);
     const handle = await getDb();
-    await verifyCaptcha(body.captchaToken);
+    await verifyCaptcha(captchaTokenOf(body));
     await resetPassword(handle.db, body.token, body.password);
     return c.json({ ok: true, data: null });
   });
