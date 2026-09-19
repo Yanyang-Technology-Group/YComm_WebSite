@@ -27,6 +27,12 @@ export async function createSession(
     expires_at: expiresAt,
   });
 
+  // 登录即记录「最后登录时间」（管理后台的用户详情里显示；以前这一列从没被写过，永远是「未记录」）。
+  await db
+    .update(schema.users)
+    .set({ last_seen_at: new Date() })
+    .where(eq(schema.users.id, input.userId));
+
   return { rawToken, expiresAt };
 }
 
