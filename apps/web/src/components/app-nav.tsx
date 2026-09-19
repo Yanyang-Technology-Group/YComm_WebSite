@@ -31,10 +31,14 @@ const ADMIN_LINKS = [
   { href: '/admin/settings', label: '违禁词与注册码' },
 ] as const;
 
+/** 仅站长可见的入口（API 密钥）。 */
+const OWNER_LINKS = [{ href: '/admin/api-keys', label: 'API 密钥' }] as const;
+
 export function AppNav() {
   const pathname = usePathname();
   const search = useSearchParams();
   const [staff, setStaff] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,6 +46,7 @@ export function AppNav() {
     void getSession().then((user) => {
       if (!active || !user) return;
       setStaff(user.role === 'admin' || user.role === 'owner');
+      setIsOwner(user.role === 'owner');
       setUsername(user.username);
     });
     return () => {
@@ -84,6 +89,16 @@ export function AppNav() {
               </Link>
             );
           })}
+          {isOwner &&
+            OWNER_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`app-nav-link${pathname === link.href ? ' active' : ''}`}
+              >
+                {link.label}
+              </Link>
+            ))}
         </div>
       )}
     </aside>

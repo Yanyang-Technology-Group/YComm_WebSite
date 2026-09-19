@@ -13,5 +13,11 @@ export default defineConfig({
     ],
     environment: 'node',
     restoreMocks: true,
+    /**
+     * 串行跑测试文件：多个 PGlite(WASM) 实例并行会互相拖垮（表现为集成测试成片
+     * 初始化超时、被整文件跳过），websocket 那类计时用例也会被并行负载压出假失败。
+     * 单文件约几秒，整体仍在可接受范围。
+     */
+    fileParallelism: false,
   },
 });

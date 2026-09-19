@@ -12,7 +12,15 @@ API 当前没有 `/v1` 版本前缀，属于当前应用契约。除下文标出
 
 ## 会话、Flutter 与传输安全
 
-登录态使用 Cookie Session，不接受 URL token 或 Bearer token。Cookie 名由 `SESSION_COOKIE_NAME` 配置，默认 `__Host-ycomm_session`；它带 `Secure`、`HttpOnly`、`SameSite=Lax`、`Path=/`，无 `Domain`。密码登录传 `rememberMe: true` 时 Cookie 与服务端会话最长 15 天，否则是浏览器会话 Cookie；OAuth 登录使用浏览器会话 Cookie。
+登录态使用 Cookie Session，**另外支持站长签发的开放 API 密钥**（`Authorization: Bearer <key>`）用于脚本/外部系统；不接受 URL token，也不接受普通用户签发的密钥。Cookie 名由 `SESSION_COOKIE_NAME` 配置，默认 `__Host-ycomm_session`；它带 `Secure`、`HttpOnly`、`SameSite=Lax`、`Path=/`，无 `Domain`。密码登录传 `rememberMe: true` 时 Cookie 与服务端会话最长 15 天，否则是浏览器会话 Cookie；OAuth 登录使用浏览器会话 Cookie。
+
+### 开放 API 密钥（仅站长）
+
+- 站长在「管理后台 → API 密钥」创建；明文只在创建响应里出现一次，库里只存 `sha256`。
+- 请求时带 `Authorization: Bearer ycomm_…`，身份等同**站长本人**（拥有全部权限）；密钥可设为**只读**（只允许 `GET`/`HEAD`，写操作返回 403）并可设置有效期。
+- 撤销或过期后立即失效；如果站长身份被转让，旧密钥（归属用户不再是 owner）自动失效。
+- 每次使用会更新该密钥的「最近使用时间」（一分钟节流写库）。
+- 用密钥调用的请求不需要 CSRF 防护（不依赖 Cookie），也不会被 `SameSite` 影响。
 
 Flutter 原生客户端应使用可持久化的 `CookieJar`，完整保存和回送 `Set-Cookie`，并只通过 HTTPS 访问生产站。`HttpOnly` Cookie 不应由业务代码读取。Flutter Web 与站点同源部署时不需要 CORS；当前 API 没有配置跨域响应头。Flutter 原生请求不受浏览器 CORS 限制。
 
@@ -178,12 +186,19 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | `POST /api/admin/moderation/:itemId/decide` | 按目标动态要求：下载资源 `DOWNLOAD_RESOURCE_AUDIT`，下载链接 `DOWNLOAD_RESOURCE_DELETE_ANY`，其余 `FORUM_CONTENT_AUDIT` | Path `itemId`；JSON：`decision: approve\|reject`，可选 `note` ≤500 | `null`；写审计。此路由没有静态权限中间件，但处理器内强制鉴权和权限。 |
 | `GET /api/admin/resources` | `ADMIN_DASHBOARD_ACCESS` | Query：可选 `status`，`offset` 默认 0，`limit` 默认 50、最大 200 | `{ resources, total }`；资源摘要含 `id`, `categoryId`, `authorId`, `title`, `versionLabel`, `sourceType`, `status`, `downloadCount`, `createdAt`。无效 `status` 当前直接传入领域查询。 |
 | `GET /api/admin/audit` | `SYSTEM_AUDITLOG_VIEW` | Query：可选 `action`（前缀匹配），`offset` 默认 0，`limit` 默认 50、最大 200 | `{ entries, total }`；entry 含操作人信息、IP、动作、目标、`meta`, `createdAt`。 |
-| `GET /api/admin/invites` | `INVITE_CREATE` | 无 | `{ inviteCodes }`。 |
-| `POST /api/admin/invites` | `INVITE_CREATE` | JSON：`name` 1–60；可选 `code` ≤10、`maxUses` 1–1000 | HTTP 201；`{ inviteCode }`；未给 code 时服务端生成。 |
+| `GET /api/admin/invites` | `INVITE_CREATE` | 无 | `{ inviteCodes }`。 || `POST /api/admin/invites` | `INVITE_CREATE` | JSON：`name` 1–60；可选 `code` ≤10、`maxUses` 1–1000 | HTTP 201；`{ inviteCode }`；未给 code 时服务端生成。 |
 | `DELETE /api/admin/invites/:inviteId` | `INVITE_CREATE` | Path `inviteId` | `null`。 |
 | `PATCH /api/admin/invites/:inviteId` | `INVITE_CREATE` | Path `inviteId`；JSON：`maxUses` 1–100000（整数） | `{ inviteCode }`；修改可绑定账号数，不能小于已绑定的数量。 |
 | `DELETE /api/admin/users/:userId/invite-binding` | `INVITE_CREATE` | Path `userId` | `{ code }`（解绑掉的注册码，未绑定时为 null）；删除绑定并把名额还给注册码。 |
 | `GET /api/admin/invites/:inviteId/uses` | `INVITE_CREATE` | Path `inviteId` | `{ users }`；每项为 `userId`, `username`, `displayName`, `avatarPath`, `role`, `state`, `usedAt`。 |
+
+### 开放 API 密钥（仅站长）
+
+| 方法与路径 | 权限 | 路径/请求体 | 成功 `data` 与特殊行为 |
+|---|---|---|---|
+| `GET /api/admin/api-keys` | `API_KEY_MANAGE`（仅 owner） | 无 | `{ keys: ApiKeyView[] }`；只含名称、前缀、最近使用、有效期、撤销状态，**不含明文**。 |
+| `POST /api/admin/api-keys` | `API_KEY_MANAGE`（仅 owner） | JSON：`name` 1–60；可选 `readOnly`（默认 false）、`expiresInDays` 0–3650（0/缺省 = 永久） | HTTP 201；`{ apiKey: ApiKeyView & { key: string } }`；`key` 明文只在此响应出现一次，形如 `ycomm_…`。 |
+| `DELETE /api/admin/api-keys/:keyId` | `API_KEY_MANAGE`（仅 owner） | Path `keyId` | `null`；撤销后立即失效（幂等）。 |
 
 ### 下载卡片与论坛版块
 

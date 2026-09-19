@@ -86,6 +86,8 @@ export const PERMISSION = {
   MAIL_BROADCAST: 'mail.broadcast',
   SYSTEM_MAINTENANCE: 'system.maintenance',
   SYSTEM_OWNER_TRANSFER: 'system.owner.transfer',
+  /** 开放 API 密钥管理（仅站长）。 */
+  API_KEY_MANAGE: 'api.key.manage',
 } as const;
 
 export type Permission = (typeof PERMISSION)[keyof typeof PERMISSION];
@@ -320,6 +322,13 @@ export const PERMISSION_DEFINITIONS: readonly PermissionDefinition[] = [
     description: '将站长身份移交他人。不可逆，仅站长本人可执行',
     ownerOnly: true,
   },
+  {
+    id: PERMISSION.API_KEY_MANAGE,
+    group: 'system',
+    label: '管理 API 密钥',
+    description: '创建/撤销开放接口密钥（Bearer）。密钥身份等同站长，仅限站长本人',
+    ownerOnly: true,
+  },
 ];
 
 /**
@@ -370,6 +379,7 @@ const OWNER_PERMISSIONS: readonly Permission[] = [
   PERMISSION.MAIL_BROADCAST,
   PERMISSION.SYSTEM_MAINTENANCE,
   PERMISSION.SYSTEM_OWNER_TRANSFER,
+  PERMISSION.API_KEY_MANAGE,
 ];
 
 /** Default matrix. A database row may override it, but never beyond `ALL_PERMISSIONS`. */

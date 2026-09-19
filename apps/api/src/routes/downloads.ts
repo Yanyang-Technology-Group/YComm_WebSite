@@ -84,6 +84,8 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
           subtitleUrl: card.subtitle_url,
           kind: card.kind,
           redirectUrl: card.redirect_url,
+          // 可见度对外展示（公开 / 需登录 / 需注册码 / 仅管理员）
+          visibility: card.visibility,
           w: card.w,
           h: card.h,
           position: card.position,

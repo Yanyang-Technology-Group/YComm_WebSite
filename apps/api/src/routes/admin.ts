@@ -9,10 +9,12 @@ import {
   adminCreateInviteCode,
   assignBadge,
   banUser,
+  createApiKey,
   createBadge,
   deleteAccountNow,
   deleteBadge,
   deleteInviteCode,
+  listApiKeys,
   listBadges,
   listInviteCodes,
   listRuntimeSettings,
@@ -20,6 +22,7 @@ import {
   listUsers,
   muteUser,
   resetUserPassword,
+  revokeApiKey,
   revokeBadge,
   setRuntimeSetting,
   setUserRole,
@@ -136,6 +139,14 @@ const badgeSchema = z.object({
 
 const inviteUpdateSchema = z.object({
   maxUses: z.number().int().min(1).max(100_000),
+});
+
+const apiKeyCreateSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  /** 只读密钥：只允许 GET 类接口。 */
+  readOnly: z.boolean().optional(),
+  /** 有效期（天）；不传或 0 = 永不过期。 */
+  expiresInDays: z.number().int().min(0).max(3650).optional(),
 });
 
 const captchaBodySchema = z.object({ ...captchaTokenFields });
@@ -569,6 +580,46 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       meta: { code: result.code },
     });
     return c.json({ ok: true, data: { code: result.code } });
+  });
+
+  // ---- 开放 API 密钥（仅站长） ---------------------------------------
+  router.get('/api-keys', requirePermission(PERMISSION.API_KEY_MANAGE), async (c) => {
+    const handle = await getDb();
+    const keys = await listApiKeys(handle.db);
+    return c.json({ ok: true, data: { keys } });
+  });
+
+  /** 创建密钥：明文 key 只在这次响应里返回，之后无法再取。 */
+  router.post('/api-keys', requirePermission(PERMISSION.API_KEY_MANAGE), async (c) => {
+    const body = await parseBody(c, apiKeyCreateSchema);
+    const handle = await getDb();
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const created = await createApiKey(handle.db, { id: auth.userId, role: auth.subject.role }, {
+      name: body.name,
+      readOnly: body.readOnly,
+      expiresInDays: body.expiresInDays ?? null,
+    });
+    await auditAdmin(handle.db, c, {
+      action: 'admin.api_key.created',
+      targetType: 'api_key',
+      targetId: created.id,
+      meta: { name: created.name, prefix: created.prefix, readOnly: created.readOnly, expiresAt: created.expiresAt },
+    });
+    return c.json({ ok: true, data: { apiKey: created } }, 201);
+  });
+
+  /** 撤销密钥（立即失效）。 */
+  router.delete('/api-keys/:keyId', requirePermission(PERMISSION.API_KEY_MANAGE), async (c) => {
+    const handle = await getDb();
+    const keyId = c.req.param('keyId');
+    await revokeApiKey(handle.db, keyId);
+    await auditAdmin(handle.db, c, {
+      action: 'admin.api_key.revoked',
+      targetType: 'api_key',
+      targetId: keyId,
+    });
+    return c.json({ ok: true, data: null });
   });
 
   /** 使用了某个注册码的用户列表（注册码列表点「已用/上限」弹窗看）。 */

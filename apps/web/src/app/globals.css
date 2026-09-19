@@ -1826,6 +1826,68 @@ input:-webkit-autofill {
   letter-spacing: -0.01em;
 }
 
+/* 卡片可见度（右上角小徽章）：公开 / 需登录 / 需注册码 / 仅管理员 */
+.card-vis {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.card-vis-public {
+  color: #15803d;
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.card-vis-login {
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.card-vis-invite {
+  color: #a16207;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.card-vis-staff {
+  color: #b91c1c;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+html[data-theme-mode='dark'] .card-vis-public {
+  color: #86efac;
+  background: #14351f;
+  border-color: #1f6b3a;
+}
+
+html[data-theme-mode='dark'] .card-vis-login {
+  color: #93c5fd;
+  background: #14243d;
+  border-color: #1e4b8a;
+}
+
+html[data-theme-mode='dark'] .card-vis-invite {
+  color: #fcd34d;
+  background: #3a2e10;
+  border-color: #7a5c12;
+}
+
+html[data-theme-mode='dark'] .card-vis-staff {
+  color: #fca5a5;
+  background: #3a1616;
+  border-color: #7f2626;
+}
+
 .card-tile-subtitle {
   color: var(--muted);
   font-size: 0.82rem;

@@ -23,6 +23,21 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
   const cards: PublicCard[] = result.data?.cards ?? [];
   const card = cards.find((entry) => entry.id === cardId);
 
+  /** 可见度文案（与卡片网格右上角徽章一致）。 */
+  const VISIBILITY_TEXT: Record<string, string> = {
+    public: '公开（所有人可见）',
+    login: '需登录后可见',
+    invite: '需绑定注册码后可见',
+    staff: '仅管理员 / 站长可见',
+  };
+
+  /** 标题下方的可见度一行。 */
+  const visibilityLine = card ? (
+    <p className="muted" style={{ margin: '0.2rem 0 0.75rem', fontSize: '0.85rem' }}>
+      可见度：{VISIBILITY_TEXT[card.visibility ?? 'public'] ?? card.visibility}
+    </p>
+  ) : null;
+
   // 返回上一级：有父卡片就回父卡片，根层卡片才回「下载区」首页。
   const backHref = card?.parentId
     ? `/downloads/card/${card.parentId}`
@@ -61,6 +76,7 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
       <div>
         {BackLink}
         <h1 className="page-title">{card.title}</h1>
+        {visibilityLine}
         {card.subtitle && (
           <div style={{ margin: '0 0 0.75rem' }}>
             <MarkdownContent text={card.subtitle} />
@@ -79,6 +95,7 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
     <div>
       {BackLink}
       <h1 className="page-title">{card.title}</h1>
+      {visibilityLine}
       {card.subtitle && (
         <div style={{ margin: '0 0 0.75rem' }}>
           <MarkdownContent text={card.subtitle} />

@@ -1,7 +1,13 @@
 import { createMiddleware } from 'hono/factory';
 import { getCookie } from 'hono/cookie';
 import { getDb } from '@ycomm/db';
-import { expireSanctions, findSessionByToken, toPublicUser } from '@ycomm/identity';
+import {
+  authenticateApiKey,
+  expireSanctions,
+  findSessionByToken,
+  toPublicUser,
+  touchApiKey,
+} from '@ycomm/identity';
 import { getEnv } from '@ycomm/kernel';
 import type { AccessSubject } from '@ycomm/access';
 import type { AppVariables } from '../context';
@@ -38,6 +44,54 @@ export const sessionAuth = createMiddleware<{ Variables: AppVariables }>(async (
       });
     }
   }
+
+  // 没有会话 Cookie 时，尝试开放 API 密钥：Authorization: Bearer <key>（仅站长）。
+  // 只读密钥只允许 GET/HEAD，写操作直接 403。
+  if (!c.get('auth')) {
+    const header = c.req.header('authorization') ?? '';
+    const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+    const rawKey = match?.[1]?.trim();
+    if (rawKey) {
+      const handle = await getDb();
+      const result = await authenticateApiKey(handle.db, rawKey);
+      if (result) {
+        const method = c.req.method.toUpperCase();
+        if (result.readOnly && method !== 'GET' && method !== 'HEAD') {
+          return c.json(
+            {
+              ok: false,
+              error: {
+                code: 'ACCESS_FORBIDDEN',
+                messageKey: 'ACCESS_FORBIDDEN',
+                message: '这是一枚只读 API 密钥，不能执行写操作',
+                meta: {},
+              },
+            },
+            403,
+          );
+        }
+        const subject: AccessSubject = {
+          id: result.user.id,
+          role: result.user.role,
+          level: result.user.level,
+          state: result.user.state,
+          mutedUntil: result.user.muted_until,
+          banReason: result.user.ban_reason,
+        };
+        c.set('auth', {
+          user: toPublicUser(result.user),
+          subject,
+          userId: result.user.id,
+          sessionId: result.keyId,
+          viaApiKey: true,
+          readOnly: result.readOnly,
+        });
+        // 记录最近使用时间（一分钟节流）。
+        await touchApiKey(handle.db, result.keyId, result.lastUsedAt);
+      }
+    }
+  }
+
   await next();
 });
 

@@ -96,4 +96,14 @@ export {
   type BadgeView,
 } from './badges';
 export { searchUsers, type UserSearchResult } from './search';
+export {
+  authenticateApiKey,
+  createApiKey,
+  listApiKeys,
+  revokeApiKey,
+  touchApiKey,
+  type ApiKeyAuthResult,
+  type ApiKeyView,
+  type CreatedApiKey,
+} from './api-keys';
 export type { PublicUser, SessionWithUser, UserRecord } from './types';

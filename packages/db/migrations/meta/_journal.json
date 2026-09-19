@@ -92,6 +92,13 @@
       "when": 1789800722944,
       "tag": "0012_broken_masked_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789807776429,
+      "tag": "0013_puzzling_paladin",
+      "breakpoints": true
     }
   ]
 }
