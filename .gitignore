@@ -53,3 +53,7 @@ Thumbs.db
 /private/
 # 站点图标的本地源目录（成品已入库：apps/web/public/logo.png + apps/web/src/app/icon.png）
 /logo/
+
+# 本地运维辅助脚本（创建下载区卡片用；按用户要求不入库，只留本地）
+/scripts/create-app-cards.ps1
+/scripts/create-app-cards.cmd

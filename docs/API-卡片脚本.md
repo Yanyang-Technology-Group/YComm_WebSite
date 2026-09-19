@@ -1,12 +1,7 @@
-# 下载区卡片 · 脚本调用指南
+﻿# 下载区卡片 · 脚本调用指南
 
 用开放 API 密钥（`Authorization: Bearer`）从脚本 / CI / 其他系统批量管理下载区卡片。
 所有示例的 `$BASE` 都是站点地址，例如 `https://community.yanyn.cn`。
-
-> **懒人版**：只想创建「社区客户端APP」卡片树的话，直接跑仓库里的交互式脚本
-> `scripts/create-app-cards.ps1`（Windows 双击 `scripts/create-app-cards.cmd` 即可）——
-> 它会依次问你：API 密钥 → 版本号 → 各平台安装包外链，然后幂等地把整棵树建好。
-> 详见 [§8](#8-开箱脚本社区客户端app-卡片树)。
 
 ---
 
@@ -385,75 +380,3 @@ curl -sS -H "Authorization: Bearer $KEY" "$BASE/api/auth/me" | jq '.data.user | 
 ```
 
 `role` 必须是 `owner`；否则说明这把 key 归属的账号已经不是站长了（转让后旧 key 会自动失效）。
-
----
-
-## 8. 开箱脚本：社区客户端APP 卡片树
-
-`scripts/create-app-cards.ps1`（配套 `scripts/create-app-cards.cmd` 给 Windows 双击用）会
-**交互式**地问你三件事，然后幂等建好整棵树：
-
-1. **API 密钥**（输入时不回显）
-2. **版本号**（如 `1.0.0`）
-3. **每个文件的外链**（没有的直接回车跳过；留空的文件不建卡，整个平台都留空就不建该平台）
-
-生成的结构：
-
-```text
-社区客户端APP                  (container, 公开)
-  ├── Windows                 (container)
-  │     └── 1.0.0             (container，简介里是 Markdown 下载链接列表)
-  │           ├── YComm-Setup-1.0.0.exe     (redirect → 外链)
-  │           └── YComm-Portable-1.0.0.zip  (redirect → 外链)
-  ├── Linux
-  │     └── 1.0.0
-  │           ├── ycomm_1.0.0_amd64.deb
-  │           └── 1.0.0.tar.gz 下载        ← 外链里取不到文件名时自动回退
-  └── Android
-        └── 1.0.0
-              ├── YComm-1.0.0.apk
-              └── YComm-1.0.0.aab
-```
-
-### 怎么跑
-
-```powershell
-# Windows：双击或在命令行执行（会自动绕过脚本执行策略限制）
-scripts\create-app-cards.cmd
-
-# 或者手动跑
-pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/create-app-cards.ps1
-
-# 只看计划，不写任何数据
-scripts\create-app-cards.cmd -DryRun
-```
-
-> 若报 `running scripts is disabled on this system`，就是执行策略拦的：
-> 用上面的 `.cmd`，或给 PowerShell 加 `-ExecutionPolicy Bypass`。
-
-### 非交互（CI 里用）
-
-```powershell
-$env:YCOMM_KEY = 'ycomm_...'
-pwsh -ExecutionPolicy Bypass -File scripts/create-app-cards.ps1 `
-  -Token $env:YCOMM_KEY -Version 1.0.0 -Links @{
-    'Windows.exe'  = 'https://dl.example.com/releases/YComm-Setup-1.0.0.exe'
-    'Windows.zip'  = 'https://dl.example.com/releases/YComm-Portable-1.0.0.zip'
-    'Linux.deb'    = 'https://dl.example.com/download?file=ycomm_1.0.0_amd64.deb'
-    'Linux.tar.gz' = ''
-    'Android.apk'  = 'https://dl.example.com/releases/YComm-1.0.0.apk'
-    'Android.aab'  = ''
-  }
-```
-
-`-Links` 里**传了就以传的为准**：传空字符串 = 明确跳过（不会停下来提问）。
-
-### 它帮你处理的细节
-
-- **幂等**：同名同层卡片已存在就复用并更新（改外链只跑一遍脚本即可），缺的文件卡自动补建；
-- **文件卡标题**取外链里的真实文件名（含 URL 解码），取不到就回退成 `<版本号><后缀> 下载`，
-  也支持 CDN 的 `?file=xxx.exe` 形式；
-- 会自动检查密钥身份：不是站长时**明确警告**「创建的卡片需要站长审核」；
-- 发布新版本：再跑一次脚本、版本号填 `1.1.0`，就会在三个平台下各加一个 `1.1.0` 子层，
-  旧版本保留；
-- 平台与后缀清单在脚本顶部的 `$Platforms` 里，想加 macOS（`.dmg`/`.pkg`）改一行即可。
