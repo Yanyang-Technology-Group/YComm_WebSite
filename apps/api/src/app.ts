@@ -29,6 +29,24 @@ function requestLogger() {
   };
 }
 
+/**
+ * JSON 响应补上 `charset=utf-8`。
+ *
+ * `c.json()` 只发 `application/json`，而 Windows PowerShell 5.1 这类客户端在没有
+ * charset 时按 ISO-8859-1 解码响应体 —— 中文会变成乱码（例如
+ * 「社区客户端APP」→「ç¤¾åºå®¢æ·ç«¯APP」），导致任何按标题/昵称比对的脚本认不出
+ * 已有数据。JSON 本身就是 UTF-8，声明出来是正确且必要的。
+ */
+function jsonCharset() {
+  return async (c: Context, next: () => Promise<void>) => {
+    await next();
+    const contentType = c.res.headers.get('content-type');
+    if (contentType && contentType.startsWith('application/json') && !/charset=/i.test(contentType)) {
+      c.res.headers.set('content-type', `${contentType}; charset=utf-8`);
+    }
+  };
+}
+
 let booted = false;
 
 /**
@@ -64,6 +82,8 @@ export function createApp(): Hono {
 
   const app = new Hono();
   app.use('*', requestLogger());
+  // 必须放在路由之前：包住所有响应，统一给 JSON 补 charset=utf-8
+  app.use('*', jsonCharset());
   app.onError(errorHandler);
   app.notFound(notFoundHandler);
 
