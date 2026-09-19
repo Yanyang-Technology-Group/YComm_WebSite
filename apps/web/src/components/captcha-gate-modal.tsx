@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { CaptchaConfig } from '@ycomm/kernel';
 import { CaptchaField } from './captcha-field';
+import { ModalPortal } from './modal-portal';
 
 /**
  * 通用「人机验证 + 确认」弹窗：注销账号、站长改密等敏感操作共用。
@@ -30,7 +31,7 @@ export function CaptchaGateModal({
   const [token, setToken] = useState<string | undefined>(undefined);
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <ModalPortal role="presentation" onClick={onClose}>
       <div
         className="modal-card"
         role="dialog"
@@ -64,6 +65,6 @@ export function CaptchaGateModal({
           </button>
         </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }

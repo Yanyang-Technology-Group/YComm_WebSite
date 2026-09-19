@@ -2165,7 +2165,10 @@ html[data-anim='theme'] .anim-veil {
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    /* 结束必须是 none：animation-fill-mode: both 会保留最后一帧，
+       若保留 translateY(0)（仍是 transform），页面内容就成了 position: fixed 的包含块，
+       弹窗遮罩只会盖住内容区、卡片被顶到页面中间之外（表现为「只有半黑屏」）。 */
+    transform: none;
   }
 }
 

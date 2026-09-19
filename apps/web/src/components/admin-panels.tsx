@@ -11,6 +11,7 @@ import { CaptchaField } from './captcha-field';
 import { CaptchaGateModal } from './captcha-gate-modal';
 import { remainingLabel, SanctionDialog, type SanctionKind } from './sanction-dialog';
 import { BadgeAssigner } from './badge-assigner';
+import { ModalPortal } from './modal-portal';
 
 const row: React.CSSProperties = {
   border: '1px solid #e4e4e7',
@@ -364,7 +365,7 @@ export function UsersPanel({
 
       {/* 管理面板：操作都在这里（管理员只对成员可用，管理员仅站长可用） */}
       {manageFor && (
-        <div className="modal-backdrop" onClick={() => setManageFor(null)}>
+        <ModalPortal onClick={() => setManageFor(null)}>
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <p className="modal-title">
               管理面板 · {manageFor.displayName || manageFor.username}
@@ -461,12 +462,12 @@ export function UsersPanel({
             <p className="section-title" style={{ marginBottom: '0.4rem' }}>徽章</p>
             <BadgeAssigner userId={manageFor.id} />
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* 详情：该用户的具体数据（管理员仅能看到成员，管理员仅站长可见） */}
       {detailFor && (
-        <div className="modal-backdrop" onClick={() => setDetailFor(null)}>
+        <ModalPortal onClick={() => setDetailFor(null)}>
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <p className="modal-title">
               用户详情 · {detailFor.displayName || detailFor.username}
@@ -530,7 +531,7 @@ export function UsersPanel({
               </button>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );
@@ -881,7 +882,7 @@ export function InviteCodesPanel() {
       )}
 
       {usesFor && (
-        <div className="modal-backdrop" onClick={() => setUsesFor(null)}>
+        <ModalPortal onClick={() => setUsesFor(null)}>
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <p className="modal-title">
               注册码「{usesFor.code}」的使用者
@@ -938,7 +939,7 @@ export function InviteCodesPanel() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );
