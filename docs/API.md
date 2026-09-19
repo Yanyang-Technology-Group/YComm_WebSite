@@ -194,6 +194,8 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 
 ### 开放 API 密钥（仅站长）
 
+脚本 / CI 批量管理下载区卡片的完整示例（curl、Bash、PowerShell、Python、Node，含幂等 upsert 与常见坑）见 [`docs/API-卡片脚本.md`](./API-卡片脚本.md)。
+
 | 方法与路径 | 权限 | 路径/请求体 | 成功 `data` 与特殊行为 |
 |---|---|---|---|
 | `GET /api/admin/api-keys` | `API_KEY_MANAGE`（仅 owner） | 无 | `{ keys: ApiKeyView[] }`；只含名称、前缀、最近使用、有效期、撤销状态，**不含明文**。 |
