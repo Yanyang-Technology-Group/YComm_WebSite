@@ -199,6 +199,59 @@ function Resolve-Links {
 # HTTP
 # ===========================================================================
 
+<# 从异常里尽量挖出服务端返回的响应体（400 时 error.meta.issues 才是真正原因）。 #>
+function Get-ErrorResponseBody {
+  param($ErrorRecord)
+
+  # PowerShell 7 / 5.1 常见位置
+  $body = $ErrorRecord.ErrorDetails.Message
+  if (-not [string]::IsNullOrWhiteSpace($body)) { return $body }
+
+  # 退路：直接读响应流（5.1 里 ErrorDetails 有时是空的）
+  try {
+    $response = $ErrorRecord.Exception.Response
+    if ($response) {
+      $stream = $response.GetResponseStream()
+      if ($stream) {
+        $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
+        try { return $reader.ReadToEnd() } finally { $reader.Dispose() }
+      }
+    }
+  } catch {
+    # 读不到就算了，下面退回 Exception.Message
+  }
+  return $null
+}
+
+<# 把服务端错误整理成人能看的一行（含 meta.issues 的字段名与原因）。 #>
+function Format-ApiError {
+  param([string]$Method, [string]$Path, $ErrorRecord)
+
+  $body = Get-ErrorResponseBody -ErrorRecord $ErrorRecord
+  if ([string]::IsNullOrWhiteSpace($body)) {
+    return "请求 $Method $Path 失败：$($ErrorRecord.Exception.Message)"
+  }
+
+  try {
+    $parsed = $body | ConvertFrom-Json
+    $issues = $parsed.error.meta.issues
+    if ($issues) {
+      $lines = @()
+      foreach ($issue in $issues) {
+        $lines += ("      - {0}: {1}" -f $issue.path, $issue.message)
+      }
+      return ("请求 {0} {1} 失败：{2}（{3}）`n{4}" -f `
+        $Method, $Path, $parsed.error.code, $parsed.error.message, ($lines -join "`n"))
+    }
+    if ($parsed.error.code) {
+      return ("请求 {0} {1} 失败：{2}（{3}）`n    {4}" -f $Method, $Path, $parsed.error.code, $parsed.error.message, $body)
+    }
+  } catch {
+    # 不是 JSON 就原样带出来
+  }
+  return "请求 $Method $Path 失败：$body"
+}
+
 function Invoke-YcommApi {
   param(
     [Parameter(Mandatory)][string]$Method,
@@ -212,15 +265,17 @@ function Invoke-YcommApi {
     TimeoutSec = 30
   }
   if ($null -ne $Body) {
-    $params.ContentType = 'application/json'
-    $params.Body = ($Body | ConvertTo-Json -Depth 8 -Compress)
+    $json = $Body | ConvertTo-Json -Depth 8 -Compress
+    # 关键：把 JSON 转成 UTF-8 字节再发。
+    # Windows PowerShell 5.1 用 -Body <string> 时会按 ANSI 编码发送，
+    # 中文（社区客户端APP…）会变成非法字节 → 服务端 JSON 解析失败 → 400。
+    $params.ContentType = 'application/json; charset=utf-8'
+    $params.Body = [System.Text.Encoding]::UTF8.GetBytes($json)
   }
   try {
     return Invoke-RestMethod @params
   } catch {
-    $detail = $_.ErrorDetails.Message
-    if (-not $detail) { $detail = $_.Exception.Message }
-    throw "请求 $Method $Path 失败：$detail"
+    throw (Format-ApiError -Method $Method -Path $Path -ErrorRecord $_)
   }
 }
 
@@ -305,6 +360,7 @@ function Invoke-Main {
   Write-Host ''
   Write-Host '=== 社区客户端APP 卡片创建器 ===' -ForegroundColor Cyan
   Write-Host "站点：$BaseUrl"
+  Write-Host ("PowerShell：{0}（{1}）" -f $PSVersionTable.PSVersion, $PSVersionTable.PSEdition)
   if ($DryRun) { Write-Host '模式：DryRun（只打印计划，不写入）' -ForegroundColor Yellow }
 
   # 1) 密钥
