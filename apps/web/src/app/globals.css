@@ -54,6 +54,20 @@ html[data-theme-colour='azure'] {
   --header-text: light-dark(#1d2126, #e6e9ee);
 }
 
+/* 中国红：浅色下是庄重的正红，深色下偏亮以免发闷 */
+html[data-theme-colour='red'] {
+  --bg: light-dark(#f7f3f2, #121010);
+  --surface: light-dark(#ffffff, #1a1616);
+  --text: light-dark(#2a1a1a, #efe4e4);
+  --muted: light-dark(#8a6d6c, #a89290);
+  --border: light-dark(#e8dad8, #2f2423);
+  --accent: light-dark(#d92b2b, #e5604f);
+  --accent-strong: light-dark(#b81f1f, #f08a84);
+  --accent-soft: light-dark(#fdecea, #2c1918);
+  --header-bg: light-dark(#ffffff, #141111);
+  --header-text: light-dark(#2a1a1a, #efe4e4);
+}
+
 html[data-theme-colour='pink'] {
   --bg: light-dark(#f7f4f4, #100e10);
   --surface: light-dark(#ffffff, #191518);
@@ -572,6 +586,98 @@ mark.search-hit {
 .post-content summary {
   cursor: pointer;
   font-weight: 600;
+}
+
+/* ===== 帖子里的图片 / 视频：点击用窗口查看 ===== */
+.post-media-clickable {
+  cursor: zoom-in;
+}
+
+.post-video-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.post-video {
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: 8px;
+  background: #000;
+  display: block;
+}
+
+.post-video-zoom {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+}
+
+.post-video-zoom:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+/* 媒体查看浮层（比普通弹窗更靠上：它可能从任何弹窗里打开） */
+.modal-backdrop.media-viewer {
+  z-index: 150;
+  background: rgba(0, 0, 0, 0.86);
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.media-viewer-body {
+  max-width: 94vw;
+  max-height: 88vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.media-viewer-img,
+.media-viewer-video {
+  max-width: 94vw;
+  max-height: 88vh;
+  border-radius: 8px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  background: #000;
+}
+
+.media-viewer-img {
+  object-fit: contain;
+  cursor: default;
+}
+
+.media-viewer-close {
+  position: fixed;
+  top: 1rem;
+  right: 1.2rem;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  font-size: 1.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  cursor: pointer;
+}
+
+.media-viewer-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.media-viewer-hint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
 }
 
 .post-content a {

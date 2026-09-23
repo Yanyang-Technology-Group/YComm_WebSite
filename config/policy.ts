@@ -249,6 +249,13 @@ export const RATE_LIMITS = {
     dimensions: ['user'],
     description: '论坛帖子内嵌图片上传',
   },
+  uploadVideo: {
+    // 视频更大更占带宽，额度收紧一些
+    limit: 10,
+    windowSeconds: 3600,
+    dimensions: ['user'],
+    description: '论坛帖子内嵌视频上传',
+  },
   downloadBurst: {
     limit: 10,
     windowSeconds: 60,
@@ -290,6 +297,12 @@ export const UPLOADS = {
     extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'],
     mimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
     /** 50MB：更大的图片请让用户填外链（前端 ImagePicker 会引导）。 */
+    maxBytes: 50 * MB,
+  },
+  /** Videos embedded in posts. Same 50MB ceiling as images. */
+  inlineVideo: {
+    extensions: ['mp4', 'webm', 'mov'],
+    mimeTypes: ['video/mp4', 'video/webm', 'video/quicktime'],
     maxBytes: 50 * MB,
   },
   /** Post attachments. Stays well under the 100MB Cloudflare request-body limit. */

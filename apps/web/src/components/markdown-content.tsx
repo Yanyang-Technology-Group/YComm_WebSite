@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { parseMarkdown, type Align, type BlockNode, type InlineNode } from '../lib/markdown';
+import { MarkdownMedia } from './markdown-media';
 
 /**
  * Markdown 渲染（论坛帖子 / 用户主页 / 卡片简介共用）。
@@ -7,6 +8,7 @@ import { parseMarkdown, type Align, type BlockNode, type InlineNode } from '../l
  * 解析在 `lib/markdown.ts`（纯函数、可单测），这里只负责把节点树变成 React 元素：
  * 全程不使用 dangerouslySetInnerHTML，文本由 React 转义，链接/图片只放行 http(s)
  * 与站内 /api/uploads/，所以「内联 HTML」也是安全的。
+ * 图片与视频统一走 `MarkdownMedia`：点击后用窗口查看。
  */
 
 function inline(nodes: InlineNode[], keyBase: string): ReactNode[] {
@@ -32,7 +34,9 @@ function inline(nodes: InlineNode[], keyBase: string): ReactNode[] {
           </a>
         );
       case 'image':
-        return <img key={key} src={node.url} alt={node.alt} className="post-image" loading="lazy" />;
+        return <MarkdownMedia key={key} kind="image" src={node.url} alt={node.alt} />;
+      case 'video':
+        return <MarkdownMedia key={key} kind="video" src={node.url} alt={node.alt} poster={node.poster} />;
       case 'html': {
         const children = inline(node.children, key);
         switch (node.tag) {
@@ -42,15 +46,15 @@ function inline(nodes: InlineNode[], keyBase: string): ReactNode[] {
           case 'hr':
             return <hr key={key} />;
           case 'img':
+            return <MarkdownMedia key={key} kind="image" src={node.attrs.src ?? ''} alt={node.attrs.alt ?? ''} />;
+          case 'video':
             return (
-              <img
+              <MarkdownMedia
                 key={key}
+                kind="video"
                 src={node.attrs.src ?? ''}
-                alt={node.attrs.alt ?? ''}
-                width={node.attrs.width}
-                height={node.attrs.height}
-                className="post-image"
-                loading="lazy"
+                alt={node.children.length > 0 ? undefined : '视频'}
+                poster={node.attrs.poster}
               />
             );
           case 'a':

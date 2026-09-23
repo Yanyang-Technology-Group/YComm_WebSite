@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSafeUrl, parseInline, parseMarkdown } from './markdown';
+import { isSafeUrl, isVideoUrl, parseInline, parseMarkdown } from './markdown';
 
 /** 把行内节点压成便于断言的形状。 */
 function kinds(source: string): string[] {
@@ -40,6 +40,29 @@ describe('markdown: inline', () => {
     expect(unsafeLink.map((node) => (node.kind === 'text' ? node.text : '')).join('')).toBe(
       '[点我](javascript:alert(1))',
     );
+  });
+
+  it('视频：![说明](x.mp4) 识别成视频；<video src> 也可用', () => {
+    expect(isVideoUrl('/api/uploads/videos/abc123.mp4')).toBe(true);
+    expect(isVideoUrl('https://a.com/demo.webm?x=1')).toBe(true);
+    expect(isVideoUrl('https://a.com/demo.png')).toBe(false);
+
+    expect(parseInline('![演示](/api/uploads/videos/abc123.mp4)')[0]).toEqual({
+      kind: 'video',
+      alt: '演示',
+      url: '/api/uploads/videos/abc123.mp4',
+    });
+    // 图片仍然是图片
+    expect(parseInline('![图](/api/uploads/images/abc123.png)')[0]).toMatchObject({ kind: 'image' });
+
+    // 内联 HTML 的 <video src>（属性白名单里只留 src/poster/宽高）
+    const htmlVideo = parseInline('<video src="https://a.com/v.mp4" poster="https://a.com/p.jpg" controls onerror="x">')[0];
+    expect(htmlVideo).toMatchObject({
+      kind: 'html',
+      tag: 'video',
+      attrs: { src: 'https://a.com/v.mp4', poster: 'https://a.com/p.jpg' },
+    });
+    expect(htmlVideo?.kind === 'html' ? htmlVideo.attrs.onerror : 'x').toBeUndefined();
   });
 
   it('硬换行与反斜杠转义', () => {

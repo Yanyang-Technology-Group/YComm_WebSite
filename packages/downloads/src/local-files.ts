@@ -15,6 +15,13 @@ export function sniffMime(buffer: Buffer): string | null {
   if (buffer.length >= 3 && buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) return 'image/jpeg';
   if (buffer.length >= 4 && buffer.subarray(0, 4).toString('ascii') === 'GIF8') return 'image/gif';
   if (buffer.length >= 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+  // ISO BMFF（mp4 / mov）：第 4–8 字节固定为 'ftyp'，紧跟着品牌；qt 开头是 QuickTime
+  if (buffer.length >= 12 && buffer.subarray(4, 8).toString('ascii') === 'ftyp') {
+    const brand = buffer.subarray(8, 12).toString('ascii');
+    return brand.startsWith('qt') ? 'video/quicktime' : 'video/mp4';
+  }
+  // WebM / Matroska：EBML 头
+  if (buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))) return 'video/webm';
   if (buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) return 'application/zip';
   if (buffer.length >= 5 && buffer.subarray(0, 5).toString('ascii') === '%PDF-') return 'application/pdf';
   return null;
@@ -25,6 +32,9 @@ const EXTENSION_BY_MIME: Record<string, string> = {
   'image/jpeg': '.jpg',
   'image/gif': '.gif',
   'image/webp': '.webp',
+  'video/mp4': '.mp4',
+  'video/webm': '.webm',
+  'video/quicktime': '.mov',
   'application/zip': '.zip',
   'application/pdf': '.pdf',
 };

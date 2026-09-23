@@ -28,6 +28,7 @@ import type { AppVariables } from '../context';
 import { clientIp, sessionAuth } from '../middleware/session';
 import { requirePermission } from '../middleware/permission';
 import { rateLimitByUser } from '../middleware/rate-limit';
+import { parseRange } from '../middleware/range';
 import { parseBody } from './forum';
 
 const createResourceSchema = z.object({
@@ -369,12 +370,4 @@ function publicResource(resource: {
   };
 }
 
-function parseRange(rangeHeader: string | undefined, size: number | undefined): { start: number; end: number } | undefined {
-  if (!rangeHeader || size === undefined) return undefined;
-  const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader);
-  if (!match) return undefined;
-  const start = match[1] ? Number.parseInt(match[1], 10) : 0;
-  const end = match[2] ? Number.parseInt(match[2], 10) : size - 1;
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end >= size || start > end) return undefined;
-  return { start, end };
-}
+// Range 解析与视频上传共用同一份实现（见 ../middleware/range）。

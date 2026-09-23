@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -69,7 +69,7 @@ export function NewTopicForm({ boardSlug }: { boardSlug: string }) {
         <button type="submit" disabled={pending} style={{ width: 120, padding: '0.4rem' }}>
           {pending ? '发布中…' : '发布主题'}
         </button>
-        <ImagePicker label="🖼 插入图片" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
+        <ImagePicker label="🖼 插入图片/视频" media="all" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
       </div>
     </form>
   );
@@ -115,7 +115,7 @@ export function ReplyForm({ topicId }: { topicId: string }) {
         <button type="submit" disabled={pending} style={{ width: 100, padding: '0.4rem' }}>
           {pending ? '发送中…' : '回复'}
         </button>
-        <ImagePicker label="🖼 插入图片" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
+        <ImagePicker label="🖼 插入图片/视频" media="all" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
       </div>
     </form>
   );

@@ -131,8 +131,10 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 
 | 方法与路径 | 鉴权 | 参数/请求 | 成功响应与特殊行为 |
 |---|---|---|---|
-| `POST /api/uploads/images` | 登录；用户限流 | multipart 字段 `file` | HTTP 201；`{ url, mime, size }`。仅 PNG/JPEG/WebP/GIF，使用 magic byte 校验和配置的大小上限，文件名随机化。 |
+| `POST /api/uploads/images` | 登录；用户限流 | multipart 字段 `file` | HTTP 201；`{ url, mime, size }`。仅 PNG/JPEG/WebP/GIF，magic byte 校验，单个 ≤50MB，文件名随机化。 |
 | `GET /api/uploads/images/:file` | 公开 | Path `file` 必须为 8–64 位安全随机名加允许的图片扩展名 | 特例：直接返回图片字节与正确 MIME，`Cache-Control: public, max-age=31536000, immutable`；不返回 JSON。 |
+| `POST /api/uploads/videos` | 登录；用户限流（10 次/小时） | multipart 字段 `file` | HTTP 201；`{ url, mime, size }`。仅 MP4/WebM/MOV，magic byte 校验，单个 ≤50MB，文件名随机化。 |
+| `GET /api/uploads/videos/:file` | 公开 | Path `file` 必须为 8–64 位安全随机名加 `mp4\|webm\|mov` 扩展名 | 特例：直接返回视频字节与正确 MIME，支持 `Range`（206，可拖动进度条），`Cache-Control: public, max-age=31536000, immutable`；不返回 JSON。 |
 
 ## 用户 `/api/users`
 

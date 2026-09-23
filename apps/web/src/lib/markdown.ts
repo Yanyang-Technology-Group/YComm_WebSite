@@ -18,6 +18,7 @@ export type InlineNode =
   | { kind: 'code'; text: string }
   | { kind: 'link'; label: string; url: string }
   | { kind: 'image'; alt: string; url: string; width?: number; height?: number }
+  | { kind: 'video'; alt: string; url: string; poster?: string }
   | { kind: 'break' }
   | { kind: 'html'; tag: string; attrs: Record<string, string>; children: InlineNode[] };
 
@@ -44,6 +45,14 @@ export type BlockNode =
 export function isSafeUrl(url: string): boolean {
   const value = url.trim();
   return value.startsWith('/api/uploads/') || /^https?:\/\//i.test(value);
+}
+
+/** 视频扩展名：`![x](a.mp4)` 这种写法会被识别成视频而不是图片。 */
+const VIDEO_EXT_RE = /\.(mp4|webm|mov|m4v|ogv)(?:[?#].*)?$/i;
+
+/** 这个地址看起来是视频吗（站内上传 / 外链都按扩展名判断）。 */
+export function isVideoUrl(url: string): boolean {
+  return VIDEO_EXT_RE.test(url.trim());
 }
 
 /** 允许的内联 HTML 标签及各自的属性白名单（其余属性直接丢弃）。 */
@@ -78,6 +87,7 @@ const ALLOWED_HTML: Record<string, string[]> = {
   hr: [],
   a: ['href', 'title'],
   img: ['src', 'alt', 'width', 'height'],
+  video: ['src', 'poster', 'width', 'height'],
   details: ['open'],
   summary: [],
   p: [],
@@ -105,7 +115,6 @@ const FORBIDDEN_HTML = new Set([
   'math',
   'template',
   'canvas',
-  'video',
   'audio',
   'source',
   'track',
@@ -203,13 +212,15 @@ export function parseInline(source: string): InlineNode[] {
       push({ kind: 'code', text: g.code });
       continue;
     }
-    // 图片
+    // 图片（地址以视频扩展名结尾时按视频渲染：![演示](https://…/a.mp4)）
     if (g.imgUrl !== undefined) {
-      push(
-        isSafeUrl(g.imgUrl)
-          ? { kind: 'image', alt: g.imgAlt ?? '', url: g.imgUrl }
-          : { kind: 'text', text: match[0] },
-      );
+      if (!isSafeUrl(g.imgUrl)) {
+        push({ kind: 'text', text: match[0] });
+      } else if (isVideoUrl(g.imgUrl)) {
+        push({ kind: 'video', alt: g.imgAlt ?? '', url: g.imgUrl });
+      } else {
+        push({ kind: 'image', alt: g.imgAlt ?? '', url: g.imgUrl });
+      }
       continue;
     }
     // 链接
@@ -284,7 +295,6 @@ export function parseInline(source: string): InlineNode[] {
     }
     stack.push({ tag, attrs, children: [] });
   }
-
   if (last < text.length) push({ kind: 'text', text: text.slice(last) });
   // 未闭合的标签：按已有的子节点收拢，避免内容丢失
   while (stack.length > 0) {
