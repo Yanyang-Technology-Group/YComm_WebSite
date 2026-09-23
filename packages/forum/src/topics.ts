@@ -263,7 +263,7 @@ export async function searchTopics(
         ),
       ),
     )
-    .orderBy(desc(schema.topics.last_post_at))
+    .orderBy(desc(schema.topics.created_at))
     .limit(limit)
     .offset(options.offset ?? 0);
 }

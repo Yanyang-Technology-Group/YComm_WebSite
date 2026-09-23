@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, sql } from 'drizzle-orm';
+﻿import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import { MODERATION } from '@ycomm/config';
@@ -250,7 +250,8 @@ export async function listPosts(
     .from(schema.posts)
     .leftJoin(schema.users, eq(schema.posts.author_id, schema.users.id))
     .where(where)
-    .orderBy(asc(schema.posts.position))
+    // 全站统一：按时间倒序，新的在上面（楼主在最下面，回复越新越靠上）
+    .orderBy(desc(schema.posts.created_at), desc(schema.posts.position))
     .limit(limit)
     .offset(options.offset ?? 0);
 

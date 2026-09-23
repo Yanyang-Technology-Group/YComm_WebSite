@@ -418,10 +418,44 @@ describe('card portal nesting', () => {
     expect([resized.w, resized.h]).toEqual([3, 2]);
   });
 
+  it('新建的卡片默认排最上面（越新越靠上），老卡片顺序不动', async () => {
+    const first = await seedCard({ parentId: null, title: '最早建的', kind: 'container' });
+    const second = await seedCard({ parentId: null, title: '后来建的', kind: 'container' });
+    const third = await seedCard({ parentId: null, title: '最新建的', kind: 'container' });
+
+    // 每张新卡都拿同层最小 position - 1 → 显示顺序为新→旧
+    const titles = (await listVisibleCards(handle.db, null)).map((card) => card.title);
+    expect(titles).toEqual(['最新建的', '后来建的', '最早建的']);
+    expect(third.position).toBeLessThan(second.position);
+    expect(second.position).toBeLessThan(first.position);
+
+    // 手动调过顺序后再新建一张：新卡仍然在最上面，之前的相对顺序保持不动
+    await moveCard(handle.db, first.id, 'up'); // 最早建的 → 与「后来建的」交换
+    expect((await listVisibleCards(handle.db, null)).map((card) => card.title)).toEqual([
+      '最新建的',
+      '最早建的',
+      '后来建的',
+    ]);
+    await seedCard({ parentId: null, title: '又一张新卡', kind: 'container' });
+    expect((await listVisibleCards(handle.db, null)).map((card) => card.title)).toEqual([
+      '又一张新卡',
+      '最新建的',
+      '最早建的',
+      '后来建的',
+    ]);
+  });
+
   it('insertCardBefore 插到两张卡片中间，同层后面的卡片自动后移', async () => {
     const first = await seedCard({ parentId: null, title: '第一张', kind: 'container' });
     const middle = await seedCard({ parentId: null, title: '第二张', kind: 'container' });
     const last = await seedCard({ parentId: null, title: '第三张', kind: 'container' });
+
+    // 显示顺序（新→旧）：第三张 / 第二张 / 第一张
+    expect((await listVisibleCards(handle.db, null)).map((card) => card.title)).toEqual([
+      '第三张',
+      '第二张',
+      '第一张',
+    ]);
 
     // 「插到第二张前面」：新卡接管第二张的位置，第二张及后面全部后移一位。
     const inserted = await insertCardBefore(
@@ -433,13 +467,13 @@ describe('card portal nesting', () => {
 
     expect(inserted.parent_id).toBeNull();
     const order = (await listVisibleCards(handle.db, null)).map((card) => card.title);
-    expect(order).toEqual(['第一张', '插到中间', '第二张', '第三张']);
+    expect(order).toEqual(['第三张', '插到中间', '第二张', '第一张']);
     const middleAfter = (await listVisibleCards(handle.db, null)).find((card) => card.id === middle.id);
     expect(middleAfter?.position).toBeGreaterThan(inserted.position);
-    // 第一张最前、第三张最后的位置不变，只是中间整体后移。
+    // 第三张仍最前、第一张仍最后，只是中间整体后移。
     const rootIds = (await listVisibleCards(handle.db, null)).map((card) => card.id);
-    expect(rootIds[0]).toBe(first.id);
-    expect(rootIds[rootIds.length - 1]).toBe(last.id);
+    expect(rootIds[0]).toBe(last.id);
+    expect(rootIds[rootIds.length - 1]).toBe(first.id);
 
     // 子卡片层：插到子卡片前面，新卡归属同一父卡片。
     const parent = await seedCard({ parentId: null, title: '父卡片', kind: 'container' });
@@ -447,12 +481,13 @@ describe('card portal nesting', () => {
     const childTwo = await seedCard({ parentId: parent.id, title: '子二', kind: 'container' });
     const insertedChild = await insertCardBefore(handle.db, childTwo.id, { title: '子插中间', kind: 'container' }, 'owner');
     expect(insertedChild.parent_id).toBe(parent.id);
-    const childIds = (await listVisibleCards(handle.db, null))
+    const childOrder = (await listVisibleCards(handle.db, null))
       .filter((card) => card.parent_id === parent.id)
-      .map((card) => card.id);
-    expect(childIds[0]).toBe(childOne.id);
-    const childOrder = childIds.map((id) => id === childOne.id ? '子一' : id === childTwo.id ? '子二' : '子插中间');
-    expect(childOrder).toEqual(['子一', '子插中间', '子二']);
+      .map((card) => card.title);
+    // 子层同样新→旧；新卡正好落在「子二」上面
+    expect(childOrder).toEqual(['子插中间', '子二', '子一']);
+    expect(childOrder.indexOf('子插中间')).toBe(childOrder.indexOf('子二') - 1);
+    expect(childOne.parent_id).toBe(parent.id);
   });
 
   it('moveCard 上移/下移交换同层顺序，边界不越界', async () => {
@@ -461,19 +496,26 @@ describe('card portal nesting', () => {
     const cardC = await seedCard({ parentId: null, title: 'C', kind: 'container' });
     const titles = async () => (await listVisibleCards(handle.db, null)).map((card) => card.title);
 
+    // 新建卡片默认排最上面 → C（最新）在最前，它的 position 最小
+    expect(await titles()).toEqual(['C', 'B', 'A']);
+    expect(cardC.position).toBeLessThan(cardB.position);
+    expect(cardB.position).toBeLessThan(cardA.position);
+
+    // B 下移 → C A B（B 与 A 交换）
+    await moveCard(handle.db, cardB.id, 'down');
+    expect(await titles()).toEqual(['C', 'A', 'B']);
+
+    // C 下移 → A C B（C 与 A 交换）
+    await moveCard(handle.db, cardC.id, 'down');
+    expect(await titles()).toEqual(['A', 'C', 'B']);
+
+    // 再下移一次 → A B C（C 与 B 交换）
+    await moveCard(handle.db, cardC.id, 'down');
     expect(await titles()).toEqual(['A', 'B', 'C']);
 
-    // B 下移 → A C B（B 与 C 交换）
-    await moveCard(handle.db, cardB.id, 'down');
-    expect(await titles()).toEqual(['A', 'C', 'B']);
-
-    // A 上移（已在最前）→ 不动
-    await moveCard(handle.db, cardA.id, 'up');
-    expect(await titles()).toEqual(['A', 'C', 'B']);
-
-    // C 上移 → A C B → C 与 A 交换 = C A B
-    await moveCard(handle.db, cardC.id, 'up');
-    expect(await titles()).toEqual(['C', 'A', 'B']);
+    // C 已在最后，再下移不动
+    await moveCard(handle.db, cardC.id, 'down');
+    expect(await titles()).toEqual(['A', 'B', 'C']);
   });
 
   it('下载卡片要站长审核：管理员建的默认待审核，站长通过后才可见', async () => {

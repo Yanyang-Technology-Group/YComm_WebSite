@@ -38,6 +38,14 @@ async function hasInviteBinding(db: Db, userId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+/**
+ * 卡片排序：按 `position` 升序 —— 也就是「默认顺序」。
+ *
+ * 新建卡片默认拿到最小 position（排最上面，见 `topPosition`），
+ * 管理员用「上移/下移」调过顺序的卡片保持自己的位置不动。
+ */
+const CARD_ORDER = [asc(schema.downloadCards.position), asc(schema.downloadCards.created_at)];
+
 /** 某层级（parentId 为 null 表示根层）下按可见性过滤后的卡片列表。 */
 export async function listCards(
   db: Db,
@@ -55,17 +63,14 @@ export async function listCards(
           : eq(schema.downloadCards.parent_id, parentId),
       ),
     )
-    .orderBy(asc(schema.downloadCards.position), asc(schema.downloadCards.created_at));
+    .orderBy(...CARD_ORDER);
   const inviteBound = subject ? await hasInviteBinding(db, subject.id) : false;
   return rows.filter((row) => canSee(subject, row.visibility, inviteBound));
 }
 
 /** 全部卡片（不做可见性/审核过滤，供后台编辑用）。 */
 export async function listAllCards(db: Db): Promise<CardRow[]> {
-  return db
-    .select()
-    .from(schema.downloadCards)
-    .orderBy(asc(schema.downloadCards.position), asc(schema.downloadCards.created_at));
+  return db.select().from(schema.downloadCards).orderBy(...CARD_ORDER);
 }
 
 /**
@@ -109,17 +114,20 @@ export interface CreateCardInput {
   createdById?: string | null;
 }
 
-/** 同层下一张卡片的 position（新建卡片默认排在末尾）。 */
-async function nextPosition(db: Db, parentId: string | null): Promise<number> {
+/**
+ * 新建卡片的默认位置：同层最小 position - 1，也就是**排在最上面**。
+ * （老卡片/手动调过顺序的卡片不受影响，它们保持自己的 position。）
+ */
+async function topPosition(db: Db, parentId: string | null): Promise<number> {
   const rows = await db
-    .select({ max: sql<number>`COALESCE(MAX(${schema.downloadCards.position}), -1)` })
+    .select({ min: sql<number>`COALESCE(MIN(${schema.downloadCards.position}), 0)` })
     .from(schema.downloadCards)
     .where(
       parentId === null
         ? isNull(schema.downloadCards.parent_id)
         : eq(schema.downloadCards.parent_id, parentId),
     );
-  return (rows[0]?.max ?? -1) + 1;
+  return (rows[0]?.min ?? 0) - 1;
 }
 
 export async function createCard(
@@ -141,7 +149,7 @@ export async function createCard(
       w: input.w ?? 1,
       h: input.h ?? 1,
       visibility: input.visibility ?? 'public',
-      position: input.position ?? (await nextPosition(db, input.parentId)),
+      position: input.position ?? (await topPosition(db, input.parentId)),
       created_by: input.createdById ?? null,
       status,
     })
@@ -154,7 +162,7 @@ export async function createCard(
  * 在两张卡片中间插一张新卡。
  *
  * 语义：新卡接管目标卡片的 `position`，目标卡片及其后所有同层卡片整体后移一位
- * （即「插入到第 N 位，原来的第 N 位变成第 N+1 位」）。返回新卡。
+ * （即「插入到第 N 位，原来的第 N 位变成第 N+1 位」）——新卡显示在目标卡片**上面**。
  */
 export async function insertCardBefore(
   db: Db,
@@ -223,7 +231,10 @@ export async function deleteCard(db: Db, cardId: string): Promise<void> {
   await db.delete(schema.downloadCards).where(eq(schema.downloadCards.id, cardId));
 }
 
-/** 在根层/父卡片内上移或下移一张卡片（交换 position，超出边界则不动）。 */
+/**
+ * 在根层/父卡片内上移或下移一张卡片（交换 position，超出边界则不动）。
+ * 只影响这两张卡片之间的相对顺序，其它卡片的排布保持不变。
+ */
 export async function moveCard(
   db: Db,
   cardId: string,
@@ -244,10 +255,11 @@ export async function moveCard(
         ne(schema.downloadCards.id, cardId),
       ),
     )
-    .orderBy(asc(schema.downloadCards.position), asc(schema.downloadCards.created_at));
+    .orderBy(...CARD_ORDER);
 
+  // 显示顺序 = position 升序（同 position 时按创建时间）
   const ordered = [...siblings, target].sort(
-    (a, b) => (a.position - b.position) || (a.created_at.getTime() - b.created_at.getTime()),
+    (a, b) => a.position - b.position || a.created_at.getTime() - b.created_at.getTime(),
   );
   const index = ordered.findIndex((card) => card.id === cardId);
   const neighborIndex = direction === 'up' ? index - 1 : index + 1;

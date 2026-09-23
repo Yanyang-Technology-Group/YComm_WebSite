@@ -66,7 +66,8 @@ describe('badges', () => {
 
     const mine = await listUserBadges(handle.db, userId);
     expect(mine.map((badge) => badge.name).sort()).toEqual(['元老', '大善人']);
-    expect(mine[0]?.colorFrom).toBe('#ffd700');
+    // 按名字取，别依赖顺序（用户徽章列表按分配时间倒序：后分配的在前）
+    expect(mine.find((badge) => badge.name === '元老')?.colorFrom).toBe('#ffd700');
 
     // 批量查询（帖子作者集合）。
     const map = await listBadgesForUsers(handle.db, [userId, adminId]);

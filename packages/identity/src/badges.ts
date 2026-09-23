@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+﻿import { and, desc, eq, inArray } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 
@@ -23,7 +23,7 @@ export async function listBadges(db: Db): Promise<BadgeView[]> {
   const rows = await db
     .select()
     .from(schema.badges)
-    .orderBy(schema.badges.created_at);
+    .orderBy(desc(schema.badges.created_at));
   return rows.map(mapBadge);
 }
 
@@ -75,7 +75,7 @@ export async function listUserBadges(db: Db, userId: string): Promise<BadgeView[
     .from(schema.userBadges)
     .innerJoin(schema.badges, eq(schema.userBadges.badge_id, schema.badges.id))
     .where(eq(schema.userBadges.user_id, userId))
-    .orderBy(schema.userBadges.created_at);
+    .orderBy(desc(schema.userBadges.created_at));
   return rows.map((row) => ({ id: row.id, name: row.name, colorFrom: row.color_from, colorTo: row.color_to }));
 }
 
@@ -95,7 +95,7 @@ export async function listBadgesForUsers(db: Db, userIds: string[]): Promise<Map
     .from(schema.userBadges)
     .innerJoin(schema.badges, eq(schema.userBadges.badge_id, schema.badges.id))
     .where(inArray(schema.userBadges.user_id, unique))
-    .orderBy(schema.userBadges.created_at);
+    .orderBy(desc(schema.userBadges.created_at));
   for (const row of rows) {
     const list = result.get(row.user_id) ?? [];
     list.push({ id: row.id, name: row.name, colorFrom: row.color_from, colorTo: row.color_to });
