@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+﻿import { eq, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { validatePassword } from '@ycomm/config';
 import { errors } from '@ycomm/kernel';
@@ -56,7 +56,7 @@ export async function updateProfile(db: Db, userId: string, input: UpdateProfile
 }
 
 /** 主题色系可选值（与前端 THEME_FAMILIES 对应；none = 不加任何强调色）。 */
-export const THEME_COLOURS = ['azure', 'pink', 'mint', 'orange', 'slate', 'none'] as const;
+export const THEME_COLOURS = ['azure', 'red', 'pink', 'mint', 'orange', 'slate', 'none'] as const;
 export type ThemeColour = (typeof THEME_COLOURS)[number];
 
 /** 明暗可选值：auto 跟随系统 / dark 固定深色 / light 固定浅色。 */

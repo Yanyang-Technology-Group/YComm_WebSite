@@ -1,4 +1,4 @@
-import { Hono, type Context } from 'hono';
+﻿import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { randomUUID } from 'node:crypto';
@@ -107,7 +107,7 @@ const changeEmailSchema = z.object({ email: z.string().trim().min(3).max(255) })
 const bindInviteSchema = z.object({ code: z.string().trim().min(1).max(10) });
 const oauthUnlinkSchema = z.object({ provider: z.enum(['github', 'google']) });
 const themeSchema = z.object({
-  colour: z.enum(['azure', 'pink', 'mint', 'orange', 'slate', 'none']),
+  colour: z.enum(['azure', 'red', 'pink', 'mint', 'orange', 'slate', 'none']),
   mode: z.enum(['auto', 'dark', 'light']),
 });
 
