@@ -54,18 +54,19 @@ html[data-theme-colour='azure'] {
   --header-text: light-dark(#1d2126, #e6e9ee);
 }
 
-/* 中国红：浅色下是庄重的正红，深色下偏亮以免发闷 */
+/* 中国红：纯正红（#f00）。浅色下强调色就是正红，正文链接用更深的红保证可读性；
+   深色下提亮成 #ff3d3d 以免在深底上发闷。 */
 html[data-theme-colour='red'] {
-  --bg: light-dark(#f7f3f2, #121010);
-  --surface: light-dark(#ffffff, #1a1616);
-  --text: light-dark(#2a1a1a, #efe4e4);
-  --muted: light-dark(#8a6d6c, #a89290);
-  --border: light-dark(#e8dad8, #2f2423);
-  --accent: light-dark(#d92b2b, #e5604f);
-  --accent-strong: light-dark(#b81f1f, #f08a84);
-  --accent-soft: light-dark(#fdecea, #2c1918);
-  --header-bg: light-dark(#ffffff, #141111);
-  --header-text: light-dark(#2a1a1a, #efe4e4);
+  --bg: light-dark(#f8f5f5, #120e0e);
+  --surface: light-dark(#ffffff, #1a1515);
+  --text: light-dark(#241a1a, #f0e6e6);
+  --muted: light-dark(#7d6a6a, #a89292);
+  --border: light-dark(#ecdcdc, #332424);
+  --accent: light-dark(#ff0000, #ff3d3d);
+  --accent-strong: light-dark(#cc0000, #ff7070);
+  --accent-soft: light-dark(#ffe9e9, #341111);
+  --header-bg: light-dark(#ffffff, #161111);
+  --header-text: light-dark(#241a1a, #f0e6e6);
 }
 
 html[data-theme-colour='pink'] {
