@@ -98,8 +98,11 @@ export async function findOrCreateOAuthUser(db: Db, profile: OAuthProfile): Prom
 
 /**
  * 把第三方账号绑定到当前登录用户（控制台「绑定 GitHub」）。
- * - 该 provider 账号已经被别人绑了 → 冲突；
- * - 已经绑给本人 → 幂等成功。
+ * - 该 provider 账号已经绑给本人 → 幂等成功；
+ * - 已经绑给别人的**有效**账号 → 冲突；
+ * - 绑给的账号已注销（或那行用户数据已经不在了）→ 让位：释放旧关联再绑到当前账号。
+ *   历史数据里注销时没断开关联的账号，会让同一个 GitHub 永远绑不上新账号。
+ * - 绑给的账号还在注销冷静期内 → 仍是冲突：冷静期内登录可以复活，它还占着这个 GitHub。
  */
 export async function linkOAuthAccount(
   db: Db,
@@ -107,8 +110,11 @@ export async function linkOAuthAccount(
   provider: string,
   providerAccountId: string,
 ): Promise<void> {
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user || user.state === 'deleted') throw errors.notFound('用户不存在');
+
   const links = await db
-    .select({ user_id: schema.oauthAccounts.user_id })
+    .select({ id: schema.oauthAccounts.id, user_id: schema.oauthAccounts.user_id })
     .from(schema.oauthAccounts)
     .where(
       and(
@@ -117,12 +123,22 @@ export async function linkOAuthAccount(
       ),
     )
     .limit(1);
-  if (links[0]) {
-    if (links[0].user_id === userId) return; // 已经绑给自己
-    throw errors.conflict('这个 GitHub 账号已经绑定到其他用户了', { field: 'providerAccountId' });
+  const link = links[0];
+  if (link && link.user_id !== userId) {
+    const [holder] = await db.select().from(schema.users).where(eq(schema.users.id, link.user_id)).limit(1);
+    // 用户行没了（脏数据）也算注销完成，直接释放；否则按注销进度判断。
+    const released = holder ? await releaseIdentityIfDeletionDone(db, holder) : true;
+    if (!released) {
+      throw errors.conflict(
+        holder?.state === 'deleting'
+          ? '这个 GitHub 账号绑定在一个正在注销冷静期的账号上：冷静期结束，或原账号重新登录取消注销后，才能绑到别的账号'
+          : '这个 GitHub 账号已经绑定到其他用户了',
+        { field: 'providerAccountId' },
+      );
+    }
+    await db.delete(schema.oauthAccounts).where(eq(schema.oauthAccounts.id, link.id));
   }
-  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
-  if (!user) throw errors.notFound('用户不存在');
+
   await db
     .insert(schema.oauthAccounts)
     .values({ provider, provider_account_id: providerAccountId, user_id: userId })

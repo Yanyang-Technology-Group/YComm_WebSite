@@ -387,6 +387,11 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
         {bindNotice === 'done' && (
           <p style={{ color: '#16a34a' }}>GitHub 绑定成功，之后可以用这个 GitHub 账号直接登录。</p>
         )}
+        {bindNotice === 'taken' && (
+          <p style={{ color: '#dc2626' }}>
+            GitHub 绑定失败：这个 GitHub 账号已经绑在别的账号上。如果是你自己刚注销的旧账号，等它的注销冷静期结束（或先重新登录把它取消注销）之后就能绑过来。
+          </p>
+        )}
         {bindNotice === 'error' && (
           <p style={{ color: '#dc2626' }}>GitHub 绑定失败：这个 GitHub 账号可能已经绑定到其他用户。</p>
         )}

@@ -1,9 +1,9 @@
-﻿import { Hono, type Context } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { randomUUID } from 'node:crypto';
 import { getDb } from '@ycomm/db';
-import { errors, getEnv, siteUrl, logger } from '@ycomm/kernel';
+import { errors, ErrorCodes, getEnv, isAppError, siteUrl, logger } from '@ycomm/kernel';
 import {
   bindInviteCode,
   cancelAccountDeletion,
@@ -641,8 +641,10 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
         if (!auth) return c.redirect('/login?oauth=need_login', 302);
         try {
           await linkOAuthAccount(handle.db, auth.userId, 'github', String(ghUser.id));
-        } catch {
-          return c.redirect('/dashboard?bind=error', 302);
+        } catch (error) {
+          // 「已被别人/冷静期账号占用」要和真正的故障分开，否则用户只看到一句「失败」。
+          const taken = isAppError(error) && error.code === ErrorCodes.CONFLICT;
+          return c.redirect(`/dashboard?bind=${taken ? 'taken' : 'error'}`, 302);
         }
         await logAudit(handle.db, {
           actorId: auth.userId,
