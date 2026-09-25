@@ -50,10 +50,16 @@ export {
 export { register, type RegisterInput, type RegisterResult } from './registration';
 export {
   createSession,
+  describeDevice,
   findSessionByToken,
+  listActiveSessionsForUser,
   revokeAllSessionsForUser,
+  revokeOtherSessionForUser,
+  revokeOtherSessionsForUser,
   revokeSession,
+  touchSessionIfStale,
   type NewSession,
+  type SessionView,
 } from './sessions';
 export { issueVerificationTokenForUser, resendVerification, verifyEmail } from './verification';
 export {

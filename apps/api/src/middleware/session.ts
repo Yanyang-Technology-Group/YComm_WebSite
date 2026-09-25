@@ -7,6 +7,7 @@ import {
   findSessionByToken,
   toPublicUser,
   touchApiKey,
+  touchSessionIfStale,
 } from '@ycomm/identity';
 import { getEnv } from '@ycomm/kernel';
 import type { AccessSubject } from '@ycomm/access';
@@ -42,6 +43,8 @@ export const sessionAuth = createMiddleware<{ Variables: AppVariables }>(async (
         userId: user.id,
         sessionId: found.session.id,
       });
+      // 「最近活跃」按 5 分钟节流写入（登录设备管理列表展示用）；API 密钥分支不走这里。
+      await touchSessionIfStale(handle.db, found.session.id, found.session.last_used_at);
     }
   }
 
