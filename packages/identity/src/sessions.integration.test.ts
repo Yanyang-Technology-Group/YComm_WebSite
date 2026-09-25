@@ -148,6 +148,11 @@ describe('登录设备管理：会话列表', () => {
   it('设备名称由 User-Agent 展示推断：浏览器 / Flutter 客户端 / 未知设备', async () => {
     expect(describeDevice('YCommFlutter/Android')).toBe('YComm 客户端 · Android');
     expect(describeDevice('YCommFlutter/iOS')).toBe('YComm 客户端 · iOS');
+    // 客户端走 GitHub OAuth 时用的是原生 HTTP 客户端，默认 UA 里没有平台信息：
+    // 以前显示「未知设备」，现在至少要认成自家客户端。
+    expect(describeDevice('Dart/3.13 (dart:io)')).toBe('YComm 客户端');
+    expect(describeDevice('Dio/5.4.0')).toBe('YComm 客户端');
+    expect(describeDevice('dart:io')).toBe('YComm 客户端');
     expect(describeDevice('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit Chrome/120.0')).toContain('Chrome');
     expect(describeDevice('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit Chrome/120.0')).toContain('Windows');
     expect(describeDevice('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/17.0')).toContain('Safari');

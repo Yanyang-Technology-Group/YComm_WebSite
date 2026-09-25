@@ -93,6 +93,8 @@ export interface SessionView {
 }
 
 const UNKNOWN_DEVICE = '未知设备';
+/** 认得出是自家客户端、但拿不到平台信息时的展示名（例如默认 Dart UA）。 */
+const CLIENT_DEVICE = 'YComm 客户端';
 const DEVICE_MAX_LENGTH = 80;
 
 function truncateDeviceName(name: string): string {
@@ -102,16 +104,24 @@ function truncateDeviceName(name: string): string {
 /**
  * 从 User-Agent 推断展示名称，仅用于列表显示。
  *
- * 不引入第三方 UA 解析库：识别自有 Flutter 客户端（固定格式
- * `YCommFlutter/<平台>`）与常见浏览器/系统组合，认不出就用「未知设备」。
+ * 不引入第三方 UA 解析库：识别自有 Flutter 客户端（`YCommFlutter/<平台>`，
+ * 以及没设 UA 时 Dart/Dio 的默认值）与常见浏览器/系统组合，认不出就用「未知设备」。
  */
 export function describeDevice(userAgent: string | null | undefined): string {
   const ua = userAgent?.trim();
   if (!ua) return UNKNOWN_DEVICE;
 
   // Flutter 原生请求：YCommFlutter/Android、YCommFlutter/iOS —— 不含个人信息。
-  const appMatch = /^YCommFlutter\/([\w.-]{1,32})/i.exec(ua);
-  if (appMatch) return truncateDeviceName(`YComm 客户端 · ${appMatch[1]}`);
+  const appMatch = /YCommFlutter\/([\w.-]{1,32})/i.exec(ua);
+  if (appMatch) return truncateDeviceName(`${CLIENT_DEVICE} · ${appMatch[1]}`);
+
+  // Dart/Flutter 未自定义 UA 时的默认值。客户端登录走 GitHub OAuth：
+  // 会话是在原生 HTTP 客户端（旧版本没设 UA）请求回调时建立的，
+  // 记录下来的就是 `Dart/3.13 (dart:io)`（Dio 直连时是 `Dio/5.x`）。
+  // 这些 UA 里没有平台信息，但绝不能再显示成「未知设备」。
+  if (/^(?:Dart|Flutter|Dio)\//i.test(ua) || /\bdart:io\b/i.test(ua)) {
+    return CLIENT_DEVICE;
+  }
 
   const browser = /\bEdg(?:e|A|iOS)?\//.test(ua)
     ? 'Edge'
