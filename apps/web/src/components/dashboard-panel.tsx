@@ -9,6 +9,7 @@ import { apiFetch } from '../lib/api';
 import { AppNav } from './app-nav';
 import { ThemePicker } from './theme-toggle';
 import { ImagePicker } from './image-picker';
+import { LoginDevicesPanel } from './login-devices-panel';
 import { CaptchaGateModal } from './captcha-gate-modal';
 import { MarkdownContent } from './markdown-content';
 import { remainingLabel } from './sanction-dialog';
@@ -601,6 +602,8 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
                 </>
               )}
             </div>
+
+            <LoginDevicesPanel />
 
             <div className="panel" style={{ marginBottom: 0 }}>
               <p className="panel-title">注销账号</p>
