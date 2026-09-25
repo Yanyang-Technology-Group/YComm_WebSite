@@ -18,6 +18,7 @@ import {
   getUserById,
   hashPassword,
   linkOAuthAccount,
+  listActiveSessionsForUser,
   listOAuthProviders,
   register,
   requestAccountDeletion,
@@ -25,6 +26,8 @@ import {
   resendVerification,
   resetPassword,
   reviveIfPendingDeletion,
+  revokeOtherSessionForUser,
+  revokeOtherSessionsForUser,
   revokeSession,
   setPassword,
   setThemePreference,
@@ -486,6 +489,52 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     return c.json({ ok: true, data: { resources } });
   });
 
+  // ---- 登录设备管理（个人会话列表与远程退出） ----------------------------
+  // 只接受普通 Session Cookie：未登录 401，Bearer API 密钥 403。
+  // 一次登录 = 一条会话；当前会话只能走 /logout，不通过远程撤销接口退出。
+
+  router.get('/sessions', async (c) => {
+    const auth = requireCookieSession(c);
+    const handle = await getDb();
+    const sessions = await listActiveSessionsForUser(handle.db, auth.userId, auth.sessionId);
+    return c.json({ ok: true, data: { sessions } });
+  });
+
+  router.post('/sessions/revoke-others', async (c) => {
+    const auth = requireCookieSession(c);
+    const handle = await getDb();
+    const revokedCount = await revokeOtherSessionsForUser(handle.db, auth.userId, auth.sessionId);
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: 'auth.other_sessions_revoked',
+      targetType: 'user',
+      targetId: auth.userId,
+      meta: { revokedCount },
+    });
+    return c.json({ ok: true, data: { revokedCount } });
+  });
+
+  router.delete('/sessions/:sessionId', async (c) => {
+    const auth = requireCookieSession(c);
+    const targetId = parseSessionId(c.req.param('sessionId'));
+    if (targetId === auth.sessionId) {
+      throw errors.conflict('当前设备请使用退出登录');
+    }
+    const handle = await getDb();
+    // 目标不存在、已失效或不属于当前用户，一律 404，不区分泄露归属。
+    const revoked = await revokeOtherSessionForUser(handle.db, auth.userId, auth.sessionId, targetId);
+    if (!revoked) throw errors.notFound('登录会话不存在');
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: 'auth.session_revoked',
+      targetType: 'session',
+      targetId,
+    });
+    return c.json({ ok: true, data: null });
+  });
+
   // ---- GitHub OAuth -----------------------------------------------------
   router.get('/github', async (c) => {
     const env = getEnv();
@@ -682,4 +731,24 @@ function requireAgreeTerms(agreed: boolean | undefined): void {
       ],
     });
   }
+}
+
+/**
+ * Cookie-only 门禁：登录设备管理接口只认普通 Session Cookie。
+ * 未登录 401；Bearer API 密钥（即使属于站长）一律 403——设备接口不是脚本接口。
+ */
+function requireCookieSession(c: Context): NonNullable<AppVariables['auth']> {
+  const auth = c.get('auth');
+  if (!auth) throw errors.unauthenticated();
+  if (auth.viaApiKey) throw errors.forbidden('登录设备管理只支持浏览器/客户端会话，API 密钥无权访问');
+  return auth;
+}
+
+/** 路径里的会话 ID 必须是合法 UUID。 */
+function parseSessionId(raw: string): string {
+  const result = z.uuid().safeParse(raw);
+  if (!result.success) {
+    throw errors.validation({ issues: [{ path: 'sessionId', message: '会话 ID 格式不正确' }] });
+  }
+  return result.data;
 }

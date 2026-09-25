@@ -34,6 +34,7 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 |---|---|
 | `PublicUser` | `id`, `username`, `displayName`, `role: member\|admin\|owner`, `level`, `state`, `avatarPath`, `bio`, `hasPassword`, `createdAt`。不含邮箱和密码散列。 |
 | `ProfileUser` | `PublicUser` 加 `email`, `inviteBound`, `inviteCode`, `oauthProviders`, `homepageMd`, `followingVisibility`, `followersVisibility`, `homepageVisibility`（均为 `public\|mutual\|private`）、`mutedUntil`, `muteReason`, `bannedUntil`, `banReason`, `themeColour`, `themeMode`。 |
+| `SessionView` | 登录设备管理的会话摘要（一次登录 = 一条会话）：`id`, `device`（由 User-Agent 推断的简短展示名，仅用于显示）、`ip`（未知为 `null`）、`createdAt`, `lastUsedAt`（可为 `null`）、`expiresAt`, `isCurrent`。时间均为 ISO 8601。绝不包含 Cookie、Token 或 `token_hash`。 |
 | `UserProfile` | `id`, `username`, `displayName`, `avatarPath`, `bio`, `homepageMd`, `role`, `level`, `state`, `createdAt`, `postCount`, `likeReceivedCount`, `followerCount`, `followingCount`, `viewerFollowsTarget`, `targetFollowsViewer`, `followingVisibility`, `followersVisibility`, `homepageVisibility`, `followingListVisible`, `followersListVisible`, `homepageVisible`, `badges`, `isSelf`。 |
 | `FollowedUser` | `id`, `username`, `displayName`, `avatarPath`, `role`, `level`, `bio`, `followsViewer`。 |
 | `Board` | `id`, `slug`, `name`, `description`, `parent_id`, `sort_order`, `access_policy`, `topic_count`, `post_count`, `posting_policy`, `archived_at`, `created_at`, `updated_at`，另加解析后的 `policy`；公开列表不含已归档版块。 |
@@ -67,6 +68,9 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | `POST /api/auth/resend-verification` | 公开；IP 限流 | JSON：`email`；可选 `captchaToken`（当前路由不校验该字段） | `null`；无论邮箱是否存在均相同。 |
 | `POST /api/auth/login` | 公开；IP 限流 | JSON：`login`, `password`；可选 `captchaToken`, `rememberMe`；`agreeTerms` 必须为 `true` | `{ user: PublicUser, needsVerification, expiresAt }`，并设置 Session Cookie。注销冷静期内登录会自动取消注销；已过期处罚自动解除。 |
 | `POST /api/auth/logout` | 可选会话 | 无 | `null`；有会话则撤销服务端会话，并清除 Cookie。幂等。 |
+| `GET /api/auth/sessions` | 登录；仅 Session Cookie（Bearer API 密钥 403） | 无 | `{ sessions: SessionView[] }`。只返回当前账号未撤销、未过期的会话（一次登录 = 一条会话）；当前会话排第一并标记 `isCurrent`，其余按最近活跃（无记录看创建时间）倒序。`device` 仅由 User-Agent 作展示推断，不参与鉴权。 |
+| `POST /api/auth/sessions/revoke-others` | 登录；仅 Session Cookie（Bearer API 密钥 403） | 无 | `{ revokedCount }`。一键退出本账号其他所有有效会话（当前会话不受影响，退出当前会话请用 `POST /api/auth/logout`）；重复调用返回 `revokedCount: 0`。 |
+| `DELETE /api/auth/sessions/:sessionId` | 登录；仅 Session Cookie（Bearer API 密钥 403） | Path `sessionId`（UUID） | `null`。退出指定的其他设备：目标是当前会话返回 409，目标不存在、已失效或不属于当前用户返回 404。撤销后目标端 REST 请求立即返回未登录；已建立的 WebSocket 连接最迟约 30 秒后的下一次会话校验时断开。 |
 | `GET /api/auth/me` | 登录 | 无 | `{ user: PublicUser & { themeColour, themeMode } }`。 |
 | `POST /api/auth/delete-account` | 登录 | JSON：可选 `captchaToken` | `null`；发送确认邮件，确认后进入 3 天冷静期；禁言/封禁状态可能阻止操作。 |
 | `POST /api/auth/delete-account/confirm` | 公开 | JSON：`token` | `null`；确认注销并进入冷静期。 |
