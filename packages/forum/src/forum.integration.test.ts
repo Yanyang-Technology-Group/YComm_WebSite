@@ -246,6 +246,37 @@ describe('posts', () => {
     expect(await getPostCount(handle.db, author)).toBe(12); // topic + reply
   });
 
+  it('主题详情按时间顺序从上到下（楼主在最上面，最新的回复在最下面）', async () => {
+    const boardId = await seedBoard();
+    const author = await seedUser('post-order', { postCount: 10 });
+    const { topic } = await createTopic(handle.db, {
+      boardId,
+      authorId: author,
+      authorPostCount: 10,
+      authorRole: 'member',
+      title: '顺序测试',
+      contentMd: 'op',
+    });
+    await createPost(handle.db, {
+      topicId: topic.id,
+      authorId: author,
+      authorPostCount: 10,
+      authorRole: 'member',
+      contentMd: 'first-reply',
+    });
+    await createPost(handle.db, {
+      topicId: topic.id,
+      authorId: author,
+      authorPostCount: 10,
+      authorRole: 'member',
+      contentMd: 'second-reply',
+    });
+
+    const { posts } = await listPosts(handle.db, topic.id, {});
+    expect(posts.map((post) => post.content_md)).toEqual(['op', 'first-reply', 'second-reply']);
+    expect(posts.map((post) => post.position)).toEqual([1, 2, 3]);
+  });
+
   it('edit keeps a revision and a window; expired edits are refused', async () => {
     const boardId = await seedBoard();
     const author = await seedUser('author', { postCount: 10 });
