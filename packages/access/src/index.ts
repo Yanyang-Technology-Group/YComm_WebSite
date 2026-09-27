@@ -66,9 +66,40 @@ export function assertSubjectCanAct(
  * ② The resource policy gate.
  *
  * Decides whether a *subject* may even SEE a resource. Invite-locked resources
- * require an `access_grants` row unless the subject is admin/owner (staff
- * override — they manage the resource, locking them out would be absurd).
+ * (`visibility: 'invite'` or `requireInvite`) require the account to have
+ * filled in an invite code, unless the subject is admin/owner (staff override —
+ * they manage the resource, locking them out would be absurd).
  */
+
+/**
+ * 邀请码解锁判定：管理员/站长直接放行；否则要么持有本资源的 `access_grants`，
+ * 要么账号填写过注册码（`invite_code_uses`，与卡片「需邀请码」同一套语义）。
+ */
+async function hasInviteUnlock(
+  db: Db,
+  subject: AccessSubject,
+  resource: ResourceLike,
+): Promise<boolean> {
+  if (subject.role === 'admin' || subject.role === 'owner') return true;
+  const grants = await db
+    .select({ id: schema.accessGrants.id })
+    .from(schema.accessGrants)
+    .where(
+      and(
+        eq(schema.accessGrants.user_id, subject.id),
+        eq(schema.accessGrants.resource_type, resource.type),
+        eq(schema.accessGrants.resource_id, resource.id),
+      ),
+    )
+    .limit(1);
+  if (grants.length > 0) return true;
+  const uses = await db
+    .select({ id: schema.inviteCodeUses.id })
+    .from(schema.inviteCodeUses)
+    .where(eq(schema.inviteCodeUses.user_id, subject.id))
+    .limit(1);
+  return uses.length > 0;
+}
 
 /** Returns the AppError a view would be denied with, or null when allowed. */
 async function viewError(
@@ -76,29 +107,17 @@ async function viewError(
   subject: AccessSubject | null,
   resource: ResourceLike,
 ): Promise<AppError | null> {
+  // `visibility: 'invite'`（管理端的「需邀请码」）与 `requireInvite` 是同一件事的
+  // 两种写法，任一成立就要求账号填写过邀请码 —— 否则把板块设为「需邀请码」不生效。
+  const requireInvite = resource.policy.requireInvite || resource.policy.visibility === 'invite';
+
   if (!subject) {
-    if (resource.policy.visibility === 'public') return null;
+    if (!requireInvite && resource.policy.visibility === 'public') return null;
     return errors.loginRequired();
   }
 
-  if (resource.policy.requireInvite) {
-    const staffOverride = subject.role === 'admin' || subject.role === 'owner';
-    if (!staffOverride) {
-      const grants = await db
-        .select({ id: schema.accessGrants.id })
-        .from(schema.accessGrants)
-        .where(
-          and(
-            eq(schema.accessGrants.user_id, subject.id),
-            eq(schema.accessGrants.resource_type, resource.type),
-            eq(schema.accessGrants.resource_id, resource.id),
-          ),
-        )
-        .limit(1);
-      if (grants.length === 0) {
-        return errors.inviteRequired();
-      }
-    }
+  if (requireInvite && !(await hasInviteUnlock(db, subject, resource))) {
+    return errors.inviteRequired();
   }
 
   if (resource.policy.minLevel > 0 && subject.level < resource.policy.minLevel) {

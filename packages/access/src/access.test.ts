@@ -49,6 +49,7 @@ const PUBLIC_RESOURCE = { type: 'board' as const, id: randomUUID(), policy: { vi
 const LOGIN_RESOURCE = { type: 'board' as const, id: randomUUID(), policy: { visibility: 'login' as const, minLevel: 0, requireInvite: false } };
 const LEVEL_RESOURCE = { type: 'download_resource' as const, id: randomUUID(), policy: { visibility: 'login' as const, minLevel: 2, requireInvite: false } };
 const INVITE_RESOURCE = { type: 'download_resource' as const, id: randomUUID(), policy: { visibility: 'login' as const, minLevel: 0, requireInvite: true } };
+const VISIBILITY_INVITE_RESOURCE = { type: 'board' as const, id: randomUUID(), policy: { visibility: 'invite' as const, minLevel: 0, requireInvite: false } };
 
 beforeAll(async () => {
   const migrationsFolder = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'db', 'migrations');
@@ -57,7 +58,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  for (const table of [schema.accessGrants, schema.users]) {
+  for (const table of [schema.accessGrants, schema.inviteCodeUses, schema.inviteCodes, schema.users]) {
     await handle.db.delete(table);
   }
   subjectId = '';
@@ -110,6 +111,33 @@ describe('② resource policy gate', () => {
     await handle.db.delete(schema.accessGrants);
     await expect(
       assertCanViewResource(handle.db, subject({ role: 'admin' }), INVITE_RESOURCE),
+    ).resolves.toBeUndefined();
+  });
+
+  it('visibility=invite 的资源对没填写邀请码的账号隐藏（填写后可见，站长/管理员不受限）', async () => {
+    // 访客：看不到。
+    expect(await canViewResource(handle.db, null, VISIBILITY_INVITE_RESOURCE)).toBe(false);
+    // 已登录但没填写邀请码：看不到。
+    await expect(
+      assertCanViewResource(handle.db, subject(), VISIBILITY_INVITE_RESOURCE),
+    ).rejects.toMatchObject({ code: errors.inviteRequired().code });
+
+    // 填写（绑定）注册码后可见。
+    const [code] = await handle.db
+      .insert(schema.inviteCodes)
+      .values({ code: 'TEST-INVITE', created_by: subjectId })
+      .returning({ id: schema.inviteCodes.id });
+    if (!code) throw new Error('no invite code');
+    await handle.db
+      .insert(schema.inviteCodeUses)
+      .values({ invite_code_id: code.id, user_id: subjectId });
+    await expect(
+      assertCanViewResource(handle.db, subject(), VISIBILITY_INVITE_RESOURCE),
+    ).resolves.toBeUndefined();
+
+    // 管理员/站长不受限。
+    await expect(
+      assertCanViewResource(handle.db, subject({ role: 'admin' }), VISIBILITY_INVITE_RESOURCE),
     ).resolves.toBeUndefined();
   });
 });
