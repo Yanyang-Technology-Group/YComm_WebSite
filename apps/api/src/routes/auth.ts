@@ -42,8 +42,9 @@ import { listResourcesByAuthor } from '@ycomm/downloads';
 import { logAudit } from '@ycomm/audit';
 import type { AppVariables } from '../context';
 import { clientIp, sessionAuth } from '../middleware/session';
-import { captchaTokenFields, captchaTokenOf, verifyCaptcha } from '../middleware/captcha';
-import { rateLimitByIp } from '../middleware/rate-limit';
+import { captchaTokenFields, captchaTokenOf, verifyCaptcha, verifyCaptchaOrRefund } from '../middleware/captcha';
+import { rateLimitByIp, refundRateLimitByIp } from '../middleware/rate-limit';
+import type { RateLimitName } from '@ycomm/config';
 
 /** Parse + validate a JSON body; rejects with the shared validation shape. */
 async function parseBody<T>(c: Context, schema: z.ZodType<T>): Promise<T> {
@@ -58,6 +59,14 @@ async function parseBody<T>(c: Context, schema: z.ZodType<T>): Promise<T> {
     });
   }
   return result.data;
+}
+
+/**
+ * 人机验证 + 探测退额度：客户端（App）提交前会先不带 token 发一次，拿到
+ * `captchaToken` 字段错误再弹码重发；那次「探测」不应消耗本规则的限流额度。
+ */
+async function checkCaptcha(c: Context, rule: RateLimitName, body: unknown): Promise<void> {
+  await verifyCaptchaOrRefund(captchaTokenOf(body), () => refundRateLimitByIp(rule, clientIp(c)));
 }
 
 const registerSchema = z.object({
@@ -142,7 +151,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
 
     requireAgreeTerms(body.agreeTerms);
-    await verifyCaptcha(captchaTokenOf(body));
+    await checkCaptcha(c, 'register', body);
 
     const result = await register(handle.db, {
       username: body.username,
@@ -200,7 +209,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     const handle = await getDb();
 
     requireAgreeTerms(body.agreeTerms);
-    await verifyCaptcha(captchaTokenOf(body));
+    await checkCaptcha(c, 'login', body);
 
     let user = await findUserByLogin(handle.db, body.login);
 
@@ -705,7 +714,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   router.post('/forgot-password', rateLimitByIp('passwordReset'), async (c) => {
     const body = await parseBody(c, emailSchema);
     const handle = await getDb();
-    await verifyCaptcha(captchaTokenOf(body));
+    await checkCaptcha(c, 'passwordReset', body);
     await requestPasswordReset(handle.db, body.email);
     return c.json({ ok: true, data: null });
   });
@@ -713,7 +722,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
   router.post('/reset-password', rateLimitByIp('passwordReset'), async (c) => {
     const body = await parseBody(c, resetSchema);
     const handle = await getDb();
-    await verifyCaptcha(captchaTokenOf(body));
+    await checkCaptcha(c, 'passwordReset', body);
     await resetPassword(handle.db, body.token, body.password);
     return c.json({ ok: true, data: null });
   });

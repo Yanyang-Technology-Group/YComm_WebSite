@@ -202,10 +202,10 @@ export const RATE_LIMITS = {
     description: '登录尝试，防止撞库',
   },
   register: {
-    limit: 5,
+    limit: 10,
     windowSeconds: 3600,
     dimensions: ['ip'],
-    description: '注册请求，防止批量注册',
+    description: '注册请求，防止批量注册（人机验证探测请求不计入）',
   },
   passwordReset: {
     limit: 3,

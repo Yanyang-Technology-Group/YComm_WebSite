@@ -83,4 +83,47 @@ describe('captcha token field names', () => {
     });
     await expect(verifyCaptcha('token-2')).resolves.toBeUndefined();
   });
+
+  /**
+   * 回归测试：App 提交注册前会先不带 token「裸发」一次探测是否需要人机
+   * 验证，收到字段错误再弹码重发。那次探测必须退回限流额度，否则一次
+   * 注册花掉两次额度，几下就把用户锁在「请求过于频繁」外面。
+   */
+  describe('verifyCaptchaOrRefund', () => {
+    const enabled = {
+      endpoint: 'https://cap.example.com',
+      widgetApi: 'https://cap.example.com/api/',
+      script: 'https://cap.example.com/cap.min.js',
+    };
+
+    it('没有 token（探测请求）→ 报错并退回额度', async () => {
+      const refund = vi.fn();
+      const { verifyCaptchaOrRefund } = await loadCaptcha(enabled);
+      await expect(verifyCaptchaOrRefund(undefined, refund)).rejects.toThrow();
+      expect(refund).toHaveBeenCalledTimes(1);
+    });
+
+    it('token 无效（伪造/过期）→ 报错但不退额度', async () => {
+      vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: false }))));
+      const refund = vi.fn();
+      const { verifyCaptchaOrRefund } = await loadCaptcha(enabled);
+      await expect(verifyCaptchaOrRefund('bad-token', refund)).rejects.toThrow();
+      expect(refund).not.toHaveBeenCalled();
+    });
+
+    it('验证通过 → 不调用退款', async () => {
+      vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true }))));
+      const refund = vi.fn();
+      const { verifyCaptchaOrRefund } = await loadCaptcha(enabled);
+      await expect(verifyCaptchaOrRefund('good-token', refund)).resolves.toBeUndefined();
+      expect(refund).not.toHaveBeenCalled();
+    });
+
+    it('未配置验证码 → 直接放行，不退款', async () => {
+      const refund = vi.fn();
+      const { verifyCaptchaOrRefund } = await loadCaptcha(null);
+      await expect(verifyCaptchaOrRefund(undefined, refund)).resolves.toBeUndefined();
+      expect(refund).not.toHaveBeenCalled();
+    });
+  });
 });

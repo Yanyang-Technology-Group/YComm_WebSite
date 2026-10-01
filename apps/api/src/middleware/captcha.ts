@@ -48,3 +48,21 @@ export async function verifyCaptcha(token: string | undefined): Promise<void> {
     });
   }
 }
+
+/**
+ * 同 `verifyCaptcha`，但请求体里没有 token（客户端先「裸发」一次探测是否
+ * 需要人机验证，拿到 `captchaToken` 字段错误再弹码重发）时，把这次限流额度
+ * 退回 `refund`。否则一次注册要花掉两次额度，几下就把用户锁在「请求过于
+ * 频繁」外面。token 存在但校验失败（伪造/过期）仍然计数，不给刷接口留口子。
+ */
+export async function verifyCaptchaOrRefund(
+  token: string | undefined,
+  refund: () => void,
+): Promise<void> {
+  try {
+    await verifyCaptcha(token);
+  } catch (error) {
+    if (token === undefined) refund();
+    throw error;
+  }
+}

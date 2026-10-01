@@ -101,6 +101,24 @@ export class InMemoryRateLimiter<TRules extends Record<string, RateLimitRule>> {
     return { allowed: true };
   }
 
+  /**
+   * Give back the most recent hit for a bucket (if any).
+   *
+   * Used when a request turns out to be a "probe" that never reached the
+   * guarded action — e.g. the client first POSTs without a captcha token just
+   * to discover whether captcha is required, then retries with the token.
+   * Without a refund that single user action would burn two units of budget
+   * and lock honest users behind `RATE_LIMITED` after a couple of tries.
+   */
+  refund(ruleName: keyof TRules & string, dimension: 'ip' | 'user', key: string): void {
+    const rule = this.rules[ruleName];
+    if (!rule || !rule.dimensions.includes(dimension)) return;
+    const bucket = this.buckets.get(`${String(ruleName)}:${dimension}:${key}`);
+    if (!bucket || bucket.hits.length === 0) return;
+    bucket.hits.pop();
+    if (bucket.hits.length === 0) this.buckets.delete(`${String(ruleName)}:${dimension}:${key}`);
+  }
+
   /** Test helper: reset all state. */
   reset(): void {
     this.buckets.clear();

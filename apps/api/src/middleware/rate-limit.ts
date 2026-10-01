@@ -41,3 +41,12 @@ export const rateLimitByUser =
     apply(rule, dimension, key);
     await next();
   });
+
+/**
+ * Give back one unit of an IP-scoped budget — for requests that were already
+ * counted by `rateLimitByIp` but turned out to be probes (see
+ * `verifyCaptchaOrRefund`). No-op if the rule has no `ip` dimension.
+ */
+export function refundRateLimitByIp(rule: RateLimitName, key: string): void {
+  rateLimiter.refund(rule, 'ip', key);
+}

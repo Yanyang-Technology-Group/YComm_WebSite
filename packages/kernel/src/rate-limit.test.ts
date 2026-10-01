@@ -59,4 +59,39 @@ describe('InMemoryRateLimiter', () => {
     expect(custom.check('custom', 'ip', 'k').allowed).toBe(true);
     expect(custom.check('custom', 'ip', 'k').allowed).toBe(false);
   });
+
+  it('refund gives back one hit (probe requests do not burn budget)', () => {
+    const limiter = createRateLimiter(RULES);
+    // 5 次「探测」（不带验证码 token）每次都退回去 → 额度不变
+    for (let index = 0; index < 5; index++) {
+      expect(limiter.check('register', 'ip', 'probe').allowed).toBe(true);
+      limiter.refund('register', 'ip', 'probe');
+    }
+    // 真正的注册请求仍然被 5/小时 的额度管住
+    for (let index = 0; index < 5; index++) {
+      expect(limiter.check('register', 'ip', 'probe').allowed).toBe(true);
+    }
+    expect(limiter.check('register', 'ip', 'probe').allowed).toBe(false);
+  });
+
+  it('refund on an unknown/empty bucket is a no-op', () => {
+    const limiter = createRateLimiter(RULES);
+    limiter.refund('register', 'ip', 'never-seen');
+    limiter.refund('register', 'user', 'wrong-dimension');
+    (limiter as InMemoryRateLimiter<Record<string, RateLimitRule>>).refund('unknown-rule', 'ip', 'k');
+    expect(limiter.check('register', 'ip', 'never-seen').allowed).toBe(true);
+  });
+
+  it('refund never makes the count negative across repeated calls', () => {
+    const limiter = createRateLimiter(RULES);
+    limiter.check('register', 'ip', 'k');
+    limiter.refund('register', 'ip', 'k');
+    limiter.refund('register', 'ip', 'k');
+    limiter.refund('register', 'ip', 'k');
+    // 额度没被用掉，5 次真实请求仍全部通过
+    for (let index = 0; index < 5; index++) {
+      expect(limiter.check('register', 'ip', 'k').allowed).toBe(true);
+    }
+    expect(limiter.check('register', 'ip', 'k').allowed).toBe(false);
+  });
 });
