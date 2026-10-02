@@ -3,9 +3,11 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { apiFetch } from '../lib/api';
 import { getSession, type SessionUser } from '../lib/session';
 import { ImagePicker } from './image-picker';
+import { ModalPortal } from './modal-portal';
 
 function Notice({ error, notice }: { error: string | null; notice: string | null }) {
   if (error) return <p style={{ color: '#dc2626', fontSize: '0.9rem' }}>{error}</p>;
@@ -343,13 +345,20 @@ export function DeleteTopicButton({
 /** 左下角固定「发新主题」浮钮：点击弹出发布框。 */
 export function NewTopicFab({ boardSlug }: { boardSlug: string }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const button = (
+    <button type="button" className="fab-bottom-left" onClick={() => setOpen(true)}>
+      ✏ 发新主题
+    </button>
+  );
+
   return (
     <>
-      <button type="button" className="fab-bottom-left" onClick={() => setOpen(true)}>
-        ✏ 发新主题
-      </button>
+      {mounted ? createPortal(button, document.body) : button}
       {open && (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
+        <ModalPortal onClick={() => setOpen(false)} role="dialog" ariaModal ariaLabel="发新主题">
           <div className="modal" style={{ textAlign: 'left' }} onClick={(event) => event.stopPropagation()}>
             <button type="button" className="modal-close" onClick={() => setOpen(false)} aria-label="关闭">
               ×
@@ -357,7 +366,7 @@ export function NewTopicFab({ boardSlug }: { boardSlug: string }) {
             <h2 className="modal-title">发新主题</h2>
             <NewTopicForm boardSlug={boardSlug} />
           </div>
-        </div>
+        </ModalPortal>
       )}
     </>
   );

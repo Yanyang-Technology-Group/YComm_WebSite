@@ -31,7 +31,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
       <h1 className="page-title">{board?.name ?? slug}</h1>
       {board && <p className="muted">{board.description}</p>}
 
-      {topics.length === 0 && <p className="muted">还没有主题，点右下角「发新主题」来发第一帖吧。</p>}
+      {topics.length === 0 && <p className="muted">还没有主题，点左下角「发新主题」来发第一帖吧。</p>}
       {topics.map((topic) => (
         <TopicRow key={topic.id} topic={topic} slug={slug} />
       ))}
