@@ -1770,9 +1770,11 @@ input:-webkit-autofill {
   box-shadow: none;
 }
 
-/* 主题页平铺：整块内容铺满更宽的容器，右侧不留大片空白 */
+/* 主题页平铺：整块内容铺满更宽的容器，右侧不留大片空白。
+   宽度必须和 .forum-shell 那条规则一致 —— 这条在后面、优先级相同，之前写死
+   1280px 会把主题详情页的论坛外壳重新压窄，两侧栏也就拖不到 90% 了。 */
 .site-main:has(.topic-page) {
-  max-width: 1280px;
+  max-width: max(1440px, 90vw);
 }
 
 .page-title {
