@@ -44,10 +44,16 @@ export function NewTopicForm({ boardSlug }: { boardSlug: string }) {
     setNotice(null);
     const targetForm = event.currentTarget;
     const form = new FormData(targetForm);
+    const scheduledRaw = schedule ? String(form.get('scheduledAt') ?? '') : '';
+    const scheduledDate = scheduledRaw ? new Date(scheduledRaw) : null;
+    if (schedule && (!scheduledDate || Number.isNaN(scheduledDate.getTime()))) {
+      setError('请选择有效的发布时间');
+      return;
+    }
     const payload = {
       title: String(form.get('title') ?? ''),
       content: String(form.get('content') ?? ''),
-      scheduledAt: schedule ? new Date(String(form.get('scheduledAt') ?? '')).toISOString() : undefined,
+      scheduledAt: scheduledDate ? scheduledDate.toISOString() : undefined,
     };
     try {
       const data = await apiFetch<{ topic: { id: string; status: string }; needsReview: boolean }>(
