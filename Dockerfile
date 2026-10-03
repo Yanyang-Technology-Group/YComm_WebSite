@@ -17,6 +17,10 @@ FROM docker.m.daocloud.io/library/node:22-bookworm-slim
 
 WORKDIR /app
 
+# 上传目录固定在卷挂载点上。npm 跑 workspace 脚本时 cwd 会变成 apps/web，
+# 用相对路径会让图片写到容器可写层，重建即丢（见 docker-compose.yml 注释）。
+ENV UPLOAD_DIR=/app/uploads
+
 # Install once; cache the layer by copying manifests first.
 ENV NPM_CONFIG_CACHE=/tmp/npm-cache
 COPY package.json package-lock.json ./

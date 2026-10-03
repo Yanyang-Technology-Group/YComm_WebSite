@@ -37,6 +37,10 @@ services:
       NODE_ENV: production
       DATABASE_DRIVER: postgres
       DATABASE_URL: postgres://ycomm:${DB_PASSWORD:?}@db:5432/ycomm
+      # 必须写绝对路径：npm run <script> --workspace 会把进程 cwd 换到 apps/web，
+      # 用默认的 ./uploads 就落到 /app/apps/web/uploads —— 那是容器可写层，不在下面
+      # 的 uploads 卷里，容器一重建（每次 redeploy）用户上传的图片就全 404。
+      UPLOAD_DIR: /app/uploads
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
       SITE_URL: ${SITE_URL:?set public HTTPS SITE_URL in .env}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-__Host-ycomm_session}
