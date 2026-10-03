@@ -7,7 +7,6 @@ import { createPortal } from 'react-dom';
 import { apiFetch } from '../lib/api';
 import { getSession, type SessionUser } from '../lib/session';
 import { ImagePicker } from './image-picker';
-import { ModalPortal } from './modal-portal';
 
 function Notice({ error, notice }: { error: string | null; notice: string | null }) {
   if (error) return <p style={{ color: '#dc2626', fontSize: '0.9rem' }}>{error}</p>;
@@ -30,72 +29,123 @@ function insertAtCursor(el: HTMLTextAreaElement | null, snippet: string): void {
   el.selectionEnd = caret;
 }
 
-export function NewTopicForm({ boardSlug }: { boardSlug: string }) {
+/**
+ * 发新主题（整页，不再是弹窗）。
+ *
+ * 只保留「标题 → 正文 → 发布」三步：标题独占一行、正文拿到整栏宽度和高度，
+ * 定时发布 / 插图 / 发布按钮全部收进正文下方的一行，页面尽量少装饰。
+ */
+export function NewTopicComposer({ boardSlug, boardName }: { boardSlug: string; boardName?: string }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const [schedule, setSchedule] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState('');
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     setError(null);
     setNotice(null);
-    const targetForm = event.currentTarget;
-    const form = new FormData(targetForm);
-    const scheduledRaw = schedule ? String(form.get('scheduledAt') ?? '') : '';
-    const scheduledDate = scheduledRaw ? new Date(scheduledRaw) : null;
-    if (schedule && (!scheduledDate || Number.isNaN(scheduledDate.getTime()))) {
-      setError('请选择有效的发布时间');
+    const form = new FormData(event.currentTarget);
+    const title = String(form.get('title') ?? '').trim();
+    const content = String(form.get('content') ?? '').trim();
+    if (title.length < 2) {
+      setError('标题至少需要 2 个字');
       return;
     }
-    const payload = {
-      title: String(form.get('title') ?? ''),
-      content: String(form.get('content') ?? ''),
-      scheduledAt: scheduledDate ? scheduledDate.toISOString() : undefined,
-    };
+    if (!content) {
+      setError('正文还不能为空');
+      return;
+    }
+    let scheduledIso: string | undefined;
+    if (schedule) {
+      const when = scheduledAt ? new Date(scheduledAt) : null;
+      if (!when || Number.isNaN(when.getTime())) {
+        setError('请选择有效的发布时间');
+        return;
+      }
+      scheduledIso = when.toISOString();
+    }
+    setBusy(true);
     try {
       const data = await apiFetch<{ topic: { id: string; status: string }; needsReview: boolean }>(
         `/api/forum/boards/${boardSlug}/topics`,
-        { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) },
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ title, content, ...(scheduledIso ? { scheduledAt: scheduledIso } : {}) }),
+        },
       );
       if (data.needsReview || data.topic.status === 'scheduled') {
-        setNotice(data.needsReview ? '主题已提交审核，发布时间已记录' : '主题已安排定时发布');
-        targetForm.reset();
+        formRef.current?.reset();
         setSchedule(false);
+        setScheduledAt('');
+        setNotice(
+          data.needsReview
+            ? '已提交审核，通过后才会公开显示'
+            : `已安排定时发布${scheduledIso ? `：${new Date(scheduledIso).toLocaleString()}` : ''}`,
+        );
         return;
       }
-      startTransition(() => router.push(`/forum/${boardSlug}/${data.topic.id}`));
+      router.push(`/forum/${boardSlug}/${data.topic.id}`);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '操作失败');
+      setError(caught instanceof Error ? caught.message : '发布失败，请稍后重试');
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={submit} style={{ display: 'grid', gap: '0.5rem', maxWidth: 560 }}>
-      <input name="title" placeholder="标题" required maxLength={120} style={field} />
+    <form ref={formRef} className="topic-composer" onSubmit={submit}>
+      <input
+        className="topic-composer-title"
+        name="title"
+        placeholder="标题"
+        required
+        maxLength={120}
+        autoFocus
+      />
       <textarea
         ref={contentRef}
+        className="topic-composer-body"
         name="content"
-        placeholder="内容（支持 Markdown，可插入图片）"
+        placeholder={`正文，支持 Markdown${boardName ? `（发布到 ${boardName}）` : ''}`}
         required
-        rows={6}
-        style={field}
       />
-      <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <input type="checkbox" checked={schedule} onChange={(event) => setSchedule(event.target.checked)} />
-        定时发布
-      </label>
-      {schedule && <input name="scheduledAt" type="datetime-local" required min={localDateTimeValue(new Date(Date.now() + 60 * 60 * 1000))} max={localDateTimeValue(new Date(new Date().setMonth(new Date().getMonth() + 3)))} style={field} />}
-      <Notice error={error} notice={notice} />
-      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
-        <button type="submit" disabled={pending} style={{ width: 120, padding: '0.4rem' }}>
-          {pending ? '发布中…' : '发布主题'}
+      <div className="topic-composer-bar">
+        <label className="topic-composer-check">
+          <input
+            type="checkbox"
+            checked={schedule}
+            disabled={busy}
+            onChange={(event) => setSchedule(event.target.checked)}
+          />
+          定时发布
+        </label>
+        {schedule && (
+          <input
+            className="topic-composer-when"
+            type="datetime-local"
+            value={scheduledAt}
+            required
+            disabled={busy}
+            min={localDateTimeValue(new Date(Date.now() + 60 * 60 * 1000))}
+            max={localDateTimeValue(new Date(new Date().setMonth(new Date().getMonth() + 3)))}
+            onChange={(event) => setScheduledAt(event.target.value)}
+          />
+        )}
+        <span className="topic-composer-gap" />
+        <ImagePicker label="插入图片" media="all" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
+        <button type="submit" className="topic-composer-submit" disabled={busy}>
+          {busy ? '发布中…' : '发布主题'}
         </button>
-        <ImagePicker label="🖼 插入图片/视频" media="all" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
       </div>
+      <Notice error={error} notice={notice} />
     </form>
   );
 }
@@ -374,32 +424,16 @@ export function DeleteTopicButton({
   );
 }
 
-/** 左下角固定「发新主题」浮钮：点击弹出发布框。 */
+/** 左下角固定「发新主题」浮钮：跳到独立发布页（不再弹窗）。 */
 export function NewTopicFab({ boardSlug }: { boardSlug: string }) {
-  const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const button = (
-    <button type="button" className="fab-bottom-left" onClick={() => setOpen(true)}>
+  const link = (
+    <Link href={`/forum/${boardSlug}/new`} className="fab-bottom-left">
       ✏ 发新主题
-    </button>
+    </Link>
   );
 
-  return (
-    <>
-      {mounted ? createPortal(button, document.body) : button}
-      {open && (
-        <ModalPortal onClick={() => setOpen(false)} role="dialog" ariaModal ariaLabel="发新主题">
-          <div className="modal" style={{ textAlign: 'left' }} onClick={(event) => event.stopPropagation()}>
-            <button type="button" className="modal-close" onClick={() => setOpen(false)} aria-label="关闭">
-              ×
-            </button>
-            <h2 className="modal-title">发新主题</h2>
-            <NewTopicForm boardSlug={boardSlug} />
-          </div>
-        </ModalPortal>
-      )}
-    </>
-  );
+  return mounted ? createPortal(link, document.body) : link;
 }

@@ -13,7 +13,26 @@ interface BoardNav {
 }
 
 const COL_MIN = 160;
-const COL_MAX = 380;
+/** 侧栏最宽可拖到外壳的 90%（旧上限写死 380px，宽屏上根本不够用）。 */
+const COL_MAX_RATIO = 0.9;
+/** 中间正文区至少留出的宽度，避免两侧都拖到极限时把正文挤没。 */
+const MAIN_MIN = 280;
+/** 两条分隔条合计宽度（各 10px）。 */
+const RESIZER_TOTAL = 20;
+const LEFT_FALLBACK = 200;
+const RIGHT_FALLBACK = 250;
+
+/** 某一侧栏在当前外壳宽度下的最大宽度。 */
+function maxColumnWidth(shellWidth: number, otherWidth: number): number {
+  return Math.max(
+    COL_MIN,
+    Math.min(shellWidth * COL_MAX_RATIO, shellWidth - RESIZER_TOTAL - MAIN_MIN - otherWidth),
+  );
+}
+
+function clampColumn(value: number, max: number): number {
+  return Math.min(max, Math.max(COL_MIN, Math.round(value)));
+}
 
 /**
  * 论坛三栏外壳（可自定义宽度）：
@@ -29,6 +48,12 @@ export function ForumShell({ children }: { children: React.ReactNode }) {
   const [dragging, setDragging] = useState<'left' | 'right' | null>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<'left' | 'right' | null>(null);
+  /** 始终指向最新的栏宽：pointerup 时用它写 localStorage（state 在监听器里是旧的）。 */
+  const widthsRef = useRef<{ left: number | null; right: number | null }>({ left: null, right: null });
+
+  useEffect(() => {
+    widthsRef.current = { left: leftW, right: rightW };
+  }, [leftW, rightW]);
 
   useEffect(() => {
     void apiFetch<{ boards: BoardNav[] }>('/api/forum/boards')
@@ -36,11 +61,19 @@ export function ForumShell({ children }: { children: React.ReactNode }) {
       .catch(() => setBoards([]));
     try {
       const saved = localStorage.getItem('ycomm_forum_cols');
-      if (saved) {
-        const parsed = JSON.parse(saved) as { left?: number; right?: number };
-        setLeftW(typeof parsed.left === 'number' ? parsed.left : null);
-        setRightW(typeof parsed.right === 'number' ? parsed.right : null);
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as { left?: number; right?: number };
+      const left = typeof parsed.left === 'number' ? parsed.left : null;
+      const right = typeof parsed.right === 'number' ? parsed.right : null;
+      // 存过的宽度可能超过当前窗口允许的上限（换小屏、改过上限），载入时先夹一次。
+      const shellWidth = shellRef.current?.getBoundingClientRect().width ?? 0;
+      if (shellWidth <= 0) {
+        setLeftW(left);
+        setRightW(right);
+        return;
       }
+      if (left !== null) setLeftW(clampColumn(left, maxColumnWidth(shellWidth, right ?? RIGHT_FALLBACK)));
+      if (right !== null) setRightW(clampColumn(right, maxColumnWidth(shellWidth, left ?? LEFT_FALLBACK)));
     } catch {
       /* 忽略损坏的存储 */
     }
@@ -49,19 +82,19 @@ export function ForumShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!dragging) return;
 
-    function clamp(value: number): number {
-      return Math.min(COL_MAX, Math.max(COL_MIN, Math.round(value)));
-    }
-
     function onMove(event: PointerEvent) {
       const shell = shellRef.current;
       if (!shell) return;
       const rect = shell.getBoundingClientRect();
       const x = event.clientX - rect.left;
       if (dragRef.current === 'left') {
-        setLeftW(clamp(x));
+        const width = clampColumn(x, maxColumnWidth(rect.width, widthsRef.current.right ?? RIGHT_FALLBACK));
+        widthsRef.current.left = width;
+        setLeftW(width);
       } else if (dragRef.current === 'right') {
-        setRightW(clamp(rect.right - event.clientX));
+        const width = clampColumn(rect.right - event.clientX, maxColumnWidth(rect.width, widthsRef.current.left ?? LEFT_FALLBACK));
+        widthsRef.current.right = width;
+        setRightW(width);
       }
     }
 
@@ -69,7 +102,10 @@ export function ForumShell({ children }: { children: React.ReactNode }) {
       setDragging(null);
       document.body.style.cursor = '';
       try {
-        localStorage.setItem('ycomm_forum_cols', JSON.stringify({ left: leftW, right: rightW }));
+        localStorage.setItem(
+          'ycomm_forum_cols',
+          JSON.stringify({ left: widthsRef.current.left, right: widthsRef.current.right }),
+        );
       } catch {
         /* 忽略 */
       }

@@ -1164,7 +1164,8 @@ a.uname:hover,
 
 /* ===== 论坛三栏：可拖拽调宽 ===== */
 .site-main:has(.forum-shell) {
-  max-width: 1440px;
+  /* 宽屏上不再固定 1440px 封顶：论坛区最多可以占到视口的 90%。 */
+  max-width: max(1440px, 90vw);
   padding-left: 0.75rem;
   padding-right: 0.75rem;
 }
@@ -2493,6 +2494,9 @@ html[data-anim='theme'] .page-anim > * {
   left: 1.5rem;
   bottom: 1.5rem;
   z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   background: var(--accent-strong);
   color: #fff;
   border: none;
@@ -2501,11 +2505,99 @@ html[data-anim='theme'] .page-anim > * {
   font-weight: 600;
   box-shadow: var(--shadow);
   cursor: pointer;
+  text-decoration: none;
   transition: background 0.15s ease;
 }
 
 .fab-bottom-left:hover {
   background: var(--accent);
+}
+
+/* ===== 发新主题（整页）：标题 + 宽正文 + 一行操作 ===== */
+.topic-composer {
+  display: grid;
+  gap: 0.85rem;
+  max-width: 1000px;
+  margin-top: 1rem;
+}
+
+.topic-composer-title {
+  width: 100%;
+  padding: 0.8rem 0.95rem;
+  font-size: 1.3rem;
+  font-weight: 650;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.topic-composer-body {
+  width: 100%;
+  min-height: 24rem;
+  padding: 0.95rem;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  resize: vertical;
+}
+
+.topic-composer-title:focus,
+.topic-composer-body:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.topic-composer-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.topic-composer-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.topic-composer-when {
+  padding: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.topic-composer-gap {
+  flex: 1;
+}
+
+.topic-composer-submit {
+  padding: 0.6rem 1.6rem;
+  font-weight: 650;
+  color: #fff;
+  background: var(--accent-strong);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.topic-composer-submit:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.topic-composer-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* ===== 管理后台：功能入口行 ===== */
