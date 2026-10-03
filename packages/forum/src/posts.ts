@@ -51,6 +51,14 @@ export async function createPost(db: Db, input: CreatePostInput): Promise<PostRo
     if (!topic) throw errors.notFound('主题不存在');
     if (topic.is_locked) throw errors.forbidden('主题已锁定，无法回复');
     if (topic.status !== 'published') throw errors.forbidden('主题当前不可回复');
+    if (input.replyToPostId) {
+      const target = await tx.select({ id: schema.posts.id }).from(schema.posts).where(and(
+        eq(schema.posts.id, input.replyToPostId),
+        eq(schema.posts.topic_id, input.topicId),
+        eq(schema.posts.status, 'published'),
+      )).limit(1);
+      if (!target[0]) throw errors.notFound('回复目标不存在');
+    }
 
     const [maxRow] = await tx
       .select({ max: sql<number>`coalesce(max(${schema.posts.position}), 0)` })
@@ -144,6 +152,7 @@ export async function listTopicPreviews(db: Db, topicIds: string[]): Promise<Map
       authorUsername: schema.users.username,
       authorDisplayName: schema.users.display_name,
       authorAvatarPath: schema.users.avatar_path,
+      likeCount: sql<number>`(select count(*)::int from reactions r where r.target_type = 'post' and r.kind = 'like' and r.target_id = ${schema.posts.id})`,
     })
     .from(schema.posts)
     .leftJoin(schema.users, eq(schema.posts.author_id, schema.users.id))
@@ -246,6 +255,7 @@ export async function listPosts(
       authorUsername: schema.users.username,
       authorDisplayName: schema.users.display_name,
       authorAvatarPath: schema.users.avatar_path,
+      likeCount: sql<number>`(select count(*)::int from reactions r where r.target_type = 'post' and r.kind = 'like' and r.target_id = ${schema.posts.id})`,
     })
     .from(schema.posts)
     .leftJoin(schema.users, eq(schema.posts.author_id, schema.users.id))

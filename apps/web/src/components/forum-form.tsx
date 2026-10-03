@@ -16,6 +16,7 @@ function Notice({ error, notice }: { error: string | null; notice: string | null
 }
 
 const field: React.CSSProperties = { padding: '0.4rem', fontSize: '0.95rem' };
+const localDateTimeValue = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 
 /** 在 textarea 光标处插入文本。 */
 function insertAtCursor(el: HTMLTextAreaElement | null, snippet: string): void {
@@ -33,21 +34,32 @@ export function NewTopicForm({ boardSlug }: { boardSlug: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const [schedule, setSchedule] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const form = new FormData(event.currentTarget);
+    setNotice(null);
+    const targetForm = event.currentTarget;
+    const form = new FormData(targetForm);
     const payload = {
       title: String(form.get('title') ?? ''),
       content: String(form.get('content') ?? ''),
+      scheduledAt: schedule ? new Date(String(form.get('scheduledAt') ?? '')).toISOString() : undefined,
     };
     try {
-      const data = await apiFetch<{ topic: { id: string }; needsReview: boolean }>(
+      const data = await apiFetch<{ topic: { id: string; status: string }; needsReview: boolean }>(
         `/api/forum/boards/${boardSlug}/topics`,
         { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) },
       );
+      if (data.needsReview || data.topic.status === 'scheduled') {
+        setNotice(data.needsReview ? '主题已提交审核，发布时间已记录' : '主题已安排定时发布');
+        targetForm.reset();
+        setSchedule(false);
+        return;
+      }
       startTransition(() => router.push(`/forum/${boardSlug}/${data.topic.id}`));
       router.refresh();
     } catch (caught) {
@@ -66,7 +78,12 @@ export function NewTopicForm({ boardSlug }: { boardSlug: string }) {
         rows={6}
         style={field}
       />
-      <Notice error={error} notice={null} />
+      <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input type="checkbox" checked={schedule} onChange={(event) => setSchedule(event.target.checked)} />
+        定时发布
+      </label>
+      {schedule && <input name="scheduledAt" type="datetime-local" required min={localDateTimeValue(new Date(Date.now() + 60 * 60 * 1000))} max={localDateTimeValue(new Date(new Date().setMonth(new Date().getMonth() + 3)))} style={field} />}
+      <Notice error={error} notice={notice} />
       <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <button type="submit" disabled={pending} style={{ width: 120, padding: '0.4rem' }}>
           {pending ? '发布中…' : '发布主题'}
@@ -77,11 +94,12 @@ export function NewTopicForm({ boardSlug }: { boardSlug: string }) {
   );
 }
 
-export function ReplyForm({ topicId }: { topicId: string }) {
+export function ReplyForm({ topicId, posts = [] }: { topicId: string; posts?: { id: string; position: number; authorDisplayName: string | null; authorUsername: string | null }[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const [replyToPostId, setReplyToPostId] = useState('');
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -92,7 +110,7 @@ export function ReplyForm({ topicId }: { topicId: string }) {
       await apiFetch<{ post: { id: string } }>(`/api/forum/topics/${topicId}/posts`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, ...(replyToPostId ? { replyToPostId } : {}) }),
       });
       form.set('content', '');
       event.currentTarget.reset();
@@ -104,6 +122,10 @@ export function ReplyForm({ topicId }: { topicId: string }) {
 
   return (
     <form onSubmit={submit} style={{ display: 'grid', gap: '0.5rem', maxWidth: 640 }}>
+      <select value={replyToPostId} onChange={(event) => setReplyToPostId(event.target.value)} style={field} aria-label="回复哪条帖子">
+        <option value="">回复整个主题</option>
+        {posts.map((post) => <option key={post.id} value={post.id}>回复 #{post.position} · {post.authorDisplayName ?? post.authorUsername ?? '访客'}</option>)}
+      </select>
       <textarea
         ref={contentRef}
         name="content"
@@ -123,9 +145,10 @@ export function ReplyForm({ topicId }: { topicId: string }) {
   );
 }
 
-export function LikeButton({ postId, initialLiked }: { postId: string; initialLiked: boolean }) {
+export function LikeButton({ postId, initialLiked, initialCount = 0 }: { postId: string; initialLiked: boolean; initialCount?: number }) {
   const router = useRouter();
   const [liked, setLiked] = useState(initialLiked);
+  const [count, setCount] = useState(initialCount);
   const [busy, setBusy] = useState(false);
   /** null=已确定未登录；undefined=还没查；SessionUser=已登录。 */
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
@@ -150,6 +173,7 @@ export function LikeButton({ postId, initialLiked }: { postId: string; initialLi
     try {
       await apiFetch(`/api/forum/posts/${postId}/${liked ? 'unlike' : 'like'}`, { method: 'POST' });
       setLiked(!liked);
+      setCount((value) => Math.max(0, value + (liked ? -1 : 1)));
       router.refresh();
     } catch (caught) {
       alert(caught instanceof Error ? caught.message : '操作失败');
@@ -168,7 +192,7 @@ export function LikeButton({ postId, initialLiked }: { postId: string; initialLi
         title={liked ? '取消点赞' : '点赞'}
         aria-label={liked ? '取消点赞' : '点赞'}
       >
-        {liked ? '♥' : '♡'}
+        {liked ? '♥' : '♡'} {count}
       </button>
 
       {showLoginPrompt && (
@@ -202,12 +226,14 @@ export function LikeButton({ postId, initialLiked }: { postId: string; initialLi
 }
 
 /** 转发：把当前页面链接复制到剪贴板（纯图标按钮）；登录用户同时上报分享通知给楼主。 */
-export function ShareButton({ text, topicId }: { text?: string; topicId?: string }) {
+export function ShareButton({ text, topicId, initialCount = 0 }: { text?: string; topicId?: string; initialCount?: number }) {
   const [copied, setCopied] = useState(false);
+  const [count, setCount] = useState(initialCount);
 
   async function share() {
     try {
       await navigator.clipboard.writeText(window.location.href);
+      if (topicId) setCount((value) => value + 1);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
       // 分享事件上报：通知楼主（失败静默，不打断复制）。
@@ -229,7 +255,7 @@ export function ShareButton({ text, topicId }: { text?: string; topicId?: string
       title={text ?? '转发（复制链接）'}
       aria-label={text ?? '转发（复制链接）'}
     >
-      {copied ? '✓' : '↗'}
+      {copied ? '✓' : '↗'} {count}
     </button>
   );
 }

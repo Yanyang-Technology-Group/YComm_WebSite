@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
 import { getDb, schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import { PERMISSION } from '@ycomm/config';
@@ -85,6 +86,7 @@ function rankOf(text: string, lower: string): number {
 const createTopicSchema = z.object({
   title: z.string().min(1).max(120),
   content: z.string().min(1).max(100_000),
+  scheduledAt: z.string().datetime().optional(),
 });
 
 const createPostSchema = z.object({
@@ -171,6 +173,15 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
     // 发帖权限：仅管理员/站长的版块，普通用户与游客不能发主题。
     assertCanPostInBoard(auth?.subject ?? null, board);
 
+    const scheduledAt = body.scheduledAt ? new Date(body.scheduledAt) : null;
+    if (scheduledAt) {
+      const now = new Date();
+      const max = new Date(now);
+      max.setMonth(max.getMonth() + 3);
+      if (scheduledAt.getSeconds() !== 0 || scheduledAt.getMilliseconds() !== 0 || scheduledAt < new Date(now.getTime() + 60 * 60 * 1000) || scheduledAt > max) {
+        throw errors.validation({ issues: [{ path: 'scheduledAt', message: '定时发布时间需在 1 小时至 3 个月后，精确到分钟' }] });
+      }
+    }
     const result = await createTopic(handle.db, {
       boardId: board.id,
       authorId,
@@ -178,6 +189,7 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
       authorRole,
       title: body.title,
       contentMd: body.content,
+      scheduledAt,
     });
 
     return c.json({ ok: true, data: result }, 201);
@@ -194,7 +206,8 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
     if (!board) throw errors.notFound('主题不存在');
     await assertCanViewResource(handle.db, subject, { type: 'board', id: board.id, policy: board.policy });
 
-    await incrementViewCount(handle.db, topic.id);
+    const visitorKey = c.get('auth')?.userId ?? createHash('sha256').update(`${clientIp(c)}|${c.req.header('user-agent') ?? ''}`).digest('hex');
+    if (await incrementViewCount(handle.db, topic.id, visitorKey)) topic.view_count += 1;
     const { posts } = await listPosts(handle.db, topic.id, {
       offset: Number.parseInt(c.req.query('offset') ?? '0', 10) || 0,
     });
@@ -206,7 +219,8 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
         if (await hasLiked(handle.db, post.id, auth.userId)) likedPostIds.push(post.id);
       }
       // 浏览通知：自己看自己的主题不发；同一浏览者 24 小时只提醒一次（避免刷屏）。
-      if (topic.author_id && topic.author_id !== auth.userId) {
+      const recipientPrefs = topic.author_id ? await handle.db.select({ enabled: schema.users.notify_views }).from(schema.users).where(eq(schema.users.id, topic.author_id)).limit(1) : [];
+      if (topic.author_id && topic.author_id !== auth.userId && recipientPrefs[0]?.enabled !== false) {
         const already = await hasRecentNotification(handle.db, {
           userId: topic.author_id,
           kind: 'view',
@@ -237,7 +251,11 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
       authorBadges: post.author_id ? (badges.get(post.author_id) ?? []) : [],
     }));
 
-    return c.json({ ok: true, data: { topic, posts: postsWithBadges, likedPostIds } });
+    const counts = await handle.db.select({
+      likes: sql<number>`count(*) filter (where ${schema.reactions.target_type} = 'post' and ${schema.reactions.kind} = 'like')::int`,
+      shares: sql<number>`count(*) filter (where ${schema.reactions.target_type} = 'topic' and ${schema.reactions.kind} = 'share')::int`,
+    }).from(schema.reactions).where(inArray(schema.reactions.target_id, [topic.id, ...posts.map((post) => post.id)]));
+    return c.json({ ok: true, data: { topic, posts: postsWithBadges, likedPostIds, counts: { shares: counts[0]?.shares ?? 0 } } });
   });
 
   // ---- reply -----------------------------------------------------------
@@ -378,6 +396,9 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
     assertSubjectCanAct(auth.subject);
     const topic = await getTopicById(handle.db, c.req.param('topicId'));
     if (!topic || topic.status !== 'published') throw errors.notFound('主题不存在');
+    await handle.db.insert(schema.reactions)
+      .values({ user_id: auth.userId, target_type: 'topic', target_id: topic.id, kind: 'share' })
+      .onConflictDoNothing();
     if (topic.author_id && topic.author_id !== auth.userId) {
       const already = await hasRecentNotification(handle.db, {
         userId: topic.author_id,
@@ -397,7 +418,10 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
         });
       }
     }
-    return c.json({ ok: true, data: { shared: true } });
+    const [count] = await handle.db.select({ count: sql<number>`count(*)::int` }).from(schema.reactions).where(
+      and(eq(schema.reactions.target_id, topic.id), eq(schema.reactions.target_type, 'topic'), eq(schema.reactions.kind, 'share')),
+    );
+    return c.json({ ok: true, data: { shared: true, shareCount: count?.count ?? 0 } });
   });
 
   router.post('/posts/:postId/unlike', requireAuth, async (c) => {

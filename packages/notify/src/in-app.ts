@@ -43,6 +43,21 @@ export interface CreateNotificationInput {
 }
 
 export async function createNotification(db: Db, input: CreateNotificationInput): Promise<void> {
+  const preference = input.isAdmin || input.kind === 'system'
+    ? schema.users.notify_official
+    : input.kind === 'view'
+      ? schema.users.notify_views
+      : input.kind === 'reply'
+        ? schema.users.notify_comments
+        : input.kind === 'like'
+          ? schema.users.notify_likes
+          : input.kind === 'share'
+            ? schema.users.notify_shares
+            : null;
+  if (preference) {
+    const rows = await db.select({ enabled: preference }).from(schema.users).where(eq(schema.users.id, input.userId)).limit(1);
+    if (rows[0]?.enabled === false) return;
+  }
   await db.insert(schema.notifications).values({
     user_id: input.userId,
     kind: input.kind,

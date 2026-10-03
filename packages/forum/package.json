@@ -18,6 +18,7 @@
     "@ycomm/config": "*",
     "@ycomm/db": "*",
     "@ycomm/kernel": "*",
+    "@ycomm/jobs": "*",
     "@ycomm/moderation": "*"
   }
 }

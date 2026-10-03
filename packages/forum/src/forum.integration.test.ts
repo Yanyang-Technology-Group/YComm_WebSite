@@ -15,6 +15,7 @@ import {
   moderateTopic,
   searchTopics,
   registerForumDeciders,
+  incrementViewCount,
 } from './index';
 
 let handle: DatabaseHandle;
@@ -64,6 +65,7 @@ afterEach(async () => {
     schema.topics,
     schema.boards,
     schema.reactions,
+    schema.topicViews,
     schema.users,
   ]) {
     await handle.db.delete(table);
@@ -71,6 +73,41 @@ afterEach(async () => {
 });
 
 describe('topics', () => {
+  it('scheduled topics remain hidden and enqueue one publication job', async () => {
+    const boardId = await seedBoard();
+    const author = await seedUser('scheduled-author', { postCount: 10 });
+    const scheduledAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const result = await createTopic(handle.db, {
+      boardId,
+      authorId: author,
+      authorPostCount: 10,
+      authorRole: 'member',
+      title: '定时发布主题',
+      contentMd: '稍后发布',
+      scheduledAt,
+    });
+    expect(result.topic.status).toBe('scheduled');
+    expect(result.post.status).toBe('scheduled');
+    const jobs = await handle.db.select().from(schema.jobs).where(eq(schema.jobs.kind, 'forum.publish_scheduled_topic'));
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.run_at.toISOString()).toBe(scheduledAt.toISOString());
+    expect(await listTopics(handle.db, { boardId })).toMatchObject({ topics: [], total: 0 });
+  });
+
+  it('counts each visitor only once per topic', async () => {
+    const boardId = await seedBoard();
+    const author = await seedUser('view-author', { postCount: 10 });
+    const result = await createTopic(handle.db, {
+      boardId, authorId: author, authorPostCount: 10, authorRole: 'member',
+      title: '浏览去重主题', contentMd: '内容',
+    });
+    await incrementViewCount(handle.db, result.topic.id, 'visitor-a');
+    await incrementViewCount(handle.db, result.topic.id, 'visitor-a');
+    await incrementViewCount(handle.db, result.topic.id, 'visitor-b');
+    const [topic] = await handle.db.select().from(schema.topics).where(eq(schema.topics.id, result.topic.id));
+    expect(topic?.view_count).toBe(2);
+  });
+
   it('列表按发表时间倒序（越新越靠上）；置顶仍在最前；回复不改变主题顺序', async () => {
     const boardId = await seedBoard();
     const author = await seedUser('timeline');

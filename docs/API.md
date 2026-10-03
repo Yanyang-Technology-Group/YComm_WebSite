@@ -97,13 +97,13 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 |---|---|---|---|
 | `GET /api/forum/boards` | 公开/可选会话 | 无 | `{ boards: Board[] }`，按访问策略过滤。 |
 | `GET /api/forum/boards/:slug/topics` | 公开/可选会话；须可见版块 | Path `slug`；Query `offset` 默认 0，`limit` 默认 20、最大 100 | `{ total, topics }`，每个主题含 `preview`。 |
-| `POST /api/forum/boards/:slug/topics` | 公开版块允许游客；登录用户须 `FORUM_TOPIC_CREATE` 且账号可操作；用户/IP 策略限流 | Path `slug`；JSON：`title` 1–120（领域层实际要求 2–120）、`content` 1–100000 | HTTP 201；`{ topic, post, needsReview }`。新会员内容可能进入审核；违禁词拦截；`postingPolicy=staff` 仅管理员/站长。 |
-| `GET /api/forum/topics/:topicId` | 公开/可选会话；须可见所属版块 | Path `topicId`；Query `offset` 默认 0；每次固定最多 50 条帖子（路由不接受 `limit`） | `{ topic, posts, likedPostIds }`；增加浏览数；登录访问他人主题可能产生去重的浏览通知。帖子含作者徽章。当前响应不返回帖子总数。 |
-| `POST /api/forum/topics/:topicId/posts` | 公开版块允许游客；登录用户须 `FORUM_POST_CREATE`；限流 | Path `topicId`；JSON：`content` 1–100000，可选 `replyToPostId` | HTTP 201；`{ post }`。锁定/非发布主题不可回复；新会员内容可能待审核；可能通知主题作者。 |
+| `POST /api/forum/boards/:slug/topics` | 公开版块允许游客；登录用户须 `FORUM_TOPIC_CREATE` 且账号可操作；用户/IP 策略限流 | Path `slug`；JSON：`title` 1–120、`content` 1–100000；可选 `scheduledAt` ISO datetime，需在 1 小时至 3 个月后且精确到分钟 | HTTP 201；`{ topic, post, needsReview }`。可定时发布；新会员内容可能进入审核；违禁词拦截；`postingPolicy=staff` 仅管理员/站长。 |
+| `GET /api/forum/topics/:topicId` | 公开/可选会话；须可见所属版块 | Path `topicId`；Query `offset` 默认 0；每次固定最多 50 条帖子（路由不接受 `limit`） | `{ topic, posts, likedPostIds, counts: { shares } }`；每个账号/匿名访客标识只计一次浏览；登录访问他人主题可能产生去重的浏览通知。帖子含 `likeCount` 与作者徽章。当前响应不返回帖子总数。 |
+| `POST /api/forum/topics/:topicId/posts` | 公开版块允许游客；登录用户须 `FORUM_POST_CREATE`；限流 | Path `topicId`；JSON：`content` 1–100000，可选同主题且已发布的 `replyToPostId` | HTTP 201；`{ post }`。锁定/非发布主题不可回复；新会员内容可能待审核；可能通知主题作者。 |
 | `PATCH /api/forum/posts/:postId` | 登录；仅作者 | Path `postId`；JSON：`content` 1–100000；`replyToPostId` 可传但编辑逻辑忽略 | `{ post }`；保存编辑历史并检查违禁词。 |
 | `DELETE /api/forum/posts/:postId` | 登录；自己的帖子需 `FORUM_POST_DELETE_OWN`，他人/游客帖子需 `FORUM_POST_DELETE_ANY` | Path `postId` | `null`；软删除并审计，管理员删他人帖子会通知作者。 |
 | `POST /api/forum/posts/:postId/like` | 登录；账号可操作 | Path `postId` | `{ liked: true }`；幂等并可能通知作者。 |
-| `POST /api/forum/topics/:topicId/share` | 登录；账号可操作 | Path `topicId` | `{ shared: true }`；对同一分享者 24 小时去重通知。 |
+| `POST /api/forum/topics/:topicId/share` | 登录；账号可操作 | Path `topicId` | `{ shared: true, shareCount }`；同一账号只计一次分享，对同一分享者 24 小时去重通知。 |
 | `POST /api/forum/posts/:postId/unlike` | 登录 | Path `postId` | `{ liked: false }`；幂等。 |
 | `POST /api/forum/topics/:topicId/action` | 登录；按动作要求置顶、锁定、删除任意内容或移动主题权限 | Path `topicId`；JSON：`action: pin\|unpin\|lock\|unlock\|delete\|move`；移动时必须 `boardId` | `{ topic }`；写审计，删除他人主题会通知作者。 |
 | `DELETE /api/forum/topics/:topicId` | 登录；自己的主题需 `FORUM_POST_DELETE_OWN`，他人/游客主题需 `FORUM_POST_DELETE_ANY` | Path `topicId` | `null`；软删除并审计。 |
@@ -150,6 +150,8 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | `POST /api/users/:username/follow` | 登录 | Path `username` | `{ following: true }`；幂等，不能关注自己，写审计。 |
 | `POST /api/users/:username/unfollow` | 登录 | Path `username` | `{ following: false }`；幂等，写审计。 |
 | `GET /api/users` | 公开 | Query：可选 `q`, `offset` 默认 0；`limit` 固定 20 | `{ items, total }`；item 为 `id`, `username`, `displayName`, `avatarPath`, `role`, `level`。注意该静态根路由与 `/:username` 的匹配由 Hono 路由器处理。 |
+| `GET /api/users/me/notification-preferences` | 登录 | 无 | `{ preferences: { views, comments, likes, shares, official } }`。 |
+| `PATCH /api/users/me/notification-preferences` | 登录 | JSON：上述五个布尔字段均可选 | `{ preferences }`；只更新提交的字段。 |
 
 ## 通知 `/api/notifications`
 

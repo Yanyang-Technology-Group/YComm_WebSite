@@ -74,6 +74,11 @@ export const users = pgTable(
      * 关掉后：导航栏搜索、用户搜索里都不出现；主页本身仍可通过链接直接访问。
      */
     searchable: boolean('searchable').notNull().default(true),
+    notify_views: boolean('notify_views').notNull().default(true),
+    notify_comments: boolean('notify_comments').notNull().default(true),
+    notify_likes: boolean('notify_likes').notNull().default(true),
+    notify_shares: boolean('notify_shares').notNull().default(true),
+    notify_official: boolean('notify_official').notNull().default(true),
     created_at: createdAtColumn(),
     updated_at: updatedAtColumn(),
     last_seen_at: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }),

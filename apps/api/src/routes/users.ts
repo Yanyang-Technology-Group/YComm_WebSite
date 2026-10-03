@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { getDb, schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import {
@@ -38,6 +39,37 @@ async function resolveUsername(db: Db, username: string) {
 export function usersRoutes(): Hono<{ Variables: AppVariables }> {
   const router = new Hono<{ Variables: AppVariables }>();
   router.use('*', sessionAuth);
+
+  router.get('/me/notification-preferences', requireAuth, async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const handle = await getDb();
+    const rows = await handle.db.select({
+      views: schema.users.notify_views,
+      comments: schema.users.notify_comments,
+      likes: schema.users.notify_likes,
+      shares: schema.users.notify_shares,
+      official: schema.users.notify_official,
+    }).from(schema.users).where(eq(schema.users.id, auth.userId)).limit(1);
+    return c.json({ ok: true, data: { preferences: rows[0] } });
+  });
+
+  router.patch('/me/notification-preferences', requireAuth, async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const parsed = z.object({ views: z.boolean().optional(), comments: z.boolean().optional(), likes: z.boolean().optional(), shares: z.boolean().optional(), official: z.boolean().optional() }).safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) throw errors.validation({ issues: parsed.error.issues.map((issue) => ({ path: issue.path.join('.') || '(root)', message: issue.message })) });
+    const patch = Object.fromEntries(Object.entries(parsed.data).map(([key, value]) => [`notify_${key}`, value]));
+    const handle = await getDb();
+    const [preferences] = await handle.db.update(schema.users).set(patch).where(eq(schema.users.id, auth.userId)).returning({
+      views: schema.users.notify_views,
+      comments: schema.users.notify_comments,
+      likes: schema.users.notify_likes,
+      shares: schema.users.notify_shares,
+      official: schema.users.notify_official,
+    });
+    return c.json({ ok: true, data: { preferences } });
+  });
 
   router.get('/:username', async (c) => {
     const handle = await getDb();

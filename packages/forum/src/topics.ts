@@ -3,6 +3,7 @@ import { schema, type Db } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
 import { MODERATION } from '@ycomm/config';
 import { enqueueForReview } from '@ycomm/moderation';
+import { enqueue } from '@ycomm/jobs';
 import { newTopicSlug } from './slug';
 import { bumpUserStats } from './counters';
 import { assertNoBannedWords, loadBannedWords } from './banned-words';
@@ -26,6 +27,7 @@ export interface CreateTopicInput {
   authorRole: 'member' | 'admin' | 'owner' | 'guest';
   title: string;
   contentMd: string;
+  scheduledAt?: Date | null;
 }
 
 export interface CreateTopicResult {
@@ -58,7 +60,8 @@ export async function createTopic(db: Db, input: CreateTopicInput): Promise<Crea
         author_id: input.authorId,
         title,
         slug: newTopicSlug(),
-        status: needsReview ? 'pending' : 'published',
+        status: needsReview ? 'pending' : input.scheduledAt ? 'scheduled' : 'published',
+        scheduled_at: input.scheduledAt ?? null,
       })
       .returning();
     if (!topic) throw errors.internal(undefined, 'topic insert failed');
@@ -70,7 +73,7 @@ export async function createTopic(db: Db, input: CreateTopicInput): Promise<Crea
         author_id: input.authorId,
         position: 1,
         content_md: contentMd,
-        status: needsReview ? 'pending' : 'published',
+        status: needsReview ? 'pending' : input.scheduledAt ? 'scheduled' : 'published',
       })
       .returning();
     if (!post) throw errors.internal(undefined, 'post insert failed');
@@ -89,6 +92,12 @@ export async function createTopic(db: Db, input: CreateTopicInput): Promise<Crea
         targetType: 'topic',
         targetId: topic.id,
         reason: 'new_user_review',
+      });
+    }
+    if (input.scheduledAt && !needsReview) {
+      await enqueue(tx as unknown as Db, 'forum.publish_scheduled_topic', {
+        runAt: input.scheduledAt,
+        payload: { topicId: topic.id },
       });
     }
 
@@ -115,6 +124,7 @@ const TOPIC_WITH_AUTHOR_COLUMNS = {
   is_pinned: schema.topics.is_pinned,
   is_locked: schema.topics.is_locked,
   status: schema.topics.status,
+  scheduled_at: schema.topics.scheduled_at,
   reply_count: schema.topics.reply_count,
   view_count: schema.topics.view_count,
   last_post_at: schema.topics.last_post_at,
@@ -159,11 +169,17 @@ export async function listTopics(
   return { topics, total: totals[0]?.n ?? 0 };
 }
 
-export async function incrementViewCount(db: Db, topicId: string): Promise<void> {
-  await db
-    .update(schema.topics)
-    .set({ view_count: sql`${schema.topics.view_count} + 1` })
-    .where(eq(schema.topics.id, topicId));
+export async function incrementViewCount(db: Db, topicId: string, visitorKey: string): Promise<boolean> {
+  const inserted = await db.insert(schema.topicViews)
+    .values({ topic_id: topicId, visitor_key: visitorKey })
+    .onConflictDoNothing()
+    .returning({ topic_id: schema.topicViews.topic_id });
+  if (inserted.length > 0) {
+    await db.update(schema.topics)
+      .set({ view_count: sql`${schema.topics.view_count} + 1` })
+      .where(eq(schema.topics.id, topicId));
+  }
+  return inserted.length > 0;
 }
 
 export type TopicModerationAction = 'pin' | 'unpin' | 'lock' | 'unlock' | 'delete' | 'move';

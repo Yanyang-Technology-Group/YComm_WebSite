@@ -38,6 +38,7 @@ interface Post {
   content_md: string;
   created_at: string;
   edited_at: string | null;
+  likeCount: number;
 }
 
 export default async function TopicPage({
@@ -46,7 +47,7 @@ export default async function TopicPage({
   params: Promise<{ slug: string; topicId: string }>;
 }) {
   const { slug, topicId } = await params;
-  const result = await apiGet<{ topic: Topic; posts: Post[]; likedPostIds: string[] }>(
+  const result = await apiGet<{ topic: Topic; posts: Post[]; likedPostIds: string[]; counts: { shares: number } }>(
     `/api/forum/topics/${topicId}`,
   );
   const topic = result.data?.topic;
@@ -136,8 +137,8 @@ export default async function TopicPage({
             </div>
 
             <div className="post-actions">
-              <LikeButton postId={post.id} initialLiked={liked.includes(post.id)} />
-              <ShareButton topicId={topic.id} />
+              <LikeButton postId={post.id} initialLiked={liked.includes(post.id)} initialCount={post.likeCount ?? 0} />
+              <ShareButton topicId={topic.id} initialCount={result.data?.counts?.shares ?? 0} />
               <DeletePostButton postId={post.id} authorId={post.author_id} />
             </div>
 
@@ -158,7 +159,7 @@ export default async function TopicPage({
       ) : (
         <div style={{ marginTop: '1.5rem' }}>
           <h2 className="section-title">回复</h2>
-          <ReplyForm topicId={topic.id} />
+          <ReplyForm topicId={topic.id} posts={posts.map(({ id, position, authorDisplayName, authorUsername }) => ({ id, position, authorDisplayName, authorUsername }))} />
         </div>
       )}
     </div>

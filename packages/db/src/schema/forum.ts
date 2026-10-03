@@ -14,7 +14,7 @@ import { accessPolicyJsonb } from './access';
 import { createdAtColumn, deletedAtColumn, updatedAtColumn } from './helpers';
 import { users } from './identity';
 
-export const contentStatusEnum = pgEnum('content_status', ['published', 'pending', 'deleted', 'hidden']);
+export const contentStatusEnum = pgEnum('content_status', ['published', 'pending', 'scheduled', 'deleted', 'hidden']);
 
 export const boards = pgTable(
   'boards',
@@ -63,6 +63,7 @@ export const topics = pgTable(
     is_pinned: boolean('is_pinned').notNull().default(false),
     is_locked: boolean('is_locked').notNull().default(false),
     status: contentStatusEnum('status').notNull().default('published'),
+    scheduled_at: timestamp('scheduled_at', { withTimezone: true, mode: 'date' }),
     reply_count: integer('reply_count').notNull().default(0),
     view_count: integer('view_count').notNull().default(0),
     last_post_at: timestamp('last_post_at', { withTimezone: true, mode: 'date' }),
@@ -143,4 +144,14 @@ export const reactions = pgTable(
     // from the same table the posts are judged on.
     index('reactions_kind_created_idx').on(table.kind, table.created_at),
   ],
+);
+
+export const topicViews = pgTable(
+  'topic_views',
+  {
+    topic_id: uuid('topic_id').notNull().references(() => topics.id, { onDelete: 'cascade' }),
+    visitor_key: text('visitor_key').notNull(),
+    created_at: createdAtColumn(),
+  },
+  (table) => [uniqueIndex('topic_views_topic_visitor_unique').on(table.topic_id, table.visitor_key)],
 );
