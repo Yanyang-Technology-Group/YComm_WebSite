@@ -93,6 +93,15 @@ describe('authenticated notification websocket', () => {
     await db.db.update(schema.users).set({ state }).where(eq(schema.users.id, userId));
     expect(await rejected(connect())).toBe(403);
   });
+  it('rejects users whose email is not verified yet', async () => {
+    await db.db.update(schema.users).set({ state: 'unverified' }).where(eq(schema.users.id, userId));
+    expect(await rejected(connect())).toBe(403);
+  });
+  it('rejects a session on a device the account has not confirmed', async () => {
+    // 待确认的新设备：HTTP 侧 403 DEVICE_UNVERIFIED，实时推送同样不放行。
+    const pending = (await createSession(db.db, { userId, userAgent: 'Chrome/154.0.0.0', deviceHash: 'untrusted-device' })).rawToken;
+    expect(await rejected(connect(`${env.SESSION_COOKIE_NAME}=${pending}`))).toBe(403);
+  });
   it('honours expiry of temporary bans', async () => {
     await db.db.update(schema.users).set({ state: 'banned', banned_until: new Date(0) }).where(eq(schema.users.id, userId));
     expect((await ready(connect())).type).toBe('ready');

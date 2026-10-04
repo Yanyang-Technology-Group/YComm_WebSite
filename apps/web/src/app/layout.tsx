@@ -8,6 +8,7 @@ import { SearchBox } from '../components/search-box';
 import { ThemeSync } from '../components/theme-toggle';
 import { GuestPrompt } from '../components/guest-prompt';
 import { PageTransition } from '../components/page-transition';
+import { VerificationGate } from '../components/verification-gate';
 import './globals.css';
 
 /** 首帧前应用本地主题（避免闪白）；账号主题由 ThemeSync 登录后校正。 */
@@ -70,7 +71,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </header>
         <main className="site-main">
-          <PageTransition>{children}</PageTransition>
+          {/* 未验证邮箱 / 未确认新设备时，用引导页替代内容（服务端同样会 403 拦下） */}
+          <VerificationGate>
+            <PageTransition>{children}</PageTransition>
+          </VerificationGate>
         </main>
         <footer className="site-footer">
           <div className="site-footer-inner">

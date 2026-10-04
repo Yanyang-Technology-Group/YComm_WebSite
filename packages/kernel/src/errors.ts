@@ -18,6 +18,7 @@ export const ErrorCodes = {
 
   // account state gate (step 1 of the access decision chain)
   ACCOUNT_UNVERIFIED: 'ACCOUNT_UNVERIFIED',
+  DEVICE_UNVERIFIED: 'DEVICE_UNVERIFIED',
   ACCOUNT_MUTED: 'ACCOUNT_MUTED',
   ACCOUNT_BANNED: 'ACCOUNT_BANNED',
 
@@ -230,6 +231,18 @@ export const errors = {
       code: ErrorCodes.ACCOUNT_UNVERIFIED,
       httpStatus: 403,
       message: '请先验证邮箱',
+      expose: true,
+    }),
+
+  /**
+   * 这个会话是在一台该账号没见过的设备上建立的，还没点邮箱里的确认链接。
+   * 与「邮箱没验证」区分开：这里邮箱是好的，要确认的是「这次登录是不是本人」。
+   */
+  deviceUnverified: () =>
+    new AppError({
+      code: ErrorCodes.DEVICE_UNVERIFIED,
+      httpStatus: 403,
+      message: '这台设备需要先用邮箱确认才能使用，请查收确认邮件',
       expose: true,
     }),
 

@@ -105,6 +105,12 @@ export const sessions = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     ip: text('ip'),
     user_agent: text('user_agent'),
+    /**
+     * 设备指纹（User-Agent 抹掉版本号后取 sha256），新设备登录要先用邮箱确认。
+     * NULL = 加这个字段之前建立的老会话，一律按「已信任」处理 —— 否则上线瞬间
+     * 所有在用会话都会被自己的新设备闸门拦住。
+     */
+    device_hash: text('device_hash'),
     created_at: createdAtColumn(),
     expires_at: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
     last_used_at: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
@@ -116,6 +122,32 @@ export const sessions = pgTable(
     index('sessions_active_idx')
       .on(table.expires_at)
       .where(sql`${table.revoked_at} IS NULL`),
+  ],
+);
+
+/**
+ * 受信任的设备：同一账号在同一浏览器/客户端登录并完成邮箱确认之后才会有行。
+ *
+ * 新设备登录（该账号从没见过的指纹）要先用邮箱确认一次，防止密码泄露后被人
+ * 在异地直接登进来。撤销一行 = 该设备下次登录重新确认（同时吊销它的会话）。
+ */
+export const trustedDevices = pgTable(
+  'trusted_devices',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    user_id: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** 设备指纹，与 sessions.device_hash 同一套算法。 */
+    device_hash: text('device_hash').notNull(),
+    /** 展示名（由 User-Agent 推断，例如「Chrome · Windows」）。 */
+    label: text('label').notNull().default(''),
+    first_seen_at: createdAtColumn(),
+    last_seen_at: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('trusted_devices_user_device_unique').on(table.user_id, table.device_hash),
+    index('trusted_devices_user_idx').on(table.user_id),
   ],
 );
 
@@ -145,11 +177,13 @@ export const emailTokens = pgTable(
     user_id: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    /** verify_email | reset_password | change_email */
+    /** verify_email | reset_password | change_email | delete_account | verify_device */
     purpose: text('purpose').notNull(),
     token_hash: text('token_hash').notNull().unique(),
     /** Target address for change_email, NULL otherwise. */
     new_email: text('new_email'),
+    /** 只用于 verify_device：这次登录所在设备的指纹（确认后写进 trusted_devices）。 */
+    device_hash: text('device_hash'),
     expires_at: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
     used_at: timestamp('used_at', { withTimezone: true, mode: 'date' }),
     created_at: createdAtColumn(),

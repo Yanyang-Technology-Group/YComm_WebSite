@@ -209,20 +209,43 @@ export async function reviveIfPendingDeletion(db: Db, user: UserRecord): Promise
   return updated ?? null;
 }
 
+/**
+ * 立刻把账号标记为已注销：释放用户名/邮箱、吊销全部会话、断开第三方绑定。
+ *
+ * 站长手动注销与「未验证邮箱到期自动注销」共用这一段 —— 两条路必须让位得一样干净，
+ * 否则同一个用户名 / 同一个 GitHub 会永远卡在一个没人能登录的账号上。
+ */
+async function markAccountDeleted(db: Db, user: UserRecord): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.users)
+      // 立即生效：同样释放用户名/邮箱，本人之后可以用原邮箱重新注册。
+      .set({ state: 'deleted', deleted_at: new Date(), ...releasedIdentity(user), updated_at: new Date() })
+      .where(eq(schema.users.id, user.id));
+    await revokeAllSessionsForUser(tx as unknown as Db, user.id);
+    // GitHub 等第三方绑定也让位，同一个 GitHub 之后可以绑到别的账号。
+    await releaseOAuthLinks(tx as unknown as Db, user.id);
+  });
+}
+
 /** 站长直接注销某个账号：立即生效、无冷静期（owner 自己被保护）。 */
 export async function deleteAccountNow(db: Db, userId: string): Promise<void> {
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
   if (!user || user.state === 'deleted') throw errors.notFound('账号不存在');
   if (user.role === 'owner') throw errors.forbidden('不能注销站长账号');
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(schema.users)
-      // 立即生效：同样释放用户名/邮箱，本人之后可以用原邮箱重新注册。
-      .set({ state: 'deleted', deleted_at: new Date(), ...releasedIdentity(user), updated_at: new Date() })
-      .where(eq(schema.users.id, userId));
-    await revokeAllSessionsForUser(tx as unknown as Db, userId);
-    // GitHub 等第三方绑定也让位，同一个 GitHub 之后可以绑到别的账号。
-    await releaseOAuthLinks(tx as unknown as Db, userId);
-  });
+  await markAccountDeleted(db, user);
+}
+
+/**
+ * 未验证邮箱的账号到期自动注销（注册满宽限期仍未验证）。
+ *
+ * 只对 `unverified` 生效：中途验证过的账号已经是 active，这里直接跳过。
+ * 返回是否真的注销了，方便清道夫任务统计。
+ */
+export async function purgeUnverifiedAccount(db: Db, userId: string): Promise<boolean> {
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user || user.state !== 'unverified') return false;
+  await markAccountDeleted(db, user);
+  return true;
 }

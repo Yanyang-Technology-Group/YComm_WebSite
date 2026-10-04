@@ -8,7 +8,13 @@
 
 API 当前没有 `/v1` 版本前缀，属于当前应用契约。除下文标出的文件流、重定向和健康检查外，成功响应均为 `{ "ok": true, "data": ... }`；错误响应均为 `{ "ok": false, "error": { "code": string, "messageKey": string, "meta": object, "message"?: string } }`。内部错误返回 HTTP 500，`error` 为 `{ code: "INTERNAL", message: "Internal server error", traceId }`。不存在的路由返回 HTTP 404。
 
-常见错误码包括 `VALIDATION_FAILED`（400）、`UNAUTHENTICATED` / `ACCESS_LOGIN_REQUIRED`（401）、`FORBIDDEN`、`ACCOUNT_UNVERIFIED`、`ACCOUNT_MUTED`、`ACCOUNT_BANNED`、`ACCESS_LEVEL_TOO_LOW`、`ACCESS_INVITE_REQUIRED`（403）、`NOT_FOUND`（404）、`CONFLICT` / `NOT_INITIALIZED`（409）、`PAYLOAD_TOO_LARGE`（413）、`UNSUPPORTED_MEDIA_TYPE`（415）和 `RATE_LIMITED`（429）。权限受账号状态、角色、等级、邀请码和资源可见性共同约束。
+常见错误码包括 `VALIDATION_FAILED`（400）、`UNAUTHENTICATED` / `ACCESS_LOGIN_REQUIRED`（401）、`FORBIDDEN`、`ACCOUNT_UNVERIFIED`、`DEVICE_UNVERIFIED`、`ACCOUNT_MUTED`、`ACCOUNT_BANNED`、`ACCESS_LEVEL_TOO_LOW`、`ACCESS_INVITE_REQUIRED`（403）、`NOT_FOUND`（404）、`CONFLICT` / `NOT_INITIALIZED`（409）、`PAYLOAD_TOO_LARGE`（413）、`UNSUPPORTED_MEDIA_TYPE`（415）和 `RATE_LIMITED`（429）。权限受账号状态、角色、等级、邀请码和资源可见性共同约束。
+
+### 账号门槛：邮箱验证与新设备确认
+
+- **邮箱验证**：用邮箱注册的账号状态是 `unverified`，除验证相关的自助接口（注册、登录、退出、`verify-email`、`resend-verification`、找回/重置密码、`delete-account`、`GET /api/auth/me`）外，**一切请求返回 403 `ACCOUNT_UNVERIFIED`**。GitHub 等 OAuth 注册的账号直接是 `active`，不受此限。
+- **提醒与自动注销**：未验证期间每 6 小时补发一封提醒邮件（邮件里写明还剩多久会被自动注销）；注册满 3 天仍未验证的账号会被自动注销 —— 释放用户名/邮箱、吊销全部会话、断开第三方绑定（与站长手动注销同一套让位逻辑）。
+- **新设备确认**：会话带上 User-Agent 指纹（版本号抹掉后取 sha256，浏览器升级不算新设备）。该账号没确认过的指纹上建立的会话是「待确认设备」，除 `GET /api/auth/me`、`POST /api/auth/verify-device`、`POST /api/auth/resend-device`、`POST /api/auth/logout` 外一律 403 `DEVICE_UNVERIFIED`，直到本人点开确认邮件。密码登录与 GitHub 登录走同一条规则。升级前建立的老会话（没有指纹）视为已确认。
 
 ## 会话、Flutter 与传输安全
 
@@ -65,13 +71,17 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 |---|---|---|---|
 | `POST /api/auth/register` | 公开；IP 限流 | JSON：`username` 1–20、`email` 3–255、`password` 1–200；可选 `inviteCode`, `captchaToken`；`agreeTerms` 必须为 `true` | HTTP 201；`{ needsVerification, alreadyRegistered }`。为防账号枚举，已注册邮箱也使用相同响应形态。 |
 | `POST /api/auth/verify-email` | 公开 | JSON：`token` 1–256 | `{ user: PublicUser }`。 |
-| `POST /api/auth/resend-verification` | 公开；IP 限流 | JSON：`email`；可选 `captchaToken`（当前路由不校验该字段） | `null`；无论邮箱是否存在均相同。 |
+| `POST /api/auth/resend-verification` | 已登录（用会话里的账号，无需人机验证）或公开（带 `email` + 人机验证）；IP 限流 | 已登录：空 JSON；未登录：JSON `email`；可选 `captchaToken` | 已登录 `{ sent: true }`；未登录 `null`。未登录分支为防枚举，无论邮箱是否存在均相同。 |
+| `POST /api/auth/verify-device` | 公开；IP 限流 | JSON：`token` 1–256 | `{ confirmed: true }`。确认这台新设备：设备指纹记入受信任设备表。链接可以从任意浏览器点开（服务端只认令牌里的用户 + 设备指纹）。 |
+| `POST /api/auth/resend-device` | 登录（待确认的新设备也允许）；IP 限流 | 空 JSON | `{ sent }`；当前设备已受信任时返回 `sent: false`。账号没有可用邮箱（OAuth 占位地址）时返回校验错误。 |
+| `GET /api/auth/trusted-devices` | 登录 | 无 | `{ devices: TrustedDeviceView[], currentDeviceHash, currentDeviceTrusted }`；`TrustedDeviceView` = `id`, `label`, `firstSeenAt`, `lastSeenAt`。 |
+| `DELETE /api/auth/trusted-devices/:deviceId` | 登录；仅 Session Cookie（Bearer API 密钥 403） | Path `deviceId`（UUID） | `null`。撤销一台受信任设备，并吊销该设备上所有有效会话（相当于把人踢下线）；撤销当前设备会让当前会话一并失效。目标不存在返回 404。 |
 | `POST /api/auth/login` | 公开；IP 限流 | JSON：`login`, `password`；可选 `captchaToken`, `rememberMe`；`agreeTerms` 必须为 `true` | `{ user: PublicUser, needsVerification, expiresAt }`，并设置 Session Cookie。注销冷静期内登录会自动取消注销；已过期处罚自动解除。 |
 | `POST /api/auth/logout` | 可选会话 | 无 | `null`；有会话则撤销服务端会话，并清除 Cookie。幂等。 |
 | `GET /api/auth/sessions` | 登录；仅 Session Cookie（Bearer API 密钥 403） | 无 | `{ sessions: SessionView[] }`。只返回当前账号未撤销、未过期的会话（一次登录 = 一条会话）；当前会话排第一并标记 `isCurrent`，其余按最近活跃（无记录看创建时间）倒序。`device` 仅由 User-Agent 作展示推断，不参与鉴权。 |
 | `POST /api/auth/sessions/revoke-others` | 登录；仅 Session Cookie（Bearer API 密钥 403） | 无 | `{ revokedCount }`。一键退出本账号其他所有有效会话（当前会话不受影响，退出当前会话请用 `POST /api/auth/logout`）；重复调用返回 `revokedCount: 0`。 |
 | `DELETE /api/auth/sessions/:sessionId` | 登录；仅 Session Cookie（Bearer API 密钥 403） | Path `sessionId`（UUID） | `null`。退出指定的其他设备：目标是当前会话返回 409，目标不存在、已失效或不属于当前用户返回 404。撤销后目标端 REST 请求立即返回未登录；已建立的 WebSocket 连接最迟约 30 秒后的下一次会话校验时断开。 |
-| `GET /api/auth/me` | 登录 | 无 | `{ user: PublicUser & { themeColour, themeMode } }`。 |
+| `GET /api/auth/me` | 登录 | 无 | `{ user: PublicUser & { themeColour, themeMode }, email, needsEmailVerification, pendingDevice, verificationGraceEndsAt, verificationReminderHours }`。`needsEmailVerification` = 账号邮箱未验证（除了验证相关的自助接口，其余请求一律 403 `ACCOUNT_UNVERIFIED`）；`pendingDevice` = 这台设备还没确认（403 `DEVICE_UNVERIFIED`）；`verificationGraceEndsAt` = 未验证邮箱的自动注销时刻。 |
 | `POST /api/auth/delete-account` | 登录 | JSON：可选 `captchaToken` | `null`；发送确认邮件，确认后进入 3 天冷静期；禁言/封禁状态可能阻止操作。 |
 | `POST /api/auth/delete-account/confirm` | 公开 | JSON：`token` | `null`；确认注销并进入冷静期。 |
 | `POST /api/auth/cancel-deletion` | 登录 | 无 | `null`；冷静期内取消注销。 |

@@ -1,7 +1,8 @@
 import { Hono, type Context } from 'hono';
-import { getDb } from '@ycomm/db';
-import { logger } from '@ycomm/kernel';
+import { getDb, type Db } from '@ycomm/db';
+import { logger, type Logger } from '@ycomm/kernel';
 import { startJobWorker } from '@ycomm/jobs';
+import { sweepUnverifiedAccounts } from '@ycomm/identity';
 import { registerMailJobHandler } from '@ycomm/notify';
 import { registerForumDeciders } from '@ycomm/forum';
 import { registerDownloadDeciders } from '@ycomm/downloads';
@@ -49,6 +50,42 @@ function jsonCharset() {
 
 let booted = false;
 
+/** 未验证邮箱账号的巡检间隔：每半小时看一次，是否真的发信由「距上一封 ≥6 小时」决定。 */
+const UNVERIFIED_SWEEP_INTERVAL_MS = 30 * 60 * 1000;
+/** 启动后第一次巡检的延迟：让迁移/启动先跑完。 */
+const UNVERIFIED_SWEEP_FIRST_DELAY_MS = 15_000;
+
+/**
+ * 未验证邮箱账号的定期清理：每 6 小时提醒一次，注册满 3 天仍未验证就自动注销。
+ *
+ * 和作业队列一样是进程内的定时器：容器里只有一个应用进程，一个 interval 就是全部调度。
+ */
+function startUnverifiedAccountSweep(options: { db: Db; logger: Logger }): () => void {
+  const run = () => {
+    void sweepUnverifiedAccounts(options.db)
+      .then((result) => {
+        if (result.reminded > 0 || result.purged > 0) {
+          options.logger.info('unverified account sweep', { ...result });
+        }
+      })
+      .catch((error) => {
+        options.logger.error('unverified account sweep failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+  };
+
+  const first = setTimeout(run, UNVERIFIED_SWEEP_FIRST_DELAY_MS);
+  first.unref?.();
+  const timer = setInterval(run, UNVERIFIED_SWEEP_INTERVAL_MS);
+  // Do not keep the process alive just for the sweep.
+  timer.unref?.();
+  return () => {
+    clearTimeout(first);
+    clearInterval(timer);
+  };
+}
+
 /**
  * One-time boot: register job handlers and deciders, start the in-process
  * queue worker. Idempotent because Next.js dev re-imports modules on hot load.
@@ -64,6 +101,7 @@ function boot(): void {
   void getDb()
     .then((handle) => {
       startJobWorker({ db: handle.db, logger });
+      startUnverifiedAccountSweep({ db: handle.db, logger });
     })
     .catch((error) => {
       logger.error('job worker failed to start', {

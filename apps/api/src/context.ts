@@ -15,5 +15,12 @@ export interface AppVariables {
     viaApiKey?: boolean;
     /** 只读密钥：只允许 GET/HEAD，写操作一律 403。 */
     readOnly?: boolean;
+    /**
+     * 这台设备是否已被该账号确认过（邮箱确认过一次即永久记住）。
+     *
+     * false = 待确认的新设备，除验证相关接口外一律 403。API 密钥鉴权恒为 true
+     * （密钥本身就是账号持有人自己签发的）。
+     */
+    deviceTrusted: boolean;
   };
 }

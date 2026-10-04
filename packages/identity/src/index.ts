@@ -9,9 +9,24 @@ export {
   cancelAccountDeletion,
   confirmAccountDeletion,
   deleteAccountNow,
+  purgeUnverifiedAccount,
   requestAccountDeletion,
   reviveIfPendingDeletion,
 } from './account-deletion';
+export {
+  deviceFingerprint,
+  isDeviceTrusted,
+  listTrustedDevices,
+  revokeTrustedDevice,
+  trustDevice,
+  type TrustedDeviceView,
+} from './devices';
+export {
+  hoursUntilPurge,
+  sweepUnverifiedAccounts,
+  type UnverifiedSweepOptions,
+  type UnverifiedSweepResult,
+} from './unverified-sweep';
 export {
   adminCreateInviteCode,
   consumeInviteCode,
@@ -59,9 +74,19 @@ export {
   revokeSession,
   touchSessionIfStale,
   type NewSession,
+  type ResolvedSession,
   type SessionView,
 } from './sessions';
-export { issueVerificationTokenForUser, resendVerification, verifyEmail } from './verification';
+export {
+  isDeliverableEmail,
+  issueDeviceVerificationToken,
+  issueVerificationTokenForUser,
+  resendVerification,
+  sendVerificationReminder,
+  verifyDeviceToken,
+  verifyEmail,
+} from './verification';
+export { startSession, type StartedSession, type StartSessionInput } from './login-session';
 export {
   banUser,
   expireSanctions,

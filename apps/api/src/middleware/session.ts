@@ -9,9 +9,37 @@ import {
   touchApiKey,
   touchSessionIfStale,
 } from '@ycomm/identity';
-import { getEnv } from '@ycomm/kernel';
+import { errors, getEnv } from '@ycomm/kernel';
 import type { AccessSubject } from '@ycomm/access';
 import type { AppVariables } from '../context';
+
+/**
+ * 未验证邮箱的账号还允许调用的接口。
+ *
+ * 「绑定邮箱的账号必须验证邮箱才能用」——但验证本身、以及验证之前必须能做的
+ * 自助动作（重新登录、重发验证信、找回密码、看自己是谁、退出、注销账号）不能一起拦掉，
+ * 否则用户连验证的入口都点不到。
+ */
+const UNVERIFIED_ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
+  {
+    method: 'POST',
+    path: /^\/api\/auth\/(register|login|logout|verify-email|resend-verification|forgot-password|reset-password|delete-account|delete-account\/confirm|cancel-deletion)$/,
+  },
+  { method: 'GET', path: /^\/api\/auth\/(me|github|github\/callback)$/ },
+];
+
+/**
+ * 待确认的新设备还允许调用的接口：确认/重发确认信、看自己是谁、退出。
+ * 别的都不行 —— 这台设备还没证明是本人。
+ */
+const PENDING_DEVICE_ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
+  { method: 'POST', path: /^\/api\/auth\/(verify-device|resend-device|logout)$/ },
+  { method: 'GET', path: /^\/api\/auth\/me$/ },
+];
+
+function matches(rules: ReadonlyArray<{ method: string; path: RegExp }>, method: string, path: string): boolean {
+  return rules.some((rule) => rule.method === method.toUpperCase() && rule.path.test(path));
+}
 
 /**
  * Resolves the session cookie into `c.var.auth` when present and valid.
@@ -42,7 +70,23 @@ export const sessionAuth = createMiddleware<{ Variables: AppVariables }>(async (
         subject,
         userId: user.id,
         sessionId: found.session.id,
+        deviceTrusted: found.deviceTrusted,
       });
+
+      // 闸门 A：绑定邮箱注册的账号必须先验证邮箱，否则什么内容都看不到。
+      if (subject.state === 'unverified' && !matches(UNVERIFIED_ALLOWED, c.req.method, c.req.path)) {
+        throw errors.accountUnverified();
+      }
+      // 闸门 B：这台设备该账号没见过，先确认是本人在用（邮箱没验证时由闸门 A 负责，
+      // 那时也不再发新设备确认信，免得一次登录收两封）。
+      if (
+        subject.state !== 'unverified' &&
+        !found.deviceTrusted &&
+        !matches(PENDING_DEVICE_ALLOWED, c.req.method, c.req.path)
+      ) {
+        throw errors.deviceUnverified();
+      }
+
       // 「最近活跃」按 5 分钟节流写入（登录设备管理列表展示用）；API 密钥分支不走这里。
       await touchSessionIfStale(handle.db, found.session.id, found.session.last_used_at);
     }
@@ -88,6 +132,8 @@ export const sessionAuth = createMiddleware<{ Variables: AppVariables }>(async (
           sessionId: result.keyId,
           viaApiKey: true,
           readOnly: result.readOnly,
+          // 密钥是账号持有人自己在后台签发的，天然算「已确认的设备」。
+          deviceTrusted: true,
         });
         // 记录最近使用时间（一分钟节流）。
         await touchApiKey(handle.db, result.keyId, result.lastUsedAt);

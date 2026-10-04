@@ -2,7 +2,8 @@ import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { randomUUID } from 'node:crypto';
-import { getDb } from '@ycomm/db';
+import { getDb, type Db } from '@ycomm/db';
+import { AUTH } from '@ycomm/config';
 import { errors, ErrorCodes, getEnv, isAppError, siteUrl, logger } from '@ycomm/kernel';
 import {
   bindInviteCode,
@@ -10,16 +11,21 @@ import {
   changeEmail,
   changePassword,
   confirmAccountDeletion,
-  createSession,
+  describeDevice,
+  deviceFingerprint,
   expireSanctions,
   findOrCreateOAuthUser,
   findUserByLogin,
   getInviteBinding,
   getUserById,
   hashPassword,
+  isDeliverableEmail,
+  issueDeviceVerificationToken,
+  issueVerificationTokenForUser,
   linkOAuthAccount,
   listActiveSessionsForUser,
   listOAuthProviders,
+  listTrustedDevices,
   register,
   requestAccountDeletion,
   requestPasswordReset,
@@ -29,13 +35,19 @@ import {
   revokeOtherSessionForUser,
   revokeOtherSessionsForUser,
   revokeSession,
+  revokeTrustedDevice,
   setPassword,
   setThemePreference,
+  startSession,
   toPublicUser,
+  trustDevice,
   unlinkOAuthAccount,
   updateProfile,
+  verifyDeviceToken,
   verifyEmail,
   verifyPassword,
+  type NewSession,
+  type UserRecord,
 } from '@ycomm/identity';
 import { listPostsByAuthor, listTopicsByAuthor } from '@ycomm/forum';
 import { listResourcesByAuthor } from '@ycomm/downloads';
@@ -67,6 +79,21 @@ async function parseBody<T>(c: Context, schema: z.ZodType<T>): Promise<T> {
  */
 async function checkCaptcha(c: Context, rule: RateLimitName, body: unknown): Promise<void> {
   await verifyCaptchaOrRefund(captchaTokenOf(body), () => refundRateLimitByIp(rule, clientIp(c)));
+}
+
+/**
+ * 登录成功后统一开会话（含新设备确认信）。
+ *
+ * 实现在 `@ycomm/identity` 的 `startSession` 里：密码登录与 GitHub 回调必须走
+ * 完全一样的规则，否则换一种登录方式就能绕开「新设备要邮箱确认」。
+ */
+async function openSession(
+  db: Db,
+  user: UserRecord,
+  options: { ip?: string; userAgent?: string; ttlDays?: number },
+): Promise<NewSession> {
+  const session = await startSession(db, user, options);
+  return { rawToken: session.rawToken, expiresAt: session.expiresAt };
 }
 
 const registerSchema = z.object({
@@ -192,12 +219,47 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       targetType: 'user',
       targetId: user.id,
     });
+
+    // 在同一浏览器点开的验证链接：顺手给这台还没确认的设备发一封新设备确认信，
+    // 否则用户刚验证完邮箱、又被「新设备」拦一次，还得手动点重发。
+    const auth = c.get('auth');
+    if (auth && auth.userId === user.id && !auth.deviceTrusted) {
+      const userAgent = c.req.header('user-agent');
+      const deviceHash = deviceFingerprint(userAgent);
+      if (deviceHash && isDeliverableEmail(user.email)) {
+        await issueDeviceVerificationToken(handle.db, user, {
+          deviceHash,
+          deviceLabel: describeDevice(userAgent),
+          ip: clientIp(c),
+        });
+      }
+    }
+
     return c.json({ ok: true, data: { user: toPublicUser(user) } });
   });
 
+  /**
+   * 重发验证邮件。
+   *
+   * 两种用法：
+   * - 已登录（验证引导页上的按钮）：用会话里的账号，不需要人机验证，也不会泄漏
+   *   任何账号是否存在；
+   * - 未登录（登录页的「没收到验证邮件？」）：必须带邮箱 + 人机验证，且无论账号
+   *   存不存在都返回同一结果（防枚举）。
+   */
   router.post('/resend-verification', rateLimitByIp('emailVerificationResend'), async (c) => {
-    const body = await parseBody(c, emailSchema);
     const handle = await getDb();
+    const auth = c.get('auth');
+    if (auth) {
+      const user = await getUserById(handle.db, auth.userId);
+      if (user.state === 'unverified') {
+        await issueVerificationTokenForUser(handle.db, user);
+      }
+      return c.json({ ok: true, data: { sent: true } });
+    }
+
+    const body = await parseBody(c, emailSchema);
+    await verifyCaptcha(captchaTokenOf(body));
     await resendVerification(handle.db, body.email);
     // Enumeration-safe: same response whether or not a mail was queued.
     return c.json({ ok: true, data: null });
@@ -242,8 +304,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     if (user.state === 'banned') throw errors.accountBanned(user.ban_reason);
 
     const rememberMe = body.rememberMe === true;
-    const session = await createSession(handle.db, {
-      userId: user.id,
+    const session = await openSession(handle.db, user, {
       ip: clientIp(c),
       userAgent: c.req.header('user-agent'),
       ttlDays: rememberMe ? 15 : undefined,
@@ -288,6 +349,11 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     // 主题偏好跟着会话一起下发：前端据此把主题切成该账号自己的配色（按账号生效）。
     const handle = await getDb();
     const user = await getUserById(handle.db, auth.userId);
+    // 未验证邮箱还剩多久被自动注销：前端要显示倒计时，并告诉用户「不验证会没账号」。
+    const graceEndsAt =
+      user.state === 'unverified'
+        ? new Date(user.created_at.getTime() + AUTH.verificationGraceDays * 86400_000).toISOString()
+        : null;
     return c.json({
       ok: true,
       data: {
@@ -296,8 +362,102 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
           themeColour: user.theme_colour,
           themeMode: user.theme_mode,
         },
+        // 邮箱只回给本人（这里就是本人），前端验证引导页要显示「发到了哪个地址」。
+        email: user.email,
+        /** 账号邮箱还没验证：什么都看不了，先去验证。 */
+        needsEmailVerification: user.state === 'unverified',
+        /** 这台设备还没确认：先点邮箱里的确认链接。 */
+        pendingDevice: !auth.deviceTrusted,
+        verificationGraceEndsAt: graceEndsAt,
+        verificationReminderHours: AUTH.verificationReminderHours,
       },
     });
+  });
+
+  // ---- 新设备确认（未确认前除验证相关接口外一律 403） -------------------
+
+  /**
+   * 确认这台设备：本人点邮件里的链接回到这里。
+   *
+   * 链接可能是在别的浏览器/客户端里点开的（邮件 App 用系统浏览器打开），所以只认
+   * 令牌里的「用户 + 设备指纹」，不要求请求本身带着那个待确认的会话。
+   */
+  router.post('/verify-device', rateLimitByIp('emailVerificationResend'), async (c) => {
+    const body = await parseBody(c, verificationSchema);
+    const handle = await getDb();
+    const claim = await verifyDeviceToken(handle.db, body.token);
+    if (!claim) {
+      throw errors.validation({ issues: [{ path: 'token', message: '确认链接无效或已过期' }] });
+    }
+    // 同一浏览器点开的：用当前 UA 描述出的设备名当标签；换浏览器点开就留空，
+    // 该设备下次登录时会用当时的 UA 补上。
+    const auth = c.get('auth');
+    const label = auth?.userId === claim.userId ? describeDevice(c.req.header('user-agent')) : '';
+    await trustDevice(handle.db, claim.userId, claim.deviceHash, label);
+    await logAudit(handle.db, {
+      actorId: claim.userId,
+      actorIp: clientIp(c),
+      action: 'auth.device_confirmed',
+      targetType: 'user',
+      targetId: claim.userId,
+      meta: { label },
+    });
+    return c.json({ ok: true, data: { confirmed: true } });
+  });
+
+  /** 重发新设备确认邮件（当前会话所在的那台设备）。 */
+  router.post('/resend-device', rateLimitByIp('emailVerificationResend'), async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    if (auth.deviceTrusted) return c.json({ ok: true, data: { sent: false } });
+
+    const userAgent = c.req.header('user-agent');
+    const deviceHash = deviceFingerprint(userAgent);
+    const handle = await getDb();
+    const user = await getUserById(handle.db, auth.userId);
+    if (!deviceHash || !isDeliverableEmail(user.email)) {
+      throw errors.validation({ issues: [{ path: 'email', message: '这个账号没有可用的邮箱，无法确认设备' }] });
+    }
+    await issueDeviceVerificationToken(handle.db, user, {
+      deviceHash,
+      deviceLabel: describeDevice(userAgent),
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, data: { sent: true } });
+  });
+
+  /** 已确认（受信任）的设备列表。 */
+  router.get('/trusted-devices', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const handle = await getDb();
+    const devices = await listTrustedDevices(handle.db, auth.userId);
+    const currentHash = deviceFingerprint(c.req.header('user-agent'));
+    return c.json({
+      ok: true,
+      data: { devices, currentDeviceHash: currentHash, currentDeviceTrusted: auth.deviceTrusted },
+    });
+  });
+
+  /**
+   * 撤销一台受信任设备：它上面的会话会一起吊销（相当于把人踢下线）。
+   * 撤销当前这台设备 = 自己也会退出登录，前端要提示清楚。
+   */
+  router.delete('/trusted-devices/:deviceId', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const handle = await getDb();
+    const removed = await revokeTrustedDevice(handle.db, auth.userId, c.req.param('deviceId'));
+    if (!removed) throw errors.notFound('设备不存在');
+    await logAudit(handle.db, {
+      actorId: auth.userId,
+      actorIp: clientIp(c),
+      action: 'auth.device_revoked',
+      targetType: 'user',
+      targetId: auth.userId,
+      meta: { deviceId: c.req.param('deviceId') },
+    });
+    return c.json({ ok: true, data: null });
   });
 
   // ---- 账号注销（邮箱确认 → 3 天冷静期） --------------------------------
@@ -684,8 +844,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       user = await expireSanctions(handle.db, user);
       if (user.state === 'banned') return c.redirect('/login?oauth=banned', 302);
 
-      const session = await createSession(handle.db, {
-        userId: user.id,
+      const session = await openSession(handle.db, user, {
         ip: clientIp(c),
         userAgent: c.req.header('user-agent'),
       });

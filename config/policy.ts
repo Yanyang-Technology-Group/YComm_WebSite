@@ -362,6 +362,16 @@ export const AUTH = {
    * 期间重新登录即可取消注销，到期未登录则转为永久注销。
    */
   accountDeletionGraceDays: 3,
+  /**
+   * 未验证邮箱的宽限期：注册后这么多天内必须完成验证，否则账号被自动注销
+   * （用户名/邮箱让位，会话与第三方绑定一起释放）。OAuth（GitHub）注册的账号
+   * 直接是 active，不走这条。
+   */
+  verificationGraceDays: 3,
+  /** 未验证期间的提醒邮件间隔：注册那封之后，每这么多小时再提醒一次。 */
+  verificationReminderHours: 6,
+  /** 新设备登录确认邮件的有效期。 */
+  deviceVerificationTtlMinutes: 60,
   /** Sessions are rotated on every login (fresh token, old one revoked). */
   sessionRotateOnLogin: true,
   /**

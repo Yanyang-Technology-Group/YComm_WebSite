@@ -59,7 +59,10 @@ export function attachRealtimeServer(server: Server, options: Options = {}) {
     const found = await findSessionByToken(db, token);
     if (!found) throw new Rejection(401, 'session_invalid');
     const user = await expireSanctions(db, found.user);
-    if (!['active', 'unverified', 'muted'].includes(user.state)) throw new Rejection(403, 'user_unavailable');
+    // 邮箱没验证的账号什么都用不了（HTTP 也一样 403 ACCOUNT_UNVERIFIED）。
+    if (!['active', 'muted'].includes(user.state)) throw new Rejection(403, 'user_unavailable');
+    // 待确认的新设备同样不放行：实时推送也是内容。
+    if (!found.deviceTrusted) throw new Rejection(403, 'device_unverified');
     return user.id;
   }
   function closeClient(client: Client, code: number, reason: string) {

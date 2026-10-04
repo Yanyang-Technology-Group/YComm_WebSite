@@ -11,7 +11,7 @@ export interface NewSession {
 
 export async function createSession(
   db: Db,
-  input: { userId: string; ip?: string; userAgent?: string; ttlDays?: number },
+  input: { userId: string; ip?: string; userAgent?: string; ttlDays?: number; deviceHash?: string | null },
 ): Promise<NewSession> {
   const env = getEnv();
   const rawToken = newToken(32);
@@ -24,6 +24,7 @@ export async function createSession(
     user_id: input.userId,
     ip: input.ip ?? null,
     user_agent: input.userAgent ?? null,
+    device_hash: input.deviceHash ?? null,
     expires_at: expiresAt,
   });
 
@@ -37,15 +38,37 @@ export async function createSession(
 }
 
 /**
+ * 会话解析结果，外加「这台设备是否已确认」。
+ *
+ * `deviceTrusted` 为 false = 该账号从没确认过这个设备指纹，会话是「待确认的新设备」，
+ * 只能等本人点邮箱里的确认链接。没有指纹的老会话（升级前建立的）一律算已信任。
+ */
+export interface ResolvedSession extends SessionWithUser {
+  deviceTrusted: boolean;
+}
+
+/**
  * Resolve a session token to its user. Returns null for unknown, revoked or
  * expired sessions — the caller decides whether that is an error.
  */
-export async function findSessionByToken(db: Db, rawToken: string): Promise<SessionWithUser | null> {
+export async function findSessionByToken(db: Db, rawToken: string): Promise<ResolvedSession | null> {
   const tokenHash = hashToken(rawToken);
+  // 信任状态和会话一起查（一次往返）：left join 上该用户、该指纹的受信任设备行。
   const rows = await db
-    .select()
+    .select({
+      session: schema.sessions,
+      user: schema.users,
+      trustedDeviceId: schema.trustedDevices.id,
+    })
     .from(schema.sessions)
     .innerJoin(schema.users, eq(schema.sessions.user_id, schema.users.id))
+    .leftJoin(
+      schema.trustedDevices,
+      and(
+        eq(schema.trustedDevices.user_id, schema.sessions.user_id),
+        eq(schema.trustedDevices.device_hash, schema.sessions.device_hash),
+      ),
+    )
     .where(
       and(
         eq(schema.sessions.token_hash, tokenHash),
@@ -57,7 +80,11 @@ export async function findSessionByToken(db: Db, rawToken: string): Promise<Sess
 
   const row = rows[0];
   if (!row) return null;
-  return { session: row.sessions, user: row.users };
+  return {
+    session: row.session,
+    user: row.user,
+    deviceTrusted: row.session.device_hash === null || row.trustedDeviceId !== null,
+  };
 }
 
 export async function revokeSession(db: Db, rawToken: string): Promise<void> {

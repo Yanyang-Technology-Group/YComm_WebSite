@@ -10,9 +10,12 @@ export { createMailTransport, type MailMessage, type MailTransport } from './tra
 export { registerMailJobHandler } from './jobs';
 export { sendMail, type SendMailInput, type SendMailResult } from './send';
 export {
+  describeRemainingTime,
   renderAccountDeletion,
+  renderDeviceVerification,
   renderPasswordReset,
   renderVerifyEmail,
+  renderVerifyEmailReminder,
   type RenderedMail,
 } from './templates';
 export {

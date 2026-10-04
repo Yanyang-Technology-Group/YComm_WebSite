@@ -122,3 +122,69 @@ export function renderAccountDeletion(token: string, graceDays: number, tokenTtl
     }),
   };
 }
+
+/** 把剩余小时数说成人话：「2 天 5 小时」「5 小时」。 */
+export function describeRemainingTime(hours: number): string {
+  if (hours <= 0) return '已经到期';
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    const rest = hours % 24;
+    return rest === 0 ? `${days} 天` : `${days} 天 ${rest} 小时`;
+  }
+  return `${hours} 小时`;
+}
+
+/**
+ * 未验证邮箱的提醒邮件：注册那封之后每 N 小时补发一次，直到验证完成或账号被自动注销。
+ *
+ * 必须把「还剩多久会被注销」写清楚 —— 这是这套自动清理机制唯一的告知渠道。
+ */
+export function renderVerifyEmailReminder(
+  token: string,
+  options: { hoursLeft: number; graceDays: number; reminderHours: number; tokenTtlMinutes: number },
+): RenderedMail {
+  const branding = getSiteBranding();
+  const url = `${siteUrl()}/verify-email?token=${encodeURIComponent(token)}`;
+  const remaining = describeRemainingTime(options.hoursLeft);
+  const warning = `${remaining}后还未验证邮箱将自动注销你的账号`;
+  return {
+    subject: `请验证邮箱：${remaining}后账号将被自动注销 — ${branding.name}`,
+    text: `你在 ${branding.name} 的账号还没有验证邮箱。\n\n${warning}（注册满 ${options.graceDays} 天）。在自动注销之前完成验证即可正常使用；未验证期间账号无法访问社区。验证完成后用户名和邮箱仍然属于你。\n\n验证链接：\n${url}\n\n链接 ${options.tokenTtlMinutes} 分钟内有效。我们每 ${options.reminderHours} 小时提醒一次，直到你完成验证。`,
+    html: shell({
+      title: '请验证你的邮箱',
+      body: `<p style="margin:0 0 6px;">你在 <strong>${escapeHtml(branding.name)}</strong> 的账号还没有验证邮箱。</p>
+        <p style="margin:0 0 6px;color:#c0392b;font-weight:600;">${escapeHtml(warning)}（注册满 ${options.graceDays} 天）。</p>
+        <p style="margin:0;">完成验证前账号无法访问社区；验证之后一切照常，用户名和邮箱仍然属于你。</p>
+        ${button(url, '验证邮箱')}`,
+      note: `链接 ${options.tokenTtlMinutes} 分钟内有效。我们每 ${options.reminderHours} 小时提醒一次，直到你完成验证。`,
+    }),
+  };
+}
+
+/**
+ * 新设备登录确认：这台设备该账号从没见过，点了链接才算「本人」。
+ *
+ * 邮件里给出设备、时间和来源 IP，让本人一眼能判断是不是自己 —— 也方便发现盗号。
+ */
+export function renderDeviceVerification(
+  token: string,
+  options: { deviceLabel: string; ip: string | null; at: Date; tokenTtlMinutes: number },
+): RenderedMail {
+  const branding = getSiteBranding();
+  const url = `${siteUrl()}/verify-device?token=${encodeURIComponent(token)}`;
+  const when = options.at.toISOString().replace('T', ' ').slice(0, 16);
+  const from = options.ip ?? '未知地址';
+  const detail = `设备：${options.deviceLabel}；时间：${when} UTC；来源 IP：${from}`;
+  return {
+    subject: `新设备登录确认 — ${branding.name}`,
+    text: `你的 ${branding.name} 账号刚刚在一台新设备上登录：\n\n${detail}\n\n如果是你本人，请点下面的链接确认这台设备；确认之前这台设备不能访问社区。\n\n${url}\n\n链接 ${options.tokenTtlMinutes} 分钟内有效。如果不是你本人，请立即修改密码。`,
+    html: shell({
+      title: '确认这台新设备',
+      body: `<p style="margin:0 0 6px;">你的 <strong>${escapeHtml(branding.name)}</strong> 账号刚刚在一台新设备上登录：</p>
+        <p style="margin:0 0 6px;color:#3c4754;">设备：<strong>${escapeHtml(options.deviceLabel)}</strong><br>时间：${escapeHtml(when)} UTC<br>来源 IP：${escapeHtml(from)}</p>
+        <p style="margin:0;">如果是你本人，点下面按钮确认这台设备；确认之前它不能访问社区。</p>
+        ${button(url, '确认这台设备')}`,
+      note: `链接 ${options.tokenTtlMinutes} 分钟内有效。如果不是你本人，请立即修改密码。`,
+    }),
+  };
+}

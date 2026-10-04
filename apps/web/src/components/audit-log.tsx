@@ -55,6 +55,8 @@ const ACTION_LABELS: Record<string, string> = {
   'auth.oauth_login': 'GitHub 登录',
   'user.registered': '注册账号',
   'user.email_verified': '验证邮箱',
+  'auth.device_confirmed': '确认新设备',
+  'auth.device_revoked': '撤销受信任设备',
   'account.deletion_requested': '申请注销账号',
   'account.deletion_cancelled': '取消注销',
   'owner.password_recovered': '站长重置密码',

@@ -15,13 +15,23 @@ interface SessionView {
   isCurrent: boolean;
 }
 
+interface TrustedDevice {
+  id: string;
+  label: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
 /**
  * 登录设备管理（控制台 → 账号安全）：
- * 列出当前账号的有效登录会话（一次登录 = 一条会话），可退出其他设备。
+ * 列出当前账号的有效登录会话（一次登录 = 一条会话），可退出其他设备；
+ * 另列出已确认的设备指纹 —— 撤销后那台设备下次登录要重新用邮箱确认。
  * 当前会话不提供远程退出按钮 —— 用右上角「退出登录」。
  */
 export function LoginDevicesPanel() {
   const [sessions, setSessions] = useState<SessionView[] | null>(null);
+  const [devices, setDevices] = useState<TrustedDevice[] | null>(null);
+  const [currentTrusted, setCurrentTrusted] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -36,8 +46,34 @@ export function LoginDevicesPanel() {
     try {
       const data = await apiFetch<{ sessions: SessionView[] }>('/api/auth/sessions');
       setSessions(data.sessions);
+      const trusted = await apiFetch<{ devices: TrustedDevice[]; currentDeviceTrusted: boolean }>(
+        '/api/auth/trusted-devices',
+      );
+      setDevices(trusted.devices);
+      setCurrentTrusted(trusted.currentDeviceTrusted);
     } catch (caught) {
       setLoadError(caught instanceof Error ? caught.message : '加载失败');
+    }
+  }
+
+  async function revokeDevice(device: TrustedDevice) {
+    if (
+      !window.confirm(
+        `撤销对「${device.label}」的信任？该设备上的登录会立刻失效，下次登录需要用邮箱重新确认。`,
+      )
+    ) {
+      return;
+    }
+    setBusyId(device.id);
+    setFeedback(null);
+    try {
+      await apiFetch(`/api/auth/trusted-devices/${encodeURIComponent(device.id)}`, { method: 'DELETE' });
+      await refresh();
+      setFeedback({ text: '已撤销该设备。', isError: false });
+    } catch (caught) {
+      setFeedback({ text: caught instanceof Error ? caught.message : '撤销失败', isError: true });
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -170,6 +206,55 @@ export function LoginDevicesPanel() {
             </div>
           )}
         </>
+      )}
+
+      {/* 受信任设备：新设备登录要先在邮箱里确认一次，确认过的设备列在这里 */}
+      <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '1.2rem 0 0.9rem' }} />
+      <p className="panel-title" style={{ fontSize: '1rem' }}>
+        受信任设备
+      </p>
+      <p className="muted" style={{ margin: '0 0 0.6rem', fontSize: '0.85rem' }}>
+        新设备第一次登录时，我们会在邮件里让你确认一次；确认过的设备记在这里。撤销之后，那台设备上的登录会立刻失效，
+        下次登录要重新用邮箱确认。
+        {!currentTrusted && '（当前设备还没确认，请查收确认邮件。）'}
+      </p>
+
+      {devices === null ? (
+        <p className="muted">加载中…</p>
+      ) : devices.length === 0 ? (
+        <p className="muted">还没有已确认的设备。</p>
+      ) : (
+        <div className="table-scroll">
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>设备</th>
+                <th style={thStyle}>首次确认</th>
+                <th style={thStyle}>最近使用</th>
+                <th style={thStyle}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {devices.map((device) => (
+                <tr key={device.id}>
+                  <td style={tdStyle}>{device.label || '未知设备'}</td>
+                  <td style={tdStyle}>{formatDateTime(device.firstSeenAt)}</td>
+                  <td style={tdStyle}>{formatDateTime(device.lastSeenAt)}</td>
+                  <td style={tdStyle}>
+                    <button
+                      type="button"
+                      onClick={() => void revokeDevice(device)}
+                      disabled={busy || busyId !== null}
+                      style={{ color: '#dc2626' }}
+                    >
+                      {busyId === device.id ? '处理中…' : '撤销信任'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
