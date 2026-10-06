@@ -14,7 +14,7 @@ import { AppearancePicker } from './appearance-picker';
  */
 export const THEME_FAMILIES = [
   { id: 'azure', label: '晏阳蓝', dark: '#24466e', light: '#bcd3f0' },
-  { id: 'red', label: '中国红', dark: '#b30000', light: '#ff0000' },
+  { id: 'red', label: '玫瑰红', dark: '#b30000', light: '#ff0000' },
   { id: 'pink', label: '猛男粉', dark: '#5c2c38', light: '#f3c2cb' },
   { id: 'mint', label: '纳西妲绿', dark: '#2a4a2c', light: '#c4e3b8' },
   { id: 'orange', label: '活力橙', dark: '#66370f', light: '#ffd2a1' },
