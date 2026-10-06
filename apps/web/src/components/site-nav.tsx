@@ -56,7 +56,7 @@ export function SiteNav() {
 
       <nav className="site-nav">
         {items.map((item) => (
-          <Link key={item.href} href={item.href} className="nav-link">
+          <Link key={item.href} href={item.href} className="nav-link" aria-current={(item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)) ? 'page' : undefined}>
             {item.label}
           </Link>
         ))}

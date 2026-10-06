@@ -19,44 +19,35 @@
   flex-shrink: 0;
 }
 
-.ui-style-preview-daisyui {
+.ui-style-preview-apple {
   border-radius: 8px;
   background: var(--surface);
 }
 
-.ui-style-preview-daisyui .ui-style-preview-nav {
+.ui-style-preview-apple .ui-style-preview-nav {
   border-radius: 4px;
   border-left: none;
 }
 
-.ui-style-preview-daisyui .ui-style-preview-card {
+.ui-style-preview-apple .ui-style-preview-card {
   border-radius: 6px;
   box-shadow: 0 1px 3px light-dark(#0001, #0004);
 }
 
-.ui-style-preview-daisyui .ui-style-preview-action {
+.ui-style-preview-apple .ui-style-preview-action {
   border-radius: 6px;
   box-shadow: 0 1px 2px light-dark(#0002, #0004);
 }
 
-::view-transition-old(root) {
-  animation: appearance-out 220ms ease both;
-}
-
-::view-transition-new(root) {
-  animation: appearance-in 300ms ease both;
-}
+.ui-style-preview-apple .ui-style-preview-nav { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.ui-style-preview-apple .ui-style-preview-action { border-radius: 999px; }
 
 html[data-ui-transition='fallback'] :is(.site-header, .site-main, .site-footer) {
   animation: appearance-in 300ms ease both;
 }
 
-@keyframes appearance-out {
-  to { opacity: 0; }
-}
-
 @keyframes appearance-in {
-  from { opacity: 0; }
+  from { opacity: 0.55; }
   to { opacity: 1; }
 }
 
@@ -65,9 +56,22 @@ html[data-ui-transition='fallback'] :is(.site-header, .site-main, .site-footer) 
   .ui-style-option { min-height: 0; }
 }
 
+html:is([data-ui-style='flat'], [data-ui-style='apple']) .nav-auth {
+  white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+  html:is([data-ui-style='flat'], [data-ui-style='apple']) .site-header-inner {
+    gap: 0.5rem;
+    padding: 0 0.75rem;
+  }
+  html:is([data-ui-style='flat'], [data-ui-style='apple']) .brand { gap: 0.4rem; }
+  html:is([data-ui-style='flat'], [data-ui-style='apple']) .brand .logo { height: 1.7rem; }
+  html:is([data-ui-style='flat'], [data-ui-style='apple']) .site-actions { gap: 0.35rem; }
+  html:is([data-ui-style='flat'], [data-ui-style='apple']) .nav-auth { padding-inline: 0.5rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root),
-  ::view-transition-new(root),
   html[data-ui-transition='fallback'] :is(.site-header, .site-main, .site-footer) {
     animation: none;
   }

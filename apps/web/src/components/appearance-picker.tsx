@@ -1,34 +1,23 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useId } from 'react';
 import {
-  applyUiStyle, DEFAULT_UI_STYLE, normalizeUiStyle, readStoredUiStyle, UI_STYLE_KEY, type UiStyle,
+  applyUiStyle, type UiStyle,
 } from '../lib/appearance';
+import { useUiStyle } from '../lib/use-ui-style';
 
 const STYLES = [
-  { id: 'daisyui', label: 'DaisyUI', note: '默认' },
-  { id: 'flat', label: 'Flat Design', note: '' },
+  { id: 'flat', label: 'Flat Design', note: '默认' },
+  { id: 'apple', label: 'Apple UI', note: '' },
   { id: 'legacy', label: '经典', note: '' },
 ] as const;
 
 export function AppearancePicker() {
   const headingId = useId();
-  const [style, setStyle] = useState<UiStyle>(DEFAULT_UI_STYLE);
-
-  useEffect(() => {
-    setStyle(normalizeUiStyle(document.documentElement.dataset.uiStyle));
-    function sync(event: StorageEvent) {
-      if (event.key === UI_STYLE_KEY || event.key === null) {
-        setStyle(readStoredUiStyle());
-      }
-    }
-    window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
-  }, []);
+  const style = useUiStyle();
 
   function choose(next: UiStyle) {
     applyUiStyle(next, { animate: true });
-    setStyle(next);
   }
 
   return (

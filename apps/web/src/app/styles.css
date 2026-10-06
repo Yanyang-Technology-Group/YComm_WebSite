@@ -1,14 +1,17 @@
-@layer theme, base, components, utilities, classic, flat, daisy, appearance;
-@import 'tailwindcss/theme';
-@import 'tailwindcss/utilities' source(none);
-@import './globals.css' layer(classic);
-@import './flat-design.css' layer(flat);
-@import './daisyui.css' layer(daisy);
-@import './appearance.css' layer(appearance);
+@import '@yu-cq/apple-ui/styles.css';
+@import './globals.css';
+@import './flat-design.css';
+@import './apple-ui.css';
+@import './appearance.css';
 
-@plugin 'daisyui' {
-  themes: false;
-  include: button, input, textarea, select, checkbox, radio, table;
-  prefix: 'daisy-';
-  logs: false;
+@custom-variant dark (&:where(html[data-theme-mode='dark'], html[data-theme-mode='dark'] *));
+
+/* The library imports Tailwind Preflight. Preserve existing native element
+   defaults in Flat and classic while retaining the library's utility styles. */
+@layer base {
+  *, ::before, ::after, ::backdrop, ::file-selector-button,
+  html, body, h1, h2, h3, h4, h5, h6, p, a, b, strong, small, sub, sup,
+  blockquote, dl, dd, hr, figure, pre, code, kbd, samp, abbr, progress, ol, ul, menu, table, img, svg, video,
+  canvas, audio, iframe, embed, object, button, input, select, textarea,
+  optgroup, option, label, fieldset, legend, summary { all: revert-layer; }
 }

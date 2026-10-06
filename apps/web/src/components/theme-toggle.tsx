@@ -1,11 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ButtonHTMLAttributes } from 'react';
+import { Button as AppleButton } from '@yu-cq/apple-ui';
 import { playAnim } from '../lib/anim';
 import { apiFetch } from '../lib/api';
 import { getSession } from '../lib/session';
 import { applyUiStyle, readStoredUiStyle, UI_STYLE_KEY } from '../lib/appearance';
 import { AppearancePicker } from './appearance-picker';
+import { useUiStyle } from '../lib/use-ui-style';
+
+function PreferenceButton({ apple, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { apple: boolean }) {
+  return apple
+    ? <AppleButton variant="secondary" {...props}>{children}</AppleButton>
+    : <button {...props}>{children}</button>;
+}
 
 /**
  * 主题选择：上面选颜色，下面选明暗（深色 / 浅色）。
@@ -216,6 +224,7 @@ export function ThemeSync() {
  * 2. 下面选明暗：深色 / 浅色（从未设置过时才跟随系统）。
  */
 export function ThemePicker() {
+  const apple = useUiStyle() === 'apple';
   const [colour, setColour] = useState<ThemeChoice>(DEFAULT_COLOUR);
   const [mode, setMode] = useState<ThemeMode>(DEFAULT_MODE);
 
@@ -253,7 +262,8 @@ export function ThemePicker() {
           {THEME_FAMILIES.map((family) => {
             const active = colour === family.id;
             return (
-              <button
+              <PreferenceButton
+                apple={apple}
                 key={family.id}
                 type="button"
                 className={`theme-option${active ? ' active' : ''}`}
@@ -265,10 +275,11 @@ export function ThemePicker() {
                   {family.label}
                   {active ? ' ✓' : ''}
                 </span>
-              </button>
+              </PreferenceButton>
             );
           })}
-          <button
+          <PreferenceButton
+            apple={apple}
             key="none"
             type="button"
             className={`theme-option${colour === 'none' ? ' active' : ''}`}
@@ -279,7 +290,7 @@ export function ThemePicker() {
             <span className="theme-label">
               无{colour === 'none' ? ' ✓' : ''}
             </span>
-          </button>
+          </PreferenceButton>
         </div>
         {colour === 'none' && (
           <p className="muted" style={{ margin: '0.4rem 0 0', fontSize: '0.8rem' }}>
@@ -299,7 +310,8 @@ export function ThemePicker() {
           {MODES.map((entry) => {
             const active = mode === entry.id;
             return (
-              <button
+              <PreferenceButton
+                apple={apple}
                 key={entry.id}
                 type="button"
                 className={`theme-mode-option${active ? ' active' : ''}`}
@@ -313,7 +325,7 @@ export function ThemePicker() {
                 <span className="muted" style={{ fontSize: '0.75rem', fontWeight: 400 }}>
                   {entry.hint}
                 </span>
-              </button>
+              </PreferenceButton>
             );
           })}
         </div>

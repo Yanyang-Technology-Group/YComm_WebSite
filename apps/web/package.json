@@ -15,6 +15,7 @@
     "@ycomm/api": "*",
     "@ycomm/config": "*",
     "@ycomm/kernel": "*",
+    "@yu-cq/apple-ui": "^0.1.8",
     "next": "^16.3.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
@@ -23,7 +24,6 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "daisyui": "^5.7.47",
     "tailwindcss": "^4.3.3"
   }
 }

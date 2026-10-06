@@ -4,20 +4,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 describe('web appearance preference', () => {
   const root = { dataset: {} as Record<string, string>, offsetWidth: 1024 };
   const storage = { getItem: vi.fn(), setItem: vi.fn() };
-  const page: { documentElement: typeof root; startViewTransition?: ReturnType<typeof vi.fn> } = {
-    documentElement: root,
-  };
+  const page = { documentElement: root, startViewTransition: vi.fn() };
+  const browser = { matchMedia: vi.fn(), dispatchEvent: vi.fn() };
 
   beforeEach(() => {
     vi.resetModules();
     vi.useFakeTimers();
-    root.dataset = { uiStyle: 'daisyui' };
-    delete page.startViewTransition;
+    root.dataset = { uiStyle: 'flat' };
     storage.getItem.mockReset().mockReturnValue(null);
     storage.setItem.mockReset();
+    page.startViewTransition.mockReset();
+    browser.matchMedia.mockReset().mockReturnValue({ matches: false });
+    browser.dispatchEvent.mockReset();
     vi.stubGlobal('document', page);
     vi.stubGlobal('localStorage', storage);
-    vi.stubGlobal('window', { matchMedia: vi.fn().mockReturnValue({ matches: false }) });
+    vi.stubGlobal('window', browser);
   });
 
   afterEach(() => {
@@ -25,23 +26,12 @@ describe('web appearance preference', () => {
     vi.unstubAllGlobals();
   });
 
-  it('defaults to DaisyUI while preserving saved Flat Design and classic choices', async () => {
-    const { readStoredUiStyle, UI_STYLE_KEY } = await import('./appearance');
-    for (const [saved, expected] of [
-      [null, 'daisyui'], ['daisyui', 'daisyui'], ['flat', 'flat'],
-      ['legacy', 'legacy'], ['invalid', 'daisyui'],
-    ]) {
-      storage.getItem.mockReturnValue(saved);
-      expect(readStoredUiStyle()).toBe(expected);
-      expect(storage.getItem).toHaveBeenLastCalledWith(UI_STYLE_KEY);
-    }
-  });
-
-  it.each([null, 'daisyui', 'flat', 'legacy', 'invalid'])('restores %s before the first paint', async (saved) => {
+  it.each([null, 'daisyui', 'apple', 'flat', 'legacy', 'invalid'])('restores %s before the first paint', async (saved) => {
     const { UI_STYLE_BOOT_SCRIPT, readStoredUiStyle } = await import('./appearance');
     storage.getItem.mockReturnValue(saved);
     runInNewContext(UI_STYLE_BOOT_SCRIPT, { document: page, localStorage: storage });
     expect(root.dataset.uiStyle).toBe(readStoredUiStyle());
+    expect(root.dataset.uiStyle).toBe(saved === 'apple' || saved === 'legacy' ? saved : 'flat');
   });
 
   it('applies the preference when browser storage is blocked', async () => {
@@ -50,17 +40,17 @@ describe('web appearance preference', () => {
     storage.setItem.mockImplementation(() => { throw new Error('storage blocked'); });
     root.dataset.uiStyle = 'legacy';
     runInNewContext(UI_STYLE_BOOT_SCRIPT, { document: page, localStorage: storage });
-    expect(root.dataset.uiStyle).toBe('daisyui');
-    expect(readStoredUiStyle()).toBe('daisyui');
-    applyUiStyle('flat');
     expect(root.dataset.uiStyle).toBe('flat');
+    expect(readStoredUiStyle()).toBe('flat');
+    applyUiStyle('apple');
+    expect(root.dataset.uiStyle).toBe('apple');
   });
 
-  it('persists a selection and removes the fallback animation after it ends', async () => {
+  it('persists a selection and removes animation after it ends', async () => {
     const { applyUiStyle, UI_STYLE_KEY } = await import('./appearance');
-    applyUiStyle('flat', { animate: true });
-    expect(root.dataset).toEqual({ uiStyle: 'flat', uiTransition: 'fallback' });
-    expect(storage.setItem).toHaveBeenLastCalledWith(UI_STYLE_KEY, 'flat');
+    applyUiStyle('apple', { animate: true });
+    expect(root.dataset).toEqual({ uiStyle: 'apple', uiTransition: 'fallback' });
+    expect(storage.setItem).toHaveBeenLastCalledWith(UI_STYLE_KEY, 'apple');
     vi.advanceTimersByTime(200);
     applyUiStyle('legacy', { animate: true });
     vi.advanceTimersByTime(150);
@@ -70,45 +60,35 @@ describe('web appearance preference', () => {
   });
 
   it('skips animation when reduced motion is enabled', async () => {
-    vi.stubGlobal('window', { matchMedia: vi.fn().mockReturnValue({ matches: true }) });
-    page.startViewTransition = vi.fn();
+    browser.matchMedia.mockReturnValue({ matches: true });
     const { applyUiStyle } = await import('./appearance');
-    applyUiStyle('flat', { animate: true });
-    expect(root.dataset).toEqual({ uiStyle: 'flat' });
-    expect(page.startViewTransition).not.toHaveBeenCalled();
+    applyUiStyle('apple', { animate: true });
+    expect(root.dataset).toEqual({ uiStyle: 'apple' });
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('keeps the last choice when skipped native transitions finish out of order', async () => {
-    const updates: Array<() => void> = [];
-    const skipped = vi.fn();
-    page.startViewTransition = vi.fn((update: () => void) => {
-      updates.push(update);
-      return { skipTransition: skipped, ready: Promise.resolve(), finished: new Promise(() => {}) };
-    });
-    const { applyUiStyle } = await import('./appearance');
-    applyUiStyle('flat', { animate: true });
-    applyUiStyle('legacy', { animate: true });
-    updates[1]!();
-    updates[0]!();
-    expect(root.dataset.uiStyle).toBe('legacy');
-    expect(skipped).toHaveBeenCalledOnce();
-    expect(storage.setItem).toHaveBeenLastCalledWith('ycomm_ui_style', 'legacy');
+  it.each(['flat', 'legacy'] as const)('switches immediately from %s to Apple UI despite broken snapshot animations', async (previous) => {
+    root.dataset.uiStyle = previous;
+    page.startViewTransition.mockImplementation(() => { throw new Error('snapshot failed'); });
+    const { applyUiStyle, UI_STYLE_CHANGE_EVENT, UI_STYLE_BOOT_SCRIPT } = await import('./appearance');
+    applyUiStyle('apple', { animate: true });
+    expect(root.dataset.uiStyle).toBe('apple');
+    expect(page.startViewTransition).not.toHaveBeenCalled();
+    expect(browser.dispatchEvent.mock.calls[0]![0].type).toBe(UI_STYLE_CHANGE_EVENT);
+    vi.runAllTimers();
+    expect(root.dataset.uiStyle).toBe('apple');
+    storage.getItem.mockReturnValue(storage.setItem.mock.calls.at(-1)![1]);
+    runInNewContext(UI_STYLE_BOOT_SCRIPT, { document: page, localStorage: storage });
+    expect(root.dataset.uiStyle).toBe('apple');
   });
 
-  it('cancels a pending change when the user returns to the currently painted style', async () => {
-    let updatePending!: () => void;
-    const skipped = vi.fn();
-    page.startViewTransition = vi.fn((update: () => void) => {
-      updatePending = update;
-      return { skipTransition: skipped, ready: Promise.resolve(), finished: new Promise(() => {}) };
-    });
+  it('keeps the most recent style after rapid switching', async () => {
     const { applyUiStyle } = await import('./appearance');
-    applyUiStyle('flat', { animate: true });
-    applyUiStyle('daisyui', { animate: true });
-    updatePending();
-    expect(root.dataset.uiStyle).toBe('daisyui');
-    expect(skipped).toHaveBeenCalledOnce();
-    expect(page.startViewTransition).toHaveBeenCalledOnce();
+    for (const style of ['legacy', 'apple', 'flat', 'apple'] as const) {
+      applyUiStyle(style, { animate: true });
+      expect(root.dataset.uiStyle).toBe(style);
+    }
+    vi.runAllTimers();
+    expect(root.dataset).toEqual({ uiStyle: 'apple' });
   });
 });

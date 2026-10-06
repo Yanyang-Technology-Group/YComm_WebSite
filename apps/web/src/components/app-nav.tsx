@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Sidebar as AppleSidebar } from '@yu-cq/apple-ui';
 import { getSession } from '../lib/session';
+import { useUiStyle } from '../lib/use-ui-style';
 
 /**
  * 全站唯一的左侧导航：控制台（个人）与管理合在一套里，所有带侧栏的页面共用。
@@ -35,6 +37,8 @@ const ADMIN_LINKS = [
 const OWNER_LINKS = [{ href: '/admin/api-keys', label: 'API 密钥' }] as const;
 
 export function AppNav() {
+  const style = useUiStyle();
+  const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
   const [staff, setStaff] = useState(false);
@@ -56,6 +60,21 @@ export function AppNav() {
 
   const section = search.get('section') ?? 'profile';
   const onDashboard = pathname === '/dashboard';
+
+  if (style === 'apple') {
+    const links = [
+      ...PERSONAL_LINKS.map((link) => ({ id: link.section, label: link.label, href: link.href })),
+      ...(username ? [{ id: 'homepage', label: '我的主页', href: `/users/${encodeURIComponent(username)}` }] : []),
+      ...(staff ? ADMIN_LINKS.map((link) => ({ id: link.href, label: link.label, href: link.href })) : []),
+      ...(isOwner ? OWNER_LINKS.map((link) => ({ id: link.href, label: link.label, href: link.href })) : []),
+    ];
+    return <AppleSidebar
+      className="app-nav apple-app-nav"
+      header={<p className="app-nav-title">控制台</p>}
+      items={links.map((link) => ({ id: link.id, label: link.label, onClick: () => router.push(link.href) }))}
+      activeId={onDashboard ? section : pathname}
+    />;
+  }
 
   return (
     <aside className="app-nav">
