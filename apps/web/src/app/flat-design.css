@@ -1,0 +1,268 @@
+/* The style selector is available in both UIs. The existing globals.css stays
+   intact; every visual override below is scoped to the Flat Design preference. */
+.appearance-picker {
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.appearance-heading {
+  margin: 0 0 0.3rem;
+}
+
+.appearance-hint {
+  margin: 0 0 0.9rem;
+}
+
+.ui-style-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  max-width: 680px;
+}
+
+.ui-style-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: left;
+  background: var(--surface);
+}
+
+.ui-style-option.active {
+  border-color: var(--accent-strong);
+  outline: 1px solid var(--accent-strong);
+  outline-offset: -2px;
+}
+
+.ui-style-option-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  font-weight: 700;
+}
+
+.ui-style-default {
+  padding: 0.05rem 0.4rem;
+  border-radius: 3px;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.ui-style-check {
+  margin-left: auto;
+  color: var(--accent-strong);
+}
+
+.ui-style-option-desc {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.ui-style-preview {
+  display: flex;
+  gap: 0.65rem;
+  width: 100%;
+  height: 96px;
+  padding: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+}
+
+.ui-style-preview-nav {
+  width: 20%;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent-strong);
+}
+
+.ui-style-preview-body {
+  display: grid;
+  flex: 1;
+  gap: 0.5rem;
+  grid-template-rows: 5px 1fr 13px;
+}
+
+.ui-style-preview-line {
+  width: 55%;
+  background: var(--muted);
+}
+
+.ui-style-preview-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.ui-style-preview-action {
+  width: 35%;
+  background: var(--accent-strong);
+}
+
+.ui-style-preview-legacy,
+.ui-style-preview-legacy .ui-style-preview-nav,
+.ui-style-preview-legacy .ui-style-preview-card,
+.ui-style-preview-legacy .ui-style-preview-action {
+  border-radius: 8px;
+}
+
+.ui-style-preview-legacy .ui-style-preview-card {
+  box-shadow: 0 2px 5px light-dark(#0002, #0006);
+}
+
+@media (max-width: 480px) {
+  .ui-style-picker {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Neutral surfaces across all colour families; accent colours remain selectable. */
+html[data-ui-style='flat'][data-theme-colour] {
+  --bg: light-dark(#f4f6f8, #111418);
+  --surface: light-dark(#ffffff, #1b2026);
+  --text: light-dark(#182230, #edf1f5);
+  --muted: light-dark(#586574, #a4adb8);
+  --border: light-dark(#d2d9e2, #35404c);
+  --header-bg: var(--surface);
+  --header-text: var(--text);
+  --shadow-sm: none;
+  --shadow: none;
+}
+
+/* Separate action fills from link colours so white button labels stay readable
+   in dark mode as well as light mode. */
+html[data-ui-style='flat'][data-theme-colour='azure'] {
+  --accent: light-dark(#2563eb, #8bb5ff);
+  --accent-strong: light-dark(#1d4ed8, #aac9ff);
+  --accent-soft: light-dark(#eaf1ff, #233249);
+  --flat-action: light-dark(#1d4ed8, #285fc6);
+  --flat-action-hover: light-dark(#1e40af, #2353aa);
+}
+
+html[data-ui-style='flat'][data-theme-colour='red'] {
+  --accent: light-dark(#d92d20, #ff918b);
+  --accent-strong: light-dark(#b42318, #ffb2ad);
+  --accent-soft: light-dark(#ffefed, #3d2524);
+  --flat-action: light-dark(#b42318, #ba332c);
+  --flat-action-hover: light-dark(#912018, #a12c26);
+}
+
+html[data-ui-style='flat'][data-theme-colour='pink'] {
+  --accent: light-dark(#d33f71, #f5a3bc);
+  --accent-strong: light-dark(#ad2e5b, #f8bcd0);
+  --accent-soft: light-dark(#fcedf2, #392631);
+  --flat-action: #ad2e5b;
+  --flat-action-hover: #8e244a;
+}
+
+html[data-ui-style='flat'][data-theme-colour='mint'] {
+  --accent: light-dark(#2b8151, #82cfa4);
+  --accent-strong: light-dark(#236a42, #a0dabc);
+  --accent-soft: light-dark(#eaf5ef, #22362c);
+  --flat-action: light-dark(#236a42, #246b46);
+  --flat-action-hover: #1b5334;
+}
+
+html[data-ui-style='flat'][data-theme-colour='orange'] {
+  --accent: light-dark(#bb6015, #f9b775);
+  --accent-strong: light-dark(#97490c, #ffd2a3);
+  --accent-soft: light-dark(#fff1e5, #3a2c20);
+  --flat-action: light-dark(#97490c, #914709);
+  --flat-action-hover: #783906;
+}
+
+html[data-ui-style='flat'][data-theme-colour='slate'] {
+  --accent: light-dark(#637184, #9eabbc);
+  --accent-strong: light-dark(#485463, #bbc4cf);
+  --accent-soft: light-dark(#e9edf2, #2b333e);
+  --flat-action: light-dark(#485463, #455364);
+  --flat-action-hover: #323d4a;
+}
+
+html[data-ui-style='flat'] :where(
+  button, textarea, select,
+  input:not([type='checkbox'], [type='radio'], [type='range']),
+  .hero-btn, .nav-auth, .nav-link, .nav-console:not(.nav-console-avatar),
+  .nav-drawer-link, .board-link, .app-nav-link, .footer-version,
+  .badge, .badge-toggle, .card-vis, .notif-actor
+) {
+  border-radius: 4px;
+}
+
+html[data-ui-style='flat'] :where(
+  .search-box, .search-results, .card-tile, .card-editor-tile, .table-scroll,
+  .notif-group, .modal, .modal-card, .nav-drawer,
+  .forum-sidebar .panel, .forum-info .panel, .post-content pre,
+  .post-image, .post-video, .media-viewer-img, .media-viewer-video
+) {
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+html[data-ui-style='flat'] .search-scope {
+  border-radius: 3px 0 0 3px;
+}
+
+html[data-ui-style='flat'] :where(.app-nav, .forum-sidebar .panel, .forum-info .panel) {
+  background: var(--surface);
+}
+
+html[data-ui-style='flat'] .card-tile:hover {
+  transform: none;
+  background: var(--accent-soft);
+  border-color: var(--accent-strong);
+}
+
+html[data-ui-style='flat'] :is(button.primary, .hero-btn.primary, .topic-composer-submit, .fab-bottom-left) {
+  background: var(--flat-action);
+  border-color: var(--flat-action);
+  color: #fff;
+}
+
+html[data-ui-style='flat'] :is(button.primary, .hero-btn.primary, .topic-composer-submit, .fab-bottom-left):hover:not(:disabled) {
+  background: var(--flat-action-hover);
+  border-color: var(--flat-action-hover);
+}
+
+html[data-ui-style='flat'] :is(input, textarea, select):focus,
+html[data-ui-style='flat'] .search-box:focus-within {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* Preserve the browser autofill surface treatment from globals.css. */
+html[data-ui-style='flat'] input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+}
+
+html[data-ui-style='flat'] .notif-slide {
+  box-shadow: none;
+}
+
+html[data-ui-style='flat'] .notif-slide-backdrop {
+  backdrop-filter: none;
+}
+
+html[data-ui-style='flat'] .badge-toggle.active {
+  box-shadow: none;
+  background: var(--accent-soft);
+}
+
+html[data-ui-style='flat'] .user-badge {
+  border-radius: 4px;
+  text-shadow: none;
+}
+
+/* A style change is immediate in Flat Design; loaders keep their animations. */
+html[data-ui-style='flat'] .anim-veil {
+  display: none;
+}
+
+html[data-ui-style='flat'] .page-anim > * {
+  animation: none;
+}

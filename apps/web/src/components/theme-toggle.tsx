@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { playAnim } from '../lib/anim';
 import { apiFetch } from '../lib/api';
 import { getSession } from '../lib/session';
+import { applyUiStyle, readStoredUiStyle, UI_STYLE_KEY } from '../lib/appearance';
+import { AppearancePicker } from './appearance-picker';
 
 /**
  * 主题选择：上面选颜色，下面选明暗（深色 / 浅色）。
@@ -180,6 +182,16 @@ export function resetThemeToDefault(): void {
  */
 export function ThemeSync() {
   useEffect(() => {
+    function syncStyle(event?: StorageEvent) {
+      if (event && event.key !== UI_STYLE_KEY && event.key !== null) return;
+      applyUiStyle(readStoredUiStyle());
+    }
+    syncStyle();
+    window.addEventListener('storage', syncStyle);
+    return () => window.removeEventListener('storage', syncStyle);
+  }, []);
+
+  useEffect(() => {
     const stored = readStoredTheme();
     applyTheme(stored.colour, stored.mode);
 
@@ -229,6 +241,7 @@ export function ThemePicker() {
 
   return (
     <div style={{ display: 'grid', gap: '1.1rem' }}>
+      <AppearancePicker />
       <div>
         <p style={{ margin: '0 0 0.4rem' }}>
           <strong>颜色风格</strong>{' '}

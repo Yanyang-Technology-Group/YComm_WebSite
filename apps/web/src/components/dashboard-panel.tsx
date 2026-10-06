@@ -712,7 +712,7 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
 
         {section === 'appearance' && (
           <div className="panel" style={{ marginBottom: 0 }}>
-            <p className="panel-title">外观 · 主题颜色</p>
+            <p className="panel-title">外观 · 界面与主题</p>
             <ThemePicker />
           </div>
         )}

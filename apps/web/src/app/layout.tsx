@@ -9,7 +9,9 @@ import { ThemeSync } from '../components/theme-toggle';
 import { GuestPrompt } from '../components/guest-prompt';
 import { PageTransition } from '../components/page-transition';
 import { VerificationGate } from '../components/verification-gate';
+import { UI_STYLE_BOOT_SCRIPT } from '../lib/appearance';
 import './globals.css';
+import './flat-design.css';
 
 /** 首帧前应用本地主题（避免闪白）；账号主题由 ThemeSync 登录后校正。 */
 const THEME_BOOT_SCRIPT = `(function(){try{var c=localStorage.getItem('ycomm_theme_colour')||'azure';var m=localStorage.getItem('ycomm_theme_mode')||'auto';var r=document.documentElement;r.dataset.themeColour=(c==='none'?'slate':c);r.dataset.themeMode=m;}catch(e){}})();`;
@@ -48,8 +50,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const branding = getSiteBranding();
 
   return (
-    <html lang="zh-CN" data-theme-colour="azure" data-theme-mode="auto" className={noto.variable}>
+    <html lang="zh-CN" data-theme-colour="azure" data-theme-mode="auto" data-ui-style="flat" className={noto.variable} suppressHydrationWarning>
       <body>
+        <script dangerouslySetInnerHTML={{ __html: UI_STYLE_BOOT_SCRIPT }} />
         {/* 主题：先按本地缓存上色，登录后按账号主题校正（按账号生效） */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <ThemeSync />
