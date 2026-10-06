@@ -140,7 +140,7 @@ export function NewTopicComposer({ boardSlug, boardName }: { boardSlug: string; 
           />
         )}
         <span className="topic-composer-gap" />
-        <ImagePicker label="插入图片" media="all" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
+        <ImagePicker label="插入图片或视频" media="all" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
         <button type="submit" className="topic-composer-submit" disabled={busy}>
           {busy ? '发布中…' : '发布主题'}
         </button>

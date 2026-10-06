@@ -4,6 +4,9 @@
 # re-run on every start (rollbacks, restarts, redeploys).
 set -e
 
+# Refuse disposable upload storage before replacing a running deployment with it.
+node /app/docker/check-upload-storage.mjs
+
 echo "==> applying database migrations"
 npm run db:migrate
 

@@ -143,6 +143,9 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 
 ## 上传 `/api/uploads`
 
+图片、视频的失败响应使用 `Cache-Control: no-store`，避免 CDN 缓存文件缺失错误。
+容器部署必须持久化挂载 `UPLOAD_DIR`；迁移与缺失文件恢复参见部署文档。
+
 | 方法与路径 | 鉴权 | 参数/请求 | 成功响应与特殊行为 |
 |---|---|---|---|
 | `POST /api/uploads/images` | 登录；用户限流 | multipart 字段 `file` | HTTP 201；`{ url, mime, size }`。仅 PNG/JPEG/WebP/GIF，magic byte 校验，单个 ≤50MB，文件名随机化。 |

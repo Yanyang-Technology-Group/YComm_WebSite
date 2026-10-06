@@ -13,6 +13,7 @@
     "apps/web/src/**/*.tsx",
     "apps/web/*.ts",
     "scripts/**/*.mjs",
+    "docker/**/*.ts",
     "*.ts"
   ],
   "exclude": ["node_modules", "**/node_modules", ".next", "dist"]

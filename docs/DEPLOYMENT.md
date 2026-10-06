@@ -49,6 +49,7 @@ REMOTE="$SERVER_USER@$SERVER_HOST"
 
 $SSH "$REMOTE" "docker pull '$FULL_IMAGE'"
 $SSH "$REMOTE" "docker rm -f ycomm >/dev/null 2>&1 || true; docker run -d --name ycomm --restart unless-stopped --network coolify -p 127.0.0.1:3000:3000 \
+  --mount type=volume,source=ycomm-uploads,target=/app/uploads -e UPLOAD_DIR=/app/uploads \
   -e NODE_ENV=production -e DATABASE_DRIVER=postgres -e DATABASE_URL='$DATABASE_URL' \
   -e SESSION_SECRET='$SESSION_SECRET' -e SITE_URL='$SITE_URL' -e SITE_NAME='$SITE_NAME' \
   -e TRUST_PROXY_HEADERS=true '$FULL_IMAGE'"
@@ -74,6 +75,8 @@ bash deploy.sh v2026.xx.xx  # 部署指定版本 / 回滚
 docker pull ghcr.nju.edu.cn/<org>/ycomm-web:<tag>
 docker rm -f ycomm || true
 docker run -d --name ycomm --restart unless-stopped --network coolify -p 127.0.0.1:3000:3000 \
+  --mount type=volume,source=ycomm-uploads,target=/app/uploads \
+  -e UPLOAD_DIR=/app/uploads \
   -e NODE_ENV=production \
   -e DATABASE_DRIVER=postgres \
   -e DATABASE_URL='postgres://ycomm:<DB_PASSWORD>@<DB_HOST>:5432/ycomm' \
@@ -84,6 +87,14 @@ docker run -d --name ycomm --restart unless-stopped --network coolify -p 127.0.0
 ```
 
 ## 备份
+
+上传文件必须保存在持久化卷中；镜像内的绝对路径本身不能保证持久化。Compose 已挂载
+`uploads:/app/uploads`，直接 `docker run` 时须使用上面的同名卷或固定宿主目录绑定挂载。
+容器启动会检查 `UPLOAD_DIR` 的独立挂载，未挂载则报错并停止，避免上传成功后重建丢失。
+迁移现有部署前，先从旧容器实际的 `UPLOAD_DIR`（旧版默认可能是 `/app/apps/web/uploads`）
+备份文件，复制进持久化卷，保留 `inlineVideo/`、`inlineImage/` 等子目录及原文件名，再删除旧容器。
+已删除容器的可写层不能通过 API 恢复；应从上传目录备份恢复，或重新上传原文件并编辑帖子地址。
+恢复后清除 CDN 对原媒体地址的旧 404 缓存。媒体错误响应现在为 `Cache-Control: no-store`。
 
 ```bash
 DATABASE_URL=postgres://... BACKUP_TARGET=/mnt/backups/ycomm ./scripts/backup.sh

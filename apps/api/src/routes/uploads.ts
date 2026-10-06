@@ -28,6 +28,12 @@ const MIME_BY_EXT: Record<string, string> = {
 export function uploadRoutes(): Hono<{ Variables: AppVariables }> {
   const router = new Hono<{ Variables: AppVariables }>();
   router.use('*', sessionAuth);
+  // Missing files must not be negatively cached by a CDN after restoration.
+  // Successful streams below override this with their immutable cache policy.
+  router.use('*', async (c, next) => {
+    c.header('Cache-Control', 'no-store');
+    await next();
+  });
 
   router.post('/images', requireAuth, rateLimitByUser('uploadImage'), async (c) => {
     const form = await c.req.formData().catch(() => null);
@@ -106,9 +112,13 @@ function streamUpload(c: Context, localPath: string, fileName: string): Response
   if (range) {
     headers['content-range'] = `bytes ${file.start}-${file.end}/${file.size}`;
     headers['content-length'] = String(file.end - file.start + 1);
-    return new Response(Readable.toWeb(file.stream) as ReadableStream, { status: 206, headers });
+  } else {
+    headers['content-length'] = String(file.size);
   }
-
-  headers['content-length'] = String(file.size);
-  return new Response(Readable.toWeb(file.stream) as ReadableStream, { headers });
+  // HEAD only needs metadata; do not open a web stream whose body nobody consumes.
+  if (c.req.method === 'HEAD') {
+    file.stream.destroy();
+    return new Response(null, { status: range ? 206 : 200, headers });
+  }
+  return new Response(Readable.toWeb(file.stream) as ReadableStream, { status: range ? 206 : 200, headers });
 }

@@ -5,6 +5,7 @@ node_modules
 .coverage
 coverage
 uploads
+private
 .git
 .github
 *.log
