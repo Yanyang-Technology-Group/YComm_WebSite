@@ -184,7 +184,7 @@ export function ThemeSync() {
   useEffect(() => {
     function syncStyle(event?: StorageEvent) {
       if (event && event.key !== UI_STYLE_KEY && event.key !== null) return;
-      applyUiStyle(readStoredUiStyle());
+      applyUiStyle(readStoredUiStyle(), { animate: !!event });
     }
     syncStyle();
     window.addEventListener('storage', syncStyle);

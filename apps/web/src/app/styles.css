@@ -1,0 +1,14 @@
+@layer theme, base, components, utilities, classic, flat, daisy, appearance;
+@import 'tailwindcss/theme';
+@import 'tailwindcss/utilities' source(none);
+@import './globals.css' layer(classic);
+@import './flat-design.css' layer(flat);
+@import './daisyui.css' layer(daisy);
+@import './appearance.css' layer(appearance);
+
+@plugin 'daisyui' {
+  themes: false;
+  include: button, input, textarea, select, checkbox, radio, table;
+  prefix: 'daisy-';
+  logs: false;
+}
