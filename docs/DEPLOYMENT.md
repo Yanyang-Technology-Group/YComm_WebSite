@@ -1,12 +1,12 @@
 # 部署与运维
 
-> 本文面向部署与维护 YComm 的人。**不做自动部署**，部署由本地一个私有脚本手动触发。
+> 本文面向部署与维护 YComm 的人。**不做自动部署**，发布镜像后通过 Coolify 或本地私有脚本手动触发。
 
 ## 部署模型
 
 - **GitHub 只负责构建 + 发布镜像**：push 到 `master` 后，GitHub Actions 自动构建镜像并推送到
   GHCR（`ghcr.io/<org>/ycomm-web`），打 tag、发 Release。**不会碰服务器。**
-- **部署靠本地脚本**：在你本机跑一个私有脚本 `deploy.sh`（已 `.gitignore`，含服务器/数据库
+- **部署由运维触发**：使用下面的 Coolify 配置，或在本机跑私有脚本 `deploy.sh`（已 `.gitignore`，含服务器/数据库
   机密，不进仓库），脚本 SSH 到服务器，让服务器从国内镜像源 `docker pull` 后本地 `docker run`
   （出站下载，无需入站）。
 
@@ -15,6 +15,29 @@
 1. **推送代码**：`git push origin master`。
 2. **GHCR 包设为 Public**（一次性）：镜像源只能拉公共镜像。GitHub 仓库 → Packages →
    `ycomm-web` → Package settings → Change visibility → **Public**。
+
+## Coolify Docker Image 部署
+
+1. 选择 **Docker Registry Image**，设置已发布的镜像及版本，应用端口设为 `3000`，配置域名。
+   设置 `DATABASE_DRIVER=postgres`、`DATABASE_URL`、`SESSION_SECRET`、HTTPS `SITE_URL`，
+   并确保容器可以访问数据库；使用可信反向代理时设 `TRUST_PROXY_HEADERS=true`。
+2. 在 **Persistent Storage** 添加持久卷或宿主目录绑定，容器目标路径必须为 `/app/uploads`，
+   同时设置 `UPLOAD_DIR=/app/uploads`。**Docker Image 部署不会自动使用仓库的 compose 配置**，
+   仅设置环境变量不会创建持久卷。迁移已有部署时，先按下面的“备份”说明保存并复制旧上传文件。
+3. 使用镜像/Dockerfile 自带的 **HEALTHCHECK**；它通过 Node `fetch` 请求 `/api/healthz`。
+   关闭 Coolify 自动生成的 HTTP Health Check（API 配置 `health_check_enabled=false`），
+   保留镜像原有健康检查。当前镜像没有 `curl`、`wget`，不要用依赖它们的自动 HTTP 检查覆盖镜像检查。
+4. 手动部署后，确认容器健康，再请求公网 `https://<你的域名>/api/healthz`，
+   必须返回 HTTP **200**、`ok: true` 和 `db: "up"`。部署状态 `finished` 只表示部署流程结束，
+   不能单独证明应用、数据库及反向代理已经可用。
+
+出现 `no available server` 时，先看容器日志和健康检查结果：
+
+- `UPLOAD_DIR /app/uploads is not mounted`：持久卷缺失或目标路径不一致，入口脚本在启动服务前停止。
+  补齐挂载并迁移上传文件后重新部署，不要删除存储检查来绕过问题。
+- 健康检查报 `curl: not found` 或 `wget: not found`：Coolify 覆盖了镜像检查，按第 3 步改回 Node 检查。
+- `/api/healthz` 返回 503、`db: "down"`：检查数据库连接、容器网络及数据库日志。
+  修复后仍须通过公网健康探针验证，避免代理继续指向不可用容器。
 
 ## 本地部署脚本
 
