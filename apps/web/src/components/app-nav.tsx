@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { SettingsNav } from '@extrastu/nuphy-ui';
+import { UserRound, FileText, Eye, LockKeyhole, Paintbrush, House, LayoutDashboard, UsersRound, PanelsTopLeft, Download, Award, ShieldCheck, History, Settings2, KeyRound } from 'lucide-react';
 import { getSession } from '../lib/session';
 import { useUiStyle } from '../lib/use-ui-style';
 
@@ -62,23 +63,35 @@ export function AppNav() {
   const onDashboard = pathname === '/dashboard';
 
   if (style === 'apple') {
-    const links = [
-      ...PERSONAL_LINKS.map((link) => ({ id: link.section, label: link.label, href: link.href })),
-      ...(username ? [{ id: 'homepage', label: '我的主页', href: `/users/${encodeURIComponent(username)}` }] : []),
-      ...(staff ? ADMIN_LINKS.map((link) => ({ id: link.href, label: link.label, href: link.href })) : []),
-      ...(isOwner ? OWNER_LINKS.map((link) => ({ id: link.href, label: link.label, href: link.href })) : []),
+    const personalIcons = [UserRound, FileText, Eye, LockKeyhole, Paintbrush];
+    const adminIcons = [LayoutDashboard, UsersRound, PanelsTopLeft, Download, Award, ShieldCheck, History, Settings2];
+    const personal = [
+      ...PERSONAL_LINKS.map((link, index) => {
+        const Icon = personalIcons[index] ?? UserRound;
+        return { id: link.section, label: link.label, href: link.href, icon: <Icon aria-hidden="true" /> };
+      }),
+      ...(username ? [{ id: 'homepage', label: '我的主页', href: `/users/${encodeURIComponent(username)}`, icon: <House aria-hidden="true" /> }] : []),
     ];
+    const management = [
+      ...ADMIN_LINKS.map((link, index) => {
+        const Icon = adminIcons[index] ?? Settings2;
+        return { id: link.href, label: link.label, href: link.href, icon: <Icon aria-hidden="true" /> };
+      }),
+      ...(isOwner ? OWNER_LINKS.map((link) => ({ id: link.href, label: link.label, href: link.href, icon: <KeyRound aria-hidden="true" /> })) : []),
+    ];
+    const value = onDashboard ? section : pathname.startsWith('/users/') ? 'homepage' : pathname;
     return <aside className="app-nav apple-app-nav">
-      <p className="app-nav-title">控制台</p>
-      <SettingsNav
-        aria-label="控制台导航"
-        items={links.map(({ id, label }) => ({ id, label }))}
-        value={onDashboard ? section : pathname}
-        onValueChange={(id) => {
-          const link = links.find((entry) => entry.id === id);
-          if (link) router.push(link.href);
-        }}
-      />
+      <div className="apple-nav-identity"><UserRound aria-hidden="true" /><span>{username ? `@${username}` : '控制台'}<small>{isOwner ? '站长' : staff ? '管理员' : '个人账号'}</small></span></div>
+      <section className="app-nav-group" aria-labelledby="apple-personal-heading">
+        <p className="app-nav-title" id="apple-personal-heading">个人</p>
+        <SettingsNav aria-label="个人导航" items={personal} value={value}
+          onValueChange={(id) => { const link = personal.find((entry) => entry.id === id); if (link) router.push(link.href); }} />
+      </section>
+      {staff && <section className="app-nav-group" aria-labelledby="apple-management-heading">
+        <p className="app-nav-title" id="apple-management-heading">管理</p>
+        <SettingsNav aria-label="管理导航" items={management} value={value}
+          onValueChange={(id) => { const link = management.find((entry) => entry.id === id); if (link) router.push(link.href); }} />
+      </section>}
     </aside>;
   }
 

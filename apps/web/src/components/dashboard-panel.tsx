@@ -377,10 +377,10 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
       <AppNav />
       <div className="app-content">
         <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>
-          控制台
+          {section === 'appearance' ? '外观与主题' : section === 'privacy' ? '隐私设置' : section === 'security' ? '账号安全' : section === 'content' ? '我的内容' : '个人资料'}
         </h1>
         <p className="muted" style={{ marginTop: 0 }}>
-          @{profile.username} · {profile.role} · Lv{profile.level} ·{' '}
+          @{profile.username} · {profile.role === 'owner' ? '站长' : profile.role === 'admin' ? '管理员' : '成员'} · Lv{profile.level} ·{' '}
           <Link href={`/users/${encodeURIComponent(profile.username)}`}>查看我的主页 →</Link>
         </p>
 
