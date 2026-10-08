@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { Readable } from 'node:stream';
 import { errors } from '@ycomm/kernel';
-import { openLocalFile, saveLocalFile } from '@ycomm/downloads';
+import { openLocalFile, saveLocalFile, prepareVideo } from '@ycomm/downloads';
 import type { AppVariables } from '../context';
 import { requireAuth, sessionAuth } from '../middleware/session';
 import { rateLimitByUser } from '../middleware/rate-limit';
@@ -62,6 +62,8 @@ export function uploadRoutes(): Hono<{ Variables: AppVariables }> {
     const buffer = Buffer.from(await file.arrayBuffer());
     const saved = saveLocalFile(buffer, { kind: 'inlineVideo', originalName: file.name });
     const fileName = saved.localPath.split(/[\\/]/).pop() ?? '';
+    await prepareVideo(fileName, 'playback');
+    void prepareVideo(fileName, 'poster').catch(() => {});
     return c.json(
       {
         ok: true,
@@ -88,6 +90,15 @@ export function uploadRoutes(): Hono<{ Variables: AppVariables }> {
     return streamUpload(c, `inlineVideo/${name}`, name);
   });
 
+  router.get('/videos/:file/playback', async (c) => {
+    const path = await prepareVideo(c.req.param('file'), 'playback');
+    return streamUpload(c, path, path.split('/').pop() ?? 'video.mp4');
+  });
+  router.get('/videos/:file/poster', async (c) => {
+    const path = await prepareVideo(c.req.param('file'), 'poster');
+    return streamUpload(c, path, 'poster.jpg');
+  });
+
   return router;
 }
 
@@ -105,8 +116,9 @@ function streamUpload(c: Context, localPath: string, fileName: string): Response
 
   const headers: Record<string, string> = {
     'content-type': MIME_BY_EXT[ext] ?? 'application/octet-stream',
-    'cache-control': 'public, max-age=31536000, immutable',
+    'cache-control': 'public, max-age=31536000, immutable, no-transform',
     'accept-ranges': 'bytes',
+    'last-modified': file.modifiedAt.toUTCString(),
   };
 
   if (range) {

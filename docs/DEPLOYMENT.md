@@ -127,6 +127,8 @@ DATABASE_URL=postgres://... BACKUP_TARGET=/mnt/backups/ycomm ./scripts/backup.sh
 
 ## Cloudflare Tunnel 注意事项
 
+视频播放与封面使用 FFmpeg，Docker 镜像已安装。直接运行源码时需安装 `ffmpeg` 并放入 PATH，也可用 `FFMPEG_PATH` 指定可执行文件。视频副本和封面缓存写入上传卷的 `videoPrepared/`，原件保留；旧视频第一次播放会生成索引前置副本，后续复用缓存。自定义服务器直接处理媒体 GET/HEAD，保留 Content-Length、Range 和 no-transform；需要运行 `apps/web/server.ts`，不能使用 `next start` 代替。
+
 - 免费隧道限制单请求体 100MB —— 这是本地附件上限 50MB、大文件走外链的原因。
 - 限流与封禁依赖 `CF-Connecting-IP`，请保持 `TRUST_PROXY_HEADERS=true`。
 - App 只绑定 `127.0.0.1:3000`，对外通过隧道或反向代理暴露，不要直接开公网端口。

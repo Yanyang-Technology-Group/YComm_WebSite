@@ -17,7 +17,6 @@ import {
   getPostById,
   getPostCount,
   getTopicById,
-  hasLiked,
   incrementViewCount,
   likePost,
   listBoards,
@@ -215,8 +214,14 @@ export function forumRoutes(): Hono<{ Variables: AppVariables }> {
     const likedPostIds: string[] = [];
     const auth = c.get('auth');
     if (auth) {
-      for (const post of posts) {
-        if (await hasLiked(handle.db, post.id, auth.userId)) likedPostIds.push(post.id);
+      if (posts.length > 0) {
+        const liked = await handle.db.select({ id: schema.reactions.target_id }).from(schema.reactions).where(and(
+          eq(schema.reactions.user_id, auth.userId),
+          eq(schema.reactions.target_type, 'post'),
+          eq(schema.reactions.kind, 'like'),
+          inArray(schema.reactions.target_id, posts.map((post) => post.id)),
+        ));
+        likedPostIds.push(...liked.map((row) => row.id));
       }
       // 浏览通知：自己看自己的主题不发；同一浏览者 24 小时只提醒一次（避免刷屏）。
       const recipientPrefs = topic.author_id ? await handle.db.select({ enabled: schema.users.notify_views }).from(schema.users).where(eq(schema.users.id, topic.author_id)).limit(1) : [];

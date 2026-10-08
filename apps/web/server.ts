@@ -10,6 +10,7 @@ const dir = fileURLToPath(new URL('.', import.meta.url));
 const { loadEnvConfig } = await import('@next/env');
 loadEnvConfig(dir, dev);
 const env = getEnv();
+const { serveUpload } = await import('./serve-upload');
 // Next automatically installs an upgrade listener on httpServer after the first
 // HTTP request. Give it a separate, unbound server so that it cannot consume or
 // close /api/ws while our async Cookie authentication is in flight.
@@ -18,10 +19,11 @@ const app = next({ dev, dir, hostname: '0.0.0.0', port: env.PORT, httpServer: ne
 await app.prepare();
 const handle = app.getRequestHandler();
 const server = createServer((req, res) => {
-  void handle(req, res).catch(() => {
+  const isMedia = (req.method === 'GET' || req.method === 'HEAD') && /^\/api\/uploads\/(images|videos)\//.test(req.url ?? '');
+  void (isMedia ? serveUpload(req, res) : handle(req, res)).catch(() => {
     logger.error('http request failed');
-    if (!res.headersSent) res.writeHead(500);
-    res.end();
+    if (!res.headersSent) { res.writeHead(500); res.end(); }
+    else res.destroy();
   });
 });
 const realtime = attachRealtimeServer(server);

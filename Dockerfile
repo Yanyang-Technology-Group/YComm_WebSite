@@ -17,6 +17,9 @@ FROM docker.m.daocloud.io/library/node:22-bookworm-slim
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # 上传目录固定在卷挂载点上。npm 跑 workspace 脚本时 cwd 会变成 apps/web，
 # 用相对路径会让图片写到容器可写层，重建即丢（见 docker-compose.yml 注释）。
 ENV UPLOAD_DIR=/app/uploads

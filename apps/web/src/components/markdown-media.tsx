@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ModalPortal } from './modal-portal';
+import { videoUrls } from '../lib/video-url';
 
 /**
  * Markdown 里的图片 / 视频：点击后用**窗口**查看（全屏浮层），而不是跳转新页面。
@@ -22,7 +23,22 @@ export function MarkdownMedia({
   poster?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [nearViewport, setNearViewport] = useState(false);
+  const [fallback, setFallback] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const urls = videoUrls(src);
+  const playback = fallback === src ? src : urls.playback;
   const label = alt && alt.trim() ? alt : kind === 'video' ? '视频' : '图片';
+
+  useEffect(() => {
+    if (kind !== 'video' || !videoRef.current) return;
+    if (typeof IntersectionObserver === 'undefined') { setNearViewport(true); return; }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) { setNearViewport(true); observer.disconnect(); }
+    }, { rootMargin: '200px' });
+    observer.observe(videoRef.current);
+    return () => observer.disconnect();
+  }, [kind, src]);
 
   // Esc 关闭
   useEffect(() => {
@@ -52,7 +68,8 @@ export function MarkdownMedia({
         />
       ) : (
         <span className="post-video-wrap">
-          <video src={src} poster={poster} className="post-video" controls preload="metadata" />
+          <video ref={videoRef} src={nearViewport ? playback : undefined} poster={nearViewport ? poster ?? urls.poster : undefined}
+            className="post-video" controls playsInline preload="none" onError={() => setFallback(src)} />
           <button
             type="button"
             className="post-video-zoom"
@@ -61,6 +78,7 @@ export function MarkdownMedia({
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
+              videoRef.current?.pause();
               setOpen(true);
             }}
           >
@@ -92,7 +110,7 @@ export function MarkdownMedia({
             {kind === 'image' ? (
               <img src={src} alt={label} className="media-viewer-img" />
             ) : (
-              <video src={src} poster={poster} className="media-viewer-video" controls autoPlay />
+              <video src={playback} poster={poster ?? urls.poster} className="media-viewer-video" controls autoPlay playsInline onError={() => setFallback(src)} />
             )}
           </div>
           <p className="media-viewer-hint">点空白处或按 Esc 关闭</p>

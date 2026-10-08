@@ -91,6 +91,7 @@ export interface OpenedLocalFile {
   size: number;
   start: number;
   end: number;
+  modifiedAt: Date;
 }
 
 /**
@@ -108,7 +109,8 @@ export function openLocalFile(localPath: string, range?: { start: number; end: n
   if (!existsSync(full)) {
     throw errors.notFound('文件不存在');
   }
-  const size = statSync(full).size;
+  const stat = statSync(full);
+  const size = stat.size;
   const start = range?.start ?? 0;
   const end = range?.end ?? size - 1;
   return {
@@ -116,5 +118,6 @@ export function openLocalFile(localPath: string, range?: { start: number; end: n
     size,
     start,
     end,
+    modifiedAt: stat.mtime,
   };
 }

@@ -319,15 +319,7 @@ export function ShareButton({ text, topicId, initialCount = 0 }: { text?: string
 
 /** 当前登录用户（id + role）；客户端专用，避免每个按钮重复请求。 */
 async function currentUser(): Promise<{ id: string; role: string } | null> {
-  try {
-    const response = await fetch('/api/auth/me');
-    if (!response.ok) return null;
-    const json = (await response.json()) as { data?: { user?: { id?: string; role?: string } | null } };
-    const user = json.data?.user;
-    return user?.id ? { id: user.id, role: user.role ?? 'member' } : null;
-  } catch {
-    return null;
-  }
+  return getSession();
 }
 
 /** 帖子删除按钮：自己的帖子、或管理员/站长可删任意帖子（权限由 API 二次把关）。 */

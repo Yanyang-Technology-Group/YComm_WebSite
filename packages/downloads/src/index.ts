@@ -41,6 +41,7 @@ export {
 } from './fetch';
 export { addLink, getActiveLinks, getLinkRow, getResourceIdByLink, removeLink, type AddLinkInput, type LinkRow } from './links';
 export { openLocalFile, saveLocalFile, sniffMime, type OpenedLocalFile, type SavedFile } from './local-files';
+export { prepareVideo } from './video-files';
 export { listResourcesByAuthor } from './my-resources';
 export { reportDeadLink, reportDeadLinkByResource } from './reports';
 export {
