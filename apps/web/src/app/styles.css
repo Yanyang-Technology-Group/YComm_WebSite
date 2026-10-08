@@ -1,8 +1,16 @@
-@import '@yu-cq/apple-ui/styles.css';
+@import 'tailwindcss';
+@import '@extrastu/nuphy-ui/styles/tokens.css' layer(nuphy);
 @import './globals.css';
 @import './flat-design.css';
 @import './apple-ui.css';
 @import './appearance.css';
+@import './liquid-glass.css';
+
+@source '../../../../node_modules/@extrastu/nuphy-ui/dist';
+
+@theme inline {
+  --color-muted: var(--fill);
+}
 
 @custom-variant dark (&:where(html[data-theme-mode='dark'], html[data-theme-mode='dark'] *));
 

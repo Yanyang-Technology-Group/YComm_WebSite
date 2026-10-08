@@ -10,6 +10,8 @@ import { GuestPrompt } from '../components/guest-prompt';
 import { PageTransition } from '../components/page-transition';
 import { VerificationGate } from '../components/verification-gate';
 import { DEFAULT_UI_STYLE, UI_STYLE_BOOT_SCRIPT } from '../lib/appearance';
+import { GLASS_BOOT_SCRIPT } from '../lib/glass-preference';
+import { LiquidGlassEffects } from '../components/liquid-glass';
 import './styles.css';
 
 /** 首帧前应用本地主题（避免闪白）；账号主题由 ThemeSync 登录后校正。 */
@@ -54,6 +56,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: UI_STYLE_BOOT_SCRIPT }} />
         {/* 主题：先按本地缓存上色，登录后按账号主题校正（按账号生效） */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: GLASS_BOOT_SCRIPT }} />
+        <LiquidGlassEffects />
         <ThemeSync />
         {/* 切换页面 / 主题时的渐变幕布（CSS 驱动，见 globals.css） */}
         <div className="anim-veil" aria-hidden="true" />

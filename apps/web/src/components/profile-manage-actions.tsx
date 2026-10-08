@@ -25,17 +25,22 @@ export function ProfileManageActions({
 }) {
   const router = useRouter();
   const [myRole, setMyRole] = useState<string | null>(null);
+  const [myId, setMyId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [dialog, setDialog] = useState<{ kind: SanctionKind } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void getSession().then((user) => setMyRole(user?.role ?? null));
+    void getSession().then((user) => {
+      setMyRole(user?.role ?? null);
+      setMyId(user?.id ?? null);
+    });
   }, []);
 
   const staff = myRole === 'admin' || myRole === 'owner';
-  const allowed = staff && targetRole !== 'owner' && (myRole === 'owner' || targetRole !== 'admin');
+  const ownerSelf = myRole === 'owner' && targetRole === 'owner' && targetId === myId;
+  const allowed = ownerSelf || (staff && targetRole !== 'owner' && (myRole === 'owner' || targetRole !== 'admin'));
 
   if (!allowed) return null;
 
@@ -78,6 +83,7 @@ export function ProfileManageActions({
             <p className="section-title" style={{ marginTop: 0 }}>操作</p>
             {error && <p style={{ color: '#dc2626', margin: '0 0 0.6rem' }}>{error}</p>}
             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+              {!ownerSelf && <>
               <button type="button" disabled={busy} onClick={() => setDialog({ kind: 'ban' })}>
                 封禁…
               </button>
@@ -90,6 +96,8 @@ export function ProfileManageActions({
               <button type="button" disabled={busy} onClick={() => void act('/unmute')}>
                 解除禁言
               </button>
+              </>}
+              {ownerSelf && <Link href="/dashboard?section=security" className="text-btn">账号安全</Link>}
               <Link href="/admin/users" className="text-btn">
                 完整管理列表 →
               </Link>

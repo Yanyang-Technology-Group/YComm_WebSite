@@ -13,6 +13,9 @@ This product includes data and software distributed under their own licenses:
 - Data tables from spdx-exceptions and spdx-ranges — CC-BY-3.0
   (https://spdx.org) — attribution: SPDX license list data, Copyright
   Linux Foundation.
+- Liquid Glass optical filters by Obaid Qatan — MIT
+  (https://github.com/ObaidQatan/liquid-glass-component-library).
+  License and source provenance: apps/web/src/vendor/liquid-glass/.
 
 All other bundled dependencies are distributed under permissive licenses
 (MIT / ISC / Apache-2.0 / BSD / MPL / LGPL / GPL-3.0 / AGPL-3.0 family);

@@ -5,6 +5,8 @@ import {
   applyUiStyle, type UiStyle,
 } from '../lib/appearance';
 import { useUiStyle } from '../lib/use-ui-style';
+import { Button } from '@extrastu/nuphy-ui';
+import { GlassSettings } from './liquid-glass';
 
 const STYLES = [
   { id: 'flat', label: 'Flat Design', note: '默认' },
@@ -15,6 +17,7 @@ const STYLES = [
 export function AppearancePicker() {
   const headingId = useId();
   const style = useUiStyle();
+  const StyleButton = style === 'apple' ? Button : 'button';
 
   function choose(next: UiStyle) {
     applyUiStyle(next, { animate: true });
@@ -25,7 +28,7 @@ export function AppearancePicker() {
       <p id={headingId} className="appearance-heading"><strong>界面风格</strong></p>
       <div className="ui-style-picker" role="group" aria-labelledby={headingId}>
         {STYLES.map((entry) => (
-          <button
+          <StyleButton
             key={entry.id}
             type="button"
             className={`ui-style-option${style === entry.id ? ' active' : ''}`}
@@ -45,9 +48,10 @@ export function AppearancePicker() {
               {entry.note && <span className="ui-style-default">{entry.note}</span>}
               <span className="ui-style-check" aria-hidden="true">{style === entry.id ? '✓' : ''}</span>
             </span>
-          </button>
+          </StyleButton>
         ))}
       </div>
+      {style === 'apple' && <GlassSettings />}
     </section>
   );
 }

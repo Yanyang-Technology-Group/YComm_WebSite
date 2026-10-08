@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ButtonHTMLAttributes } from 'react';
-import { Button as AppleButton } from '@yu-cq/apple-ui';
+import { Button as AppleButton } from '@extrastu/nuphy-ui';
 import { playAnim } from '../lib/anim';
 import { apiFetch } from '../lib/api';
 import { getSession } from '../lib/session';

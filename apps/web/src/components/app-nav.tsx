@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Sidebar as AppleSidebar } from '@yu-cq/apple-ui';
+import { SettingsNav } from '@extrastu/nuphy-ui';
 import { getSession } from '../lib/session';
 import { useUiStyle } from '../lib/use-ui-style';
 
@@ -68,12 +68,18 @@ export function AppNav() {
       ...(staff ? ADMIN_LINKS.map((link) => ({ id: link.href, label: link.label, href: link.href })) : []),
       ...(isOwner ? OWNER_LINKS.map((link) => ({ id: link.href, label: link.label, href: link.href })) : []),
     ];
-    return <AppleSidebar
-      className="app-nav apple-app-nav"
-      header={<p className="app-nav-title">控制台</p>}
-      items={links.map((link) => ({ id: link.id, label: link.label, onClick: () => router.push(link.href) }))}
-      activeId={onDashboard ? section : pathname}
-    />;
+    return <aside className="app-nav apple-app-nav">
+      <p className="app-nav-title">控制台</p>
+      <SettingsNav
+        aria-label="控制台导航"
+        items={links.map(({ id, label }) => ({ id, label }))}
+        value={onDashboard ? section : pathname}
+        onValueChange={(id) => {
+          const link = links.find((entry) => entry.id === id);
+          if (link) router.push(link.href);
+        }}
+      />
+    </aside>;
   }
 
   return (

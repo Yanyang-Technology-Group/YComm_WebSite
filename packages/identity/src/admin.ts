@@ -11,7 +11,8 @@ import type { UserRecord } from './types';
  * Admin-facing account operations.
  *
  * Every mutation checks rank (strictly higher wins) so an admin cannot touch
- * another admin and nobody touches the owner; role grants additionally go
+ * another admin and nobody mutates the owner except the owner's own password
+ * reset; role grants additionally go
  * through `config/roles.ts` `canAssignRole` (owner-only, never owner-for-owner).
  * Every action is audited.
  */
@@ -58,13 +59,16 @@ export interface UserListResult {
 
 export async function listUsers(
   db: Db,
-  options: { q?: string; offset?: number; limit?: number } = {},
+  options: { q?: string; offset?: number; limit?: number; viewerRole?: AssignableRole } = {},
 ): Promise<UserListResult> {
   const limit = Math.min(options.limit ?? 20, 100);
   const q = options.q?.trim();
 
   // 已注销的账号不再出现在用户列表里（数据仍保留在库里，用于审计与追溯）。
   const filters = [ne(schema.users.state, 'deleted')];
+  if (options.viewerRole !== undefined && options.viewerRole !== 'owner') {
+    filters.push(eq(schema.users.role, 'member'));
+  }
   if (q) {
     filters.push(
       or(
@@ -106,7 +110,9 @@ export async function resetUserPassword(
   }
 
   const target = await loadTarget(db, targetId);
-  if (target.role === 'owner') throw errors.forbidden('不能重置站长账号的密码');
+  if (target.role === 'owner' && target.id !== actor.id) {
+    throw errors.forbidden('不能重置其他站长账号的密码');
+  }
 
   const hash = await hashPassword(newPassword);
   const [updated] = await db

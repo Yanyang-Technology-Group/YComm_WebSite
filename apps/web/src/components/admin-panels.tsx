@@ -101,6 +101,7 @@ export function UsersPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [myRole, setMyRole] = useState<string | null>(null);
+  const [myId, setMyId] = useState<string | null>(null);
   /** 正在弹窗设置时长的目标：封禁或禁言。 */
   const [dialog, setDialog] = useState<{ kind: SanctionKind; user: AdminUser } | null>(null);
   /** 站长注销账号时的人机验证弹窗。 */
@@ -113,7 +114,10 @@ export function UsersPanel({
   const [detailFor, setDetailFor] = useState<AdminUser | null>(null);
 
   useEffect(() => {
-    void getSession().then((user) => setMyRole(user?.role ?? null));
+    void getSession().then((user) => {
+      setMyRole(user?.role ?? null);
+      setMyId(user?.id ?? null);
+    });
   }, []);
 
   const isOwner = myRole === 'owner';
@@ -203,7 +207,7 @@ export function UsersPanel({
 
   /** 管理员不能动管理员：这些管理动作只有站长能碰。 */
   function canManage(user: AdminUser): boolean {
-    if (user.role === 'owner') return false;
+    if (user.role === 'owner') return isOwner && user.id === myId;
     if (user.role === 'admin') return isOwner;
     return true;
   }
@@ -387,7 +391,7 @@ export function UsersPanel({
                   取消管理员
                 </button>
               )}
-              {manageFor.state !== 'banned' && (
+              {manageFor.role !== 'owner' && manageFor.state !== 'banned' && (
                 <button
                   type="button"
                   onClick={() => {
@@ -398,12 +402,12 @@ export function UsersPanel({
                   封禁…
                 </button>
               )}
-              {manageFor.state === 'banned' && (
+              {manageFor.role !== 'owner' && manageFor.state === 'banned' && (
                 <button type="button" onClick={() => void act(manageFor, '/unban')}>
                   解封
                 </button>
               )}
-              {manageFor.state !== 'muted' && manageFor.state !== 'banned' && (
+              {manageFor.role !== 'owner' && manageFor.state !== 'muted' && manageFor.state !== 'banned' && (
                 <button
                   type="button"
                   onClick={() => {
@@ -414,7 +418,7 @@ export function UsersPanel({
                   禁言…
                 </button>
               )}
-              {manageFor.state === 'muted' && (
+              {manageFor.role !== 'owner' && manageFor.state === 'muted' && (
                 <button type="button" onClick={() => void act(manageFor, '/unmute')}>
                   解除禁言
                 </button>
@@ -429,7 +433,7 @@ export function UsersPanel({
                   解绑注册码（{manageFor.inviteCodeUsed}）
                 </button>
               )}
-              {isOwner && manageFor.role !== 'owner' && (
+              {isOwner && (manageFor.role !== 'owner' || manageFor.id === myId) && (
                 <button
                   type="button"
                   onClick={() => {

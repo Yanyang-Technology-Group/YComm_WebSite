@@ -60,6 +60,22 @@ html:is([data-ui-style='flat'], [data-ui-style='apple']) .nav-auth {
   white-space: nowrap;
 }
 
+@media (max-width: 480px) {
+  html:is([data-ui-style='flat'], [data-ui-style='apple']) .brand-name { display: none; }
+  html:is([data-ui-style='flat'], [data-ui-style='apple']) .site-header-inner {
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
+  }
+  html:is([data-ui-style='flat'], [data-ui-style='apple']) .site-actions {
+    gap: 0.35rem;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  html:is([data-ui-style='flat'], [data-ui-style='apple']) .nav-console:not(.nav-console-avatar) {
+    padding-inline: 0.4rem;
+  }
+}
+
 @media (max-width: 380px) {
   html:is([data-ui-style='flat'], [data-ui-style='apple']) .site-header-inner {
     gap: 0.5rem;

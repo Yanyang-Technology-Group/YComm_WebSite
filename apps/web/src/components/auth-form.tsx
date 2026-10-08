@@ -5,6 +5,7 @@ import { useTransition, useState, type FormEvent } from 'react';
 import type { CaptchaConfig } from '@ycomm/kernel';
 import { LEGAL_DOCS, REGISTRATION } from '@ycomm/config';
 import { CaptchaField } from './captcha-field';
+import { UiButton, UiInput } from './ui-controls';
 
 export type AuthFormKind = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
 
@@ -169,8 +170,8 @@ export function AuthForm({
 
       {kind === 'login' && (
         <>
-          <input name="login" placeholder="用户名或邮箱" required autoComplete="username" />
-          <input
+          <UiInput name="login" placeholder="用户名或邮箱" required autoComplete="username" />
+          <UiInput
             name="password"
             type="password"
             placeholder="密码"
@@ -187,9 +188,9 @@ export function AuthForm({
 
       {kind === 'register' && (
         <>
-          <input name="username" placeholder="用户名（3-20 位字母/数字/_-）" required autoComplete="username" />
-          <input name="email" type="email" placeholder="邮箱" required autoComplete="email" />
-          <input
+          <UiInput name="username" placeholder="用户名（3-20 位字母/数字/_-）" required autoComplete="username" />
+          <UiInput name="email" type="email" placeholder="邮箱" required autoComplete="email" />
+          <UiInput
             name="password"
             type="password"
             placeholder={`密码（${REGISTRATION.passwordHint}）`}
@@ -197,7 +198,7 @@ export function AuthForm({
             minLength={REGISTRATION.minPasswordLength}
             autoComplete="new-password"
           />
-          <input name="inviteCode" placeholder="邀请码（可选）" autoComplete="off" />
+          <UiInput name="inviteCode" placeholder="邀请码（可选）" autoComplete="off" />
           <TermsAgreement />
         </>
       )}
@@ -206,10 +207,10 @@ export function AuthForm({
       {(kind === 'register' || kind === 'login' || kind === 'forgot' || kind === 'reset') &&
         captcha && <CaptchaField script={captcha.script} widgetApi={captcha.widgetApi} />}
 
-      {kind === 'forgot' && <input name="email" type="email" placeholder="注册邮箱" required />}
+      {kind === 'forgot' && <UiInput name="email" type="email" placeholder="注册邮箱" required />}
 
       {kind === 'reset' && (
-        <input
+        <UiInput
           name="password"
           type="password"
           placeholder={`新密码（${REGISTRATION.passwordHint}）`}
@@ -234,9 +235,9 @@ export function AuthForm({
         </p>
       )}
 
-      <button type="submit" disabled={pending} style={{ padding: '0.5rem' }}>
+      <UiButton type="submit" disabled={pending} style={{ padding: '0.5rem' }}>
         {pending ? '处理中…' : title[kind]}
-      </button>
+      </UiButton>
     </form>
   );
 }

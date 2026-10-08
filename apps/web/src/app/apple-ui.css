@@ -8,15 +8,6 @@ html[data-ui-style='apple'] {
   --header-text: var(--text);
   --shadow-sm: 0 2px 8px light-dark(#0000000d, #00000026);
   --shadow: 0 8px 28px light-dark(#00000014, #00000040);
-  --color-apple-primary: var(--accent-strong);
-  --color-apple-bg: var(--surface);
-  --color-apple-bg-secondary: var(--bg);
-  --color-apple-text: var(--text);
-  --color-apple-text-secondary: var(--muted);
-  --color-apple-text-tertiary: var(--muted);
-  --radius-apple-sm: 8px;
-  --radius-apple-md: 8px;
-  --radius-apple-lg: 8px;
 }
 
 html[data-ui-style='apple'] body {
@@ -24,7 +15,6 @@ html[data-ui-style='apple'] body {
   letter-spacing: 0;
 }
 html[data-ui-style='apple'] .site-header {
-  backdrop-filter: blur(20px) saturate(160%);
   box-shadow: 0 1px 0 light-dark(#00000008, #ffffff0a);
 }
 html[data-ui-style='apple'] .site-nav {
@@ -85,7 +75,6 @@ html[data-ui-style='apple'] .board-link:last-of-type { border-radius: 0 0 8px 8p
 html[data-ui-style='apple'] .board-link:hover { background: var(--accent-soft); }
 html[data-ui-style='apple'] .app-nav {
   background: light-dark(#eaeaefd9, #1f1f21e6);
-  backdrop-filter: blur(20px);
 }
 html[data-ui-style='apple'] .apple-app-nav {
   display: flex;

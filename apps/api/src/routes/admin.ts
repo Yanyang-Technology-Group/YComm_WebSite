@@ -245,13 +245,30 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
 
   router.get('/users', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
     const handle = await getDb();
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
     const result = await listUsers(handle.db, {
+      viewerRole: auth.subject.role,
       q: c.req.query('q') ?? undefined,
       offset: Number.parseInt(c.req.query('offset') ?? '0', 10) || 0,
       limit: Math.min(Number.parseInt(c.req.query('limit') ?? '20', 10) || 20, 100),
     });
     const users = await enrichUserDetails(handle.db, result.users);
     return c.json({ ok: true, data: { users, total: result.total } });
+  });
+
+  // Apply the same account visibility to direct per-user management requests.
+  router.use('/users/:userId/*', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c, next) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    if (auth.subject.role !== 'owner') {
+      const handle = await getDb();
+      const [target] = await handle.db.select({ role: schema.users.role }).from(schema.users)
+        .where(eq(schema.users.id, c.req.param('userId')!)).limit(1);
+      if (!target) throw errors.notFound('用户不存在');
+      if (target.role !== 'member') throw errors.forbidden('无权查看或管理该账号');
+    }
+    await next();
   });
 
   router.patch('/users/:userId/role', requirePermission(PERMISSION.USER_ROLE_ASSIGN), async (c) => {

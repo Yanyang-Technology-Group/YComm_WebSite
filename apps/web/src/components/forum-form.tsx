@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import { apiFetch } from '../lib/api';
 import { getSession, type SessionUser } from '../lib/session';
 import { ImagePicker } from './image-picker';
+import { UiInput, UiTextarea, UiButton } from './ui-controls';
 
 function Notice({ error, notice }: { error: string | null; notice: string | null }) {
   if (error) return <p style={{ color: '#dc2626', fontSize: '0.9rem' }}>{error}</p>;
@@ -102,7 +103,7 @@ export function NewTopicComposer({ boardSlug, boardName }: { boardSlug: string; 
 
   return (
     <form ref={formRef} className="topic-composer" onSubmit={submit}>
-      <input
+      <UiInput
         className="topic-composer-title"
         name="title"
         placeholder="标题"
@@ -110,7 +111,7 @@ export function NewTopicComposer({ boardSlug, boardName }: { boardSlug: string; 
         maxLength={120}
         autoFocus
       />
-      <textarea
+      <UiTextarea
         ref={contentRef}
         className="topic-composer-body"
         name="content"
@@ -141,9 +142,9 @@ export function NewTopicComposer({ boardSlug, boardName }: { boardSlug: string; 
         )}
         <span className="topic-composer-gap" />
         <ImagePicker label="插入图片或视频" media="all" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
-        <button type="submit" className="topic-composer-submit" disabled={busy}>
+        <UiButton type="submit" className="topic-composer-submit" disabled={busy}>
           {busy ? '发布中…' : '发布主题'}
-        </button>
+        </UiButton>
       </div>
       <Notice error={error} notice={notice} />
     </form>
@@ -182,7 +183,7 @@ export function ReplyForm({ topicId, posts = [] }: { topicId: string; posts?: { 
         <option value="">回复整个主题</option>
         {posts.map((post) => <option key={post.id} value={post.id}>回复 #{post.position} · {post.authorDisplayName ?? post.authorUsername ?? '访客'}</option>)}
       </select>
-      <textarea
+      <UiTextarea
         ref={contentRef}
         name="content"
         placeholder="回复内容（支持 Markdown，可插入图片）"
@@ -192,9 +193,9 @@ export function ReplyForm({ topicId, posts = [] }: { topicId: string; posts?: { 
       />
       <Notice error={error} notice={null} />
       <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
-        <button type="submit" disabled={pending} style={{ width: 100, padding: '0.4rem' }}>
+        <UiButton type="submit" disabled={pending} style={{ width: 100, padding: '0.4rem' }}>
           {pending ? '发送中…' : '回复'}
-        </button>
+        </UiButton>
         <ImagePicker label="🖼 插入图片/视频" media="all" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
       </div>
     </form>
