@@ -38,6 +38,11 @@ export default defineConfig([
     '**/dist/**',
     // Local-only scratch/secret dirs listed in .gitignore (SSH debug tools, etc.).
     '.tmpssh/**',
+    // 本地草稿/工具链目录（gitignore 里也忽略了）：里面常会落一整个 Flutter SDK、
+    // pub 缓存、临时脚本，扫进来就是十几万条报错，把真正的 lint 结果淹掉。
+    'private/**',
+    // 原样收录的第三方静态资源（cap.min.js 等），不参与代码规范检查。
+    'apps/web/public/**',
   ]),
 
   js.configs.recommended,

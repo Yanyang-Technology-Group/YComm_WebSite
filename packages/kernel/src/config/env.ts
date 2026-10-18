@@ -229,7 +229,18 @@ export interface CaptchaConfig {
   endpoint: string;
   /** `<cap-widget data-cap-api-endpoint>` 用的 API 前缀。 */
   widgetApi: string;
-  /** 客户端脚本地址，默认 `${endpoint}/cap.min.js`。 */
+  /**
+   * 客户端脚本地址，默认同源 `/cap.min.js`（仓库里自带一份 cap 0.0.6 的构建，
+   * 见 apps/web/public/cap.min.js）。
+   *
+   * 为什么默认自托管而不是 `${endpoint}/cap.min.js`：
+   * - 第三方脚本是外部资源，ZAP 会报「Sub Resource Integrity Attribute Missing」；
+   *   而 cap 的 CDN 不发 `Access-Control-Allow-Origin`，浏览器根本无法校验 SRI；
+   * - 脚本从本站发出后，CSP 的 `script-src` 不用再为人机验证单独开一个外部 origin。
+   *
+   * 想跟上游保持同步（或换了别的 CAP 部署），用 `CAPTCHA_SCRIPT` 指回外部地址即可，
+   * middleware 会自动把这个外部 origin 加进 CSP。
+   */
   script: string;
 }
 
@@ -243,7 +254,7 @@ export function captchaConfig(env: Env = getEnv()): CaptchaConfig | null {
   return {
     endpoint,
     widgetApi: `${endpoint}/api/`,
-    script: env.CAPTCHA_SCRIPT ?? `${endpoint}/cap.min.js`,
+    script: env.CAPTCHA_SCRIPT?.trim() || '/cap.min.js',
   };
 }
 

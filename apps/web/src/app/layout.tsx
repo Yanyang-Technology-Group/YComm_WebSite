@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { getSiteBranding } from '@ycomm/config';
 import { SessionNav } from '../components/session-nav';
 import { SiteNav } from '../components/site-nav';
@@ -35,14 +36,17 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const branding = getSiteBranding();
+  // CSP 的 nonce 由 middleware 逐请求生成；Next 会自动把它加到自己的内联脚本上，
+  // 我们自己注入的这几段启动脚本必须手动带上，否则会被 CSP 拦掉。
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
 
   return (
     <html lang="zh-CN" data-theme-colour="azure" data-theme-mode="auto" data-ui-style={DEFAULT_UI_STYLE} suppressHydrationWarning>
       <body>
-        <script dangerouslySetInnerHTML={{ __html: UI_STYLE_BOOT_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: UI_STYLE_BOOT_SCRIPT }} />
         {/* 主题：先按本地缓存上色，登录后按账号主题校正（按账号生效） */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
-        <script dangerouslySetInnerHTML={{ __html: GLASS_BOOT_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: GLASS_BOOT_SCRIPT }} />
         <LiquidGlassEffects />
         <ThemeSync />
         {/* 切换页面 / 主题时的渐变幕布（CSS 驱动，见 globals.css） */}

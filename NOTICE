@@ -16,6 +16,10 @@ This product includes data and software distributed under their own licenses:
 - Liquid Glass optical filters by Obaid Qatan — MIT
   (https://github.com/ObaidQatan/liquid-glass-component-library).
   License and source provenance: apps/web/src/vendor/liquid-glass/.
+- Cap (人机验证组件) by Tiago Rangel — MIT
+  (https://github.com/tiagorangel1/cap).
+  同源自托管的构建：apps/web/public/cap.min.js（版本 0.0.6，未修改，
+  由 https://cap.yanyn.cn/cap.min.js 取回；服务端校验仍走配置的 CAP Worker）。
 
 All other bundled dependencies are distributed under permissive licenses
 (MIT / ISC / Apache-2.0 / BSD / MPL / LGPL / GPL-3.0 / AGPL-3.0 family);
