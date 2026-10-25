@@ -185,6 +185,7 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | 方法与路径 | 权限 | 路径/Query/请求体 | 成功 `data` 与特殊行为 |
 |---|---|---|---|
 | `GET /api/admin/users` | `ADMIN_DASHBOARD_ACCESS` | Query：可选 `q`，`offset` 默认 0，`limit` 默认 20、最大 100 | `{ users: AdminUser[], total }`。 |
+| `GET /api/admin/users/:userId` | `ADMIN_DASHBOARD_ACCESS` | Path `userId` | `{ user: AdminUser }`；非 owner 仅可查看成员，已注销用户返回 404。 |
 | `PATCH /api/admin/users/:userId/role` | `USER_ROLE_ASSIGN`（实际仅 owner 可授予敏感角色） | Path `userId`；JSON：`role: member\|admin\|owner` | `{ user: AdminUser }`；owner 身份转移受领域规则约束。 |
 | `POST /api/admin/users/:userId/ban` | `USER_BAN` | Path `userId`；JSON：可选 `reason` ≤300，`until` 为 ISO datetime 或 `null`（缺省/null 为永久） | `{ user: AdminUser }`；通知目标用户。 |
 | `POST /api/admin/users/:userId/unban` | `USER_BAN` | Path `userId` | `{ user: AdminUser }`。 |
