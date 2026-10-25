@@ -6,6 +6,7 @@ import type { CaptchaConfig } from '@ycomm/kernel';
 import { LEGAL_DOCS, REGISTRATION } from '@ycomm/config';
 import { CaptchaField } from './captcha-field';
 import { UiButton, UiInput } from './ui-controls';
+import { isCaptchaError, requestCaptchaReset } from '../lib/captcha';
 
 export type AuthFormKind = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
 
@@ -135,9 +136,17 @@ export function AuthForm({
         | { ok: boolean; data?: unknown; error?: ApiError }
         | null;
       if (!json || !json.ok) {
+        // CAP validation consumes a valid token before account/password checks.
+        // Reset on any failed attempt that submitted one so retries get a fresh
+        // challenge rather than silently reusing a spent token.
+        if (captcha && (payload.captchaToken || isCaptchaError(json?.error))) {
+          requestCaptchaReset();
+        }
         setError(renderError(json?.error));
         return;
       }
+
+      if (captcha && payload.captchaToken) requestCaptchaReset();
 
       if (kind === 'login') {
         // 硬跳转：带新会话 cookie 让服务端重新渲染，避免前端状态不生效。

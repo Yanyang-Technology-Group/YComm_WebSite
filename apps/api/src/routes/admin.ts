@@ -257,6 +257,20 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
     return c.json({ ok: true, data: { users, total: result.total } });
   });
 
+  router.get('/users/:userId', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
+    const handle = await getDb();
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const [user] = await handle.db.select().from(schema.users)
+      .where(eq(schema.users.id, c.req.param('userId')!)).limit(1);
+    if (!user || user.state === 'deleted') throw errors.notFound('用户不存在');
+    if (auth.subject.role !== 'owner' && user.role !== 'member') {
+      throw errors.forbidden('无权查看该账号');
+    }
+    const [detail] = await enrichUserDetails(handle.db, [user]);
+    return c.json({ ok: true, data: { user: detail } });
+  });
+
   // Apply the same account visibility to direct per-user management requests.
   router.use('/users/:userId/*', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c, next) => {
     const auth = c.get('auth');

@@ -110,8 +110,6 @@ export function UsersPanel({
   const [pwDialog, setPwDialog] = useState<{ user: AdminUser; step: 1 | 2; password: string } | null>(null);
   /** 「管理面板」弹窗（操作入口）。 */
   const [manageFor, setManageFor] = useState<AdminUser | null>(null);
-  /** 「详情」弹窗（用户具体数据）。 */
-  const [detailFor, setDetailFor] = useState<AdminUser | null>(null);
 
   useEffect(() => {
     void getSession().then((user) => {
@@ -263,9 +261,9 @@ export function UsersPanel({
                   <button type="button" disabled={busy === user.id} onClick={() => setManageFor(user)}>
                     管理
                   </button>
-                  <button type="button" disabled={busy === user.id} onClick={() => setDetailFor(user)}>
+                  <Link className="text-btn" href={`/admin/users/${encodeURIComponent(user.id)}`}>
                     详情
-                  </button>
+                  </Link>
                 </div>
               )}
             </div>
@@ -469,85 +467,6 @@ export function UsersPanel({
         </ModalPortal>
       )}
 
-      {/* 详情：该用户的具体数据（管理员仅能看到成员，管理员仅站长可见） */}
-      {detailFor && (
-        <ModalPortal onClick={() => setDetailFor(null)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <p className="modal-title">
-              用户详情 · {detailFor.displayName || detailFor.username}
-              <span className="muted" style={{ fontWeight: 400, fontSize: '0.9rem' }}>
-                {' '}
-                @{detailFor.username}
-              </span>
-            </p>
-            <div style={{ display: 'grid', gap: '0.45rem', fontSize: '0.92rem' }}>
-              <DetailRow label="头像">
-                {detailFor.avatarPath ? (
-                  <img src={detailFor.avatarPath} alt={detailFor.username} className="avatar" style={{ width: 48, height: 48 }} loading="lazy" />
-                ) : (
-                  <span className="avatar avatar-fallback" style={{ width: 48, height: 48 }}>
-                    {(detailFor.displayName || detailFor.username).slice(0, 1).toUpperCase()}
-                  </span>
-                )}
-              </DetailRow>
-              <DetailRow label="昵称">{detailFor.displayName || '—'}</DetailRow>
-              <DetailRow label="ID">@{detailFor.username}</DetailRow>
-              <DetailRow label="邮箱">{detailFor.email}</DetailRow>
-              <DetailRow label="GitHub">
-                {detailFor.githubUsername ? (
-                  <a
-                    href={`https://github.com/${encodeURIComponent(detailFor.githubUsername)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="uname"
-                  >
-                    @{detailFor.githubUsername} ↗
-                  </a>
-                ) : (
-                  '未绑定'
-                )}
-              </DetailRow>
-              <DetailRow label="注册时间">
-                {new Date(detailFor.createdAt).toLocaleString('zh-CN')}
-              </DetailRow>
-              <DetailRow label="最后登录">
-                {detailFor.lastLoginAt ? new Date(detailFor.lastLoginAt).toLocaleString('zh-CN') : '未记录'}
-              </DetailRow>
-              <DetailRow label="目前状态">
-                <span className={`badge ${(STATE_META[detailFor.state] ?? { className: 'badge-neutral' }).className}`}>
-                  {(STATE_META[detailFor.state] ?? { label: detailFor.state }).label}
-                </span>
-              </DetailRow>
-              <DetailRow label="权限">
-                <span className={`badge ${(ROLE_META[detailFor.role] ?? { className: 'badge-neutral' }).className}`}>
-                  {(ROLE_META[detailFor.role] ?? { label: detailFor.role }).label}
-                </span>
-              </DetailRow>
-              <DetailRow label="等级">Lv{detailFor.level}</DetailRow>
-              <DetailRow label="使用的注册码">{detailFor.inviteCodeUsed ?? '无'}</DetailRow>
-              <DetailRow label="发帖 / 获赞">
-                {detailFor.postCount ?? 0} 帖 · {detailFor.likeReceivedCount ?? 0} 赞
-              </DetailRow>
-            </div>
-            <div style={{ marginTop: '1rem' }}>
-              <button type="button" onClick={() => setDetailFor(null)}>
-                关闭
-              </button>
-            </div>
-          </div>
-        </ModalPortal>
-      )}
-    </div>
-  );
-}
-
-function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', gap: '0.6rem' }}>
-      <span className="muted" style={{ flexShrink: 0, width: 92 }}>
-        {label}
-      </span>
-      <span style={{ minWidth: 0, wordBreak: 'break-all' }}>{children}</span>
     </div>
   );
 }

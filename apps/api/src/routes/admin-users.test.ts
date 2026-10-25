@@ -52,6 +52,18 @@ describe('Account management visibility', () => {
     expect((await app.request(target, { headers: { cookie: accounts.owner!.cookie } })).status).toBe(200);
   });
 
+  it('user details are visible to admins only for members', async () => {
+    expect((await app.request(`/api/admin/users/${accounts.member!.id}`, {
+      headers: { cookie: accounts.admin!.cookie },
+    })).status).toBe(200);
+    expect((await app.request(`/api/admin/users/${accounts.owner!.id}`, {
+      headers: { cookie: accounts.admin!.cookie },
+    })).status).toBe(403);
+    expect((await app.request(`/api/admin/users/${accounts.owner!.id}`, {
+      headers: { cookie: accounts.owner!.cookie },
+    })).status).toBe(200);
+  });
+
   it('owner may reset their own password, while sanctions and role changes remain protected', async () => {
     const owner = accounts.owner!;
     const headers = { cookie: owner.cookie, 'content-type': 'application/json' };
