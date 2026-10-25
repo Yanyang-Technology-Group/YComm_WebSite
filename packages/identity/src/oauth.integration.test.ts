@@ -121,21 +121,20 @@ describe('绑定 GitHub：归属与让位', () => {
     expect(await holdersOf('github', 'acc-self')).toEqual([userId]);
   });
 
-  it('注销后同一个 GitHub 重新登录会建新账号，不会回到已注销账号', async () => {
+  it('注销后同一个 GitHub 不会绕过邮箱注册和年龄同意流程', async () => {
     const oldUserId = await seedUser('gh-reborn', { state: 'deleted', deletedAt: new Date() });
     await seedLink('github', 'acc-reborn', oldUserId);
 
-    const user = await findOrCreateOAuthUser(handle.db, {
+    await expect(findOrCreateOAuthUser(handle.db, {
       provider: 'github',
       providerAccountId: 'acc-reborn',
       username: 'gh-reborn',
       email: null,
       displayName: null,
       avatarUrl: null,
-    });
+    })).rejects.toMatchObject({ code: errors.validation().code });
 
-    expect(user.id).not.toBe(oldUserId);
-    expect(user.state).toBe('active');
-    expect(await holdersOf('github', 'acc-reborn')).toEqual([user.id]);
+    expect(await holdersOf('github', 'acc-reborn')).toEqual([]);
+    expect((await userRow(oldUserId))?.state).toBe('deleted');
   });
 });

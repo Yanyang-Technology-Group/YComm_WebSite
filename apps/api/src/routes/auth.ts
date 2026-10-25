@@ -895,6 +895,9 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
 
       return c.redirect('/', 302);
     } catch (error) {
+      if (isAppError(error) && error.code === ErrorCodes.VALIDATION_FAILED && error.message === '请先通过邮箱完成注册，再绑定 GitHub 登录') {
+        return c.redirect('/register?oauth=registration_required', 302);
+      }
       // 服务器到 GitHub 的网络在国内机房经常超时——给用户可读的提示
       logger.error('github oauth failed', {
         error: error instanceof Error ? error.message : String(error),

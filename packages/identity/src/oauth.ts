@@ -69,19 +69,9 @@ export async function findOrCreateOAuthUser(db: Db, profile: OAuthProfile): Prom
   }
 
   if (!user) {
-    const username = await uniqueUsername(db, sanitizeUsername(profile.username));
-    const [created] = await db
-      .insert(schema.users)
-      .values({
-        username,
-        email: profile.email ?? `${profile.provider}-${profile.providerAccountId}@users.noreply`,
-        display_name: profile.displayName ?? profile.username,
-        avatar_path: profile.avatarUrl,
-        state: 'active',
-      })
-      .returning();
-    if (!created) throw errors.internal(undefined, 'OAuth 用户创建失败');
-    user = created;
+    // New accounts must go through the explicit registration form, which
+    // records terms acceptance and collects birth/guardian consent details.
+    throw errors.validation({ issues: [{ path: 'oauth', message: '请先通过邮箱完成注册，再绑定 GitHub 登录' }] });
   }
 
   await db
@@ -177,23 +167,4 @@ export async function unlinkOAuthAccount(db: Db, userId: string, provider: strin
     throw errors.forbidden('解绑前请先在「账号安全」创建密码，否则你将没有任何登录方式');
   }
   await db.delete(schema.oauthAccounts).where(eq(schema.oauthAccounts.id, link.id));
-}
-
-function sanitizeUsername(username: string): string {
-  const cleaned = username.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20);
-  return cleaned || `user${Math.random().toString(36).slice(2, 8)}`;
-}
-
-async function uniqueUsername(db: Db, base: string): Promise<string> {
-  let candidate = base;
-  for (let i = 0; i < 10; i++) {
-    const [row] = await db
-      .select({ id: schema.users.id })
-      .from(schema.users)
-      .where(eq(schema.users.username, candidate))
-      .limit(1);
-    if (!row) return candidate;
-    candidate = `${base.slice(0, 17)}${Math.random().toString(36).slice(2, 5)}`;
-  }
-  return `${base.slice(0, 14)}${Date.now().toString(36)}`;
 }
