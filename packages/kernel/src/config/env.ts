@@ -55,6 +55,7 @@ export const envSchema = z
     SITE_ICP: optionalText,
     /** Shown in the footer next to the version. Required by AGPL for network users. */
     SITE_SOURCE_URL: optionalText,
+    SITE_MIRROR_URL: optionalText,
 
     // ---- database -------------------------------------------------------
     DATABASE_DRIVER: z.enum(DATABASE_DRIVERS).default('pglite'),

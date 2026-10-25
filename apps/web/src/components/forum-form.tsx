@@ -289,7 +289,11 @@ export function ShareButton({ text, topicId, initialCount = 0 }: { text?: string
 
   async function share() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      const canonical = new URL(window.location.href);
+      canonical.hostname = 'c.yanyn.cn';
+      canonical.protocol = 'https:';
+      canonical.port = '';
+      await navigator.clipboard.writeText(canonical.toString());
       if (topicId) setCount((value) => value + 1);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);

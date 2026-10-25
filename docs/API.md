@@ -69,8 +69,9 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 
 | 方法与路径 | 鉴权 | 参数/请求体 | 成功 `data` 与特殊行为 |
 |---|---|---|---|
-| `POST /api/auth/register` | 公开；IP 限流 | JSON：`username` 1–20、`email` 3–255、`password` 1–200；可选 `inviteCode`, `captchaToken`；`agreeTerms` 必须为 `true` | HTTP 201；`{ needsVerification, alreadyRegistered }`。为防账号枚举，已注册邮箱也使用相同响应形态。 |
+| `POST /api/auth/register` | 公开；IP 限流 | JSON：`username` 1–20、`email` 3–255、`password` 1–200、`birthDate`（YYYY-MM-DD）；未满十四周岁还需 `guardianEmail`；可选 `inviteCode`, `captchaToken`；`agreeTerms` 必须为 `true` | HTTP 201；`{ needsVerification, needsGuardianConsent, alreadyRegistered }`。为防账号枚举，已注册邮箱也使用相同响应形态。 |
 | `POST /api/auth/verify-email` | 公开 | JSON：`token` 1–256 | `{ user: PublicUser }`。 |
+| `POST /api/auth/guardian-consent` | 公开 | JSON：`token`（监护人确认邮件中的一次性令牌） | `null`；记录监护人单独同意，儿童账号在同意前不可访问。 |
 | `POST /api/auth/resend-verification` | 已登录（用会话里的账号，无需人机验证）或公开（带 `email` + 人机验证）；IP 限流 | 已登录：空 JSON；未登录：JSON `email`；可选 `captchaToken` | 已登录 `{ sent: true }`；未登录 `null`。未登录分支为防枚举，无论邮箱是否存在均相同。 |
 | `POST /api/auth/verify-device` | 公开；IP 限流 | JSON：`token` 1–256 | `{ confirmed: true }`。确认这台新设备：设备指纹记入受信任设备表。链接可以从任意浏览器点开（服务端只认令牌里的用户 + 设备指纹）。 |
 | `POST /api/auth/resend-device` | 登录（待确认的新设备也允许）；IP 限流 | 空 JSON | `{ sent }`；当前设备已受信任时返回 `sent: false`。账号没有可用邮箱（OAuth 占位地址）时返回校验错误。 |

@@ -133,7 +133,7 @@ export function AuthForm({
         body: JSON.stringify(payload),
       });
       const json = (await response.json().catch(() => null)) as
-        | { ok: boolean; data?: unknown; error?: ApiError }
+        | { ok: boolean; data?: { needsGuardianConsent?: boolean }; error?: ApiError }
         | null;
       if (!json || !json.ok) {
         // CAP validation consumes a valid token before account/password checks.
@@ -154,7 +154,9 @@ export function AuthForm({
         return;
       }
       if (kind === 'register') {
-        setNotice('注册成功！若邮箱未被注册，验证邮件已发送，请查收。');
+        setNotice(json.data?.needsGuardianConsent
+          ? '注册成功！请完成邮箱验证，并请监护人查收确认邮件；监护人同意前账号不能使用。'
+          : '注册成功！若邮箱未被注册，验证邮件已发送，请查收。');
         return;
       }
       if (kind === 'verify') {
@@ -199,6 +201,11 @@ export function AuthForm({
         <>
           <UiInput name="username" placeholder="用户名（3-20 位字母/数字/_-）" required autoComplete="username" />
           <UiInput name="email" type="email" placeholder="邮箱" required autoComplete="email" />
+          <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+            出生日期（用于判断是否需要监护人同意）
+            <UiInput name="birthDate" type="date" required autoComplete="bday" />
+          </label>
+          <UiInput name="guardianEmail" type="email" placeholder="监护人邮箱（未满十四周岁必填）" autoComplete="email" />
           <UiInput
             name="password"
             type="password"

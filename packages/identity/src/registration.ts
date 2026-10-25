@@ -1,9 +1,9 @@
 import { eq, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
-import { FEATURE_DEFAULTS, REGISTRATION, validatePassword } from '@ycomm/config';
+import { FEATURE_DEFAULTS, LEGAL_VERSION, REGISTRATION, validatePassword } from '@ycomm/config';
 import { errors, hashToken, newToken } from '@ycomm/kernel';
 import { enqueue } from '@ycomm/jobs';
-import { renderVerifyEmail } from '@ycomm/notify';
+import { renderGuardianConsent, renderVerifyEmail } from '@ycomm/notify';
 import { hashPassword } from './password';
 import { consumeInviteCode } from './invites';
 import { findUserByEmail, hasAnyUser } from './account';
@@ -16,11 +16,14 @@ export interface RegisterInput {
   email: string;
   password: string;
   inviteCode?: string;
+  birthDate?: string;
+  guardianEmail?: string;
 }
 
 export interface RegisterResult {
   user: UserRecord;
   needsVerification: boolean;
+  needsGuardianConsent: boolean;
   /**
    * true when the request collided with an existing email — the response is
    * identical to a successful registration (enumeration protection).
@@ -65,6 +68,19 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
   if (passwordIssue) {
     throw errors.validation({ issues: [{ path: 'password', message: passwordIssue }] });
   }
+  const birthDateValue = input.birthDate ?? '1990-01-01';
+  const birthDate = new Date(`${birthDateValue}T00:00:00.000Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDateValue) || Number.isNaN(birthDate.getTime()) || birthDate.toISOString().slice(0, 10) !== birthDateValue || birthDate > new Date()) {
+    throw errors.validation({ issues: [{ path: 'birthDate', message: '请填写有效的出生日期' }] });
+  }
+  const today = new Date();
+  let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
+  if (today.getUTCMonth() < birthDate.getUTCMonth() || (today.getUTCMonth() === birthDate.getUTCMonth() && today.getUTCDate() < birthDate.getUTCDate())) age--;
+  const isChild = age < 14;
+  const guardianEmail = input.guardianEmail?.trim().toLowerCase();
+  if (isChild && (!guardianEmail || !EMAIL_PATTERN.test(guardianEmail) || guardianEmail === email)) {
+    throw errors.validation({ issues: [{ path: 'guardianEmail', message: '未满十四周岁需要填写监护人邮箱，且不能与本人邮箱相同' }] });
+  }
 
   const usernameTaken = await db
     .select()
@@ -78,7 +94,7 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
 
   const existingByEmail = await findUserByEmail(db, email);
   if (existingByEmail && !(await releaseIdentityIfDeletionDone(db, existingByEmail))) {
-    return { user: existingByEmail, needsVerification: false, alreadyRegistered: true };
+    return { user: existingByEmail, needsVerification: false, needsGuardianConsent: Boolean(existingByEmail.guardian_email && !existingByEmail.guardian_consent_at), alreadyRegistered: true };
   }
 
   if (REGISTRATION.requireInviteByDefault && !input.inviteCode) {
@@ -102,6 +118,10 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
         password_hash: passwordHash,
         state: needsVerification ? 'unverified' : 'active',
         display_name: username,
+        terms_version: LEGAL_VERSION,
+        terms_accepted_at: new Date(),
+        birth_date: birthDateValue,
+        guardian_email: isChild ? guardianEmail! : null,
       })
       .returning();
     const created = inserted as UserRecord;
@@ -142,5 +162,18 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
     });
   }
 
-  return { user, needsVerification, alreadyRegistered: false };
+  if (isChild) {
+    const token = newToken(32);
+    await db.insert(schema.emailTokens).values({
+      user_id: user.id,
+      purpose: 'guardian_consent',
+      token_hash: hashToken(token),
+      new_email: guardianEmail!,
+      expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000),
+    });
+    const mail = renderGuardianConsent(token, username);
+    await enqueue(db, 'send_email', { payload: { to: guardianEmail!, template: 'guardian_consent', subject: mail.subject, text: mail.text, html: mail.html } });
+  }
+
+  return { user, needsVerification, needsGuardianConsent: isChild, alreadyRegistered: false };
 }

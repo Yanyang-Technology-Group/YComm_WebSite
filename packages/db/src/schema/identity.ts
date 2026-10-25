@@ -1,4 +1,4 @@
-import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, date, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { createdAtColumn, updatedAtColumn } from './helpers';
 
@@ -79,6 +79,23 @@ export const users = pgTable(
     notify_likes: boolean('notify_likes').notNull().default(true),
     notify_shares: boolean('notify_shares').notNull().default(true),
     notify_official: boolean('notify_official').notNull().default(true),
+    /**
+     * 协议同意留证：注册/登录勾选「我已阅读并同意」时写入当前协议版本与时间。
+     *
+     * 法规与《软件许可及服务协议》都要求「用户已阅读并同意」，但只存一个布尔
+     * 无法证明「同意的是哪一版」。NULL = 还没有任何同意记录（老账号）。
+     */
+    terms_version: varchar('terms_version', { length: 32 }),
+    terms_accepted_at: timestamp('terms_accepted_at', { withTimezone: true, mode: 'date' }),
+    /**
+     * 出生日期：用于识别儿童（未满十四周岁）并按《儿童个人信息保护规则》走监护人同意。
+     * 只存日期不存时间；本人注册时填写，之后不允许自行修改（防止绕过年龄门槛）。
+     */
+    birth_date: date('birth_date'),
+    /** 未满十四周岁时收集的监护人邮箱。 */
+    guardian_email: text('guardian_email'),
+    /** 监护人点确认链接同意的时间；NULL = 未同意（儿童账号此时不能使用）。 */
+    guardian_consent_at: timestamp('guardian_consent_at', { withTimezone: true, mode: 'date' }),
     created_at: createdAtColumn(),
     updated_at: updatedAtColumn(),
     last_seen_at: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }),

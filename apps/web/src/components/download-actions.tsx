@@ -10,6 +10,7 @@ import { apiFetch } from '../lib/api';
  * local files stream straight to the browser.
  */
 export function DownloadButton({ resourceId }: { resourceId: string }) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,12 +20,17 @@ export function DownloadButton({ resourceId }: { resourceId: string }) {
     setError(null);
     setCode(null);
     try {
-      const response = await fetch(`/api/downloads/resources/${resourceId}/go`, { redirect: 'follow' });
+      const response = await fetch(`/api/downloads/resources/${resourceId}/go?resolve=1`);
       if (!response.ok) {
         const json = (await response.json().catch(() => null)) as { error?: { code?: string; message?: string } };
         throw new Error(json?.error?.message ?? `下载失败（${response.status}）`);
       }
-      // Local file → save stream; external → we only know it succeeded.
+      const payload = await response.clone().json().catch(() => null) as { data?: { externalUrl?: string } } | null;
+      if (payload?.data?.externalUrl) {
+        router.push(`/external-link?url=${encodeURIComponent(payload.data.externalUrl)}`);
+        return;
+      }
+      // Local file → save stream.
       const disposition = response.headers.get('content-disposition');
       if (disposition) {
         const match = /filename\*=UTF-8''([^;]+)/.exec(disposition);

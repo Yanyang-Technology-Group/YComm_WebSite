@@ -155,6 +155,22 @@ describe('register', () => {
     expect(mails.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('keeps an under-14 account locked until a guardian email is separately confirmed', async () => {
+    await seedOwner();
+    const result = await register(handle.db, {
+      ...NEW_USER,
+      birthDate: '2015-01-01',
+      guardianEmail: 'guardian@example.com',
+    });
+    expect(result.needsGuardianConsent).toBe(true);
+    expect(result.user.guardian_email).toBe('guardian@example.com');
+    expect(result.user.guardian_consent_at).toBeNull();
+    const tokens = await handle.db.select().from(schema.emailTokens).where(eq(schema.emailTokens.purpose, 'guardian_consent'));
+    expect(tokens).toHaveLength(1);
+    const mails = await handle.db.select().from(schema.jobs).where(eq(schema.jobs.kind, 'send_email'));
+    expect(mails.map((mail) => (mail.payload as MailJobPayload).to).filter((to) => to === 'guardian@example.com')).toHaveLength(1);
+  });
+
   it('username collisions are CONFLICT, email collisions are indistinguishable from success', async () => {
     await seedOwner();
     await register(handle.db, NEW_USER);

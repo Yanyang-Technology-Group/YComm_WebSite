@@ -12,6 +12,7 @@ import { VerificationGate } from '../components/verification-gate';
 import { DEFAULT_UI_STYLE, UI_STYLE_BOOT_SCRIPT } from '../lib/appearance';
 import { GLASS_BOOT_SCRIPT } from '../lib/glass-preference';
 import { LiquidGlassEffects } from '../components/liquid-glass';
+import { SiteFooter } from '../components/site-footer';
 import './styles.css';
 
 /** 首帧前应用本地主题（避免闪白）；账号主题由 ThemeSync 登录后校正。 */
@@ -72,35 +73,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <PageTransition>{children}</PageTransition>
           </VerificationGate>
         </main>
-        <footer className="site-footer">
-          <div className="site-footer-inner">
-            <span>© 2025-2026 晏阳技术组，本站支持IPV4与IPV6</span>
-            <span className="footer-sep" aria-hidden="true">
-              ·
-            </span>
-            <span className="footer-version" title="版本号（yyyy.mm.dd.提交数）">
-              {appVersion}
-            </span>
-            {branding.sourceUrl ? (
-              <>
-                <span className="footer-sep" aria-hidden="true">
-                  ·
-                </span>
-                <Link href={branding.sourceUrl} target="_blank" rel="noopener">
-                  开源仓库（AGPLv3）
-                </Link>
-              </>
-            ) : null}
-            {branding.icp ? (
-              <>
-                <span className="footer-sep" aria-hidden="true">
-                  ·
-                </span>
-                <span>{branding.icp}</span>
-              </>
-            ) : null}
-          </div>
-        </footer>
+        <SiteFooter branding={branding} version={appVersion} />
         {/* 弹窗自身会先自检登录态（客户端），已登录不显示 */}
         <GuestPrompt siteName={branding.name} />
       </body>

@@ -2,9 +2,10 @@ import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { randomUUID } from 'node:crypto';
-import { getDb, type Db } from '@ycomm/db';
-import { AUTH } from '@ycomm/config';
-import { errors, ErrorCodes, getEnv, isAppError, siteUrl, logger } from '@ycomm/kernel';
+import { and, eq, gt, isNull } from 'drizzle-orm';
+import { getDb, schema, type Db } from '@ycomm/db';
+import { AUTH, LEGAL_VERSION } from '@ycomm/config';
+import { errors, ErrorCodes, getEnv, hashToken, isAppError, siteUrl, logger } from '@ycomm/kernel';
 import {
   bindInviteCode,
   cancelAccountDeletion,
@@ -100,6 +101,8 @@ const registerSchema = z.object({
   username: z.string().trim().min(1).max(20),
   email: z.string().trim().min(3).max(255),
   password: z.string().min(1).max(200),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  guardianEmail: z.string().email().max(255).optional(),
   inviteCode: z.string().trim().min(1).optional(),
   ...captchaTokenFields,
   agreeTerms: z.boolean().optional(),
@@ -185,6 +188,8 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       email: body.email,
       password: body.password,
       inviteCode: body.inviteCode,
+      birthDate: body.birthDate,
+      guardianEmail: body.guardianEmail,
     });
 
     await logAudit(handle.db, {
@@ -201,7 +206,7 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     return c.json(
       {
         ok: true,
-        data: { needsVerification: result.needsVerification, alreadyRegistered: result.alreadyRegistered },
+        data: { needsVerification: result.needsVerification, needsGuardianConsent: result.needsGuardianConsent, alreadyRegistered: result.alreadyRegistered },
       },
       201,
     );
@@ -236,6 +241,27 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
     }
 
     return c.json({ ok: true, data: { user: toPublicUser(user) } });
+  });
+
+  router.post('/guardian-consent', async (c) => {
+    const body = await parseBody(c, verificationSchema);
+    const handle = await getDb();
+    const rows = await handle.db.select().from(schema.emailTokens).where(and(
+      eq(schema.emailTokens.token_hash, hashToken(body.token)),
+      eq(schema.emailTokens.purpose, 'guardian_consent'),
+      isNull(schema.emailTokens.used_at),
+      gt(schema.emailTokens.expires_at, new Date()),
+    )).limit(1);
+    const token = rows[0];
+    if (!token) throw errors.validation({ issues: [{ path: 'token', message: '监护人确认链接无效或已过期' }] });
+    const [user] = await handle.db.select().from(schema.users).where(eq(schema.users.id, token.user_id)).limit(1);
+    if (!user || !user.guardian_email || user.guardian_email !== token.new_email) {
+      throw errors.validation({ issues: [{ path: 'token', message: '监护人确认链接无效或已过期' }] });
+    }
+    const now = new Date();
+    await handle.db.update(schema.users).set({ guardian_consent_at: now, updated_at: now }).where(eq(schema.users.id, user.id));
+    await handle.db.update(schema.emailTokens).set({ used_at: now }).where(eq(schema.emailTokens.id, token.id));
+    return c.json({ ok: true, data: null });
   });
 
   /**
@@ -292,6 +318,14 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       }
       throw errors.unauthenticated('用户名或密码错误');
     }
+
+    // The checkbox is required on every login; record the version and time of
+    // this explicit acceptance for the account's audit trail.
+    const acceptedAt = new Date();
+    const [updated] = await handle.db.update(schema.users)
+      .set({ terms_version: LEGAL_VERSION, terms_accepted_at: acceptedAt, updated_at: acceptedAt })
+      .where(eq(schema.users.id, user.id)).returning();
+    if (updated) user = updated as UserRecord;
 
     // 注销冷静期：本次登录自动取消注销；已过冷静期则转永久注销、登录被拒。
     if (user.state === 'deleting') {

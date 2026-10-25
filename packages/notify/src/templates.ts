@@ -1,5 +1,7 @@
 import { getSiteBranding } from '@ycomm/config';
 import { siteUrl } from '@ycomm/kernel';
+import { openDefault } from 'ip2region/node';
+import type { Lookup, LookupResult } from 'ip2region';
 
 export interface RenderedMail {
   subject: string;
@@ -18,6 +20,23 @@ function escapeHtml(value: string): string {
 /** Azure accent used across all mail: matches the 晏阳蓝 theme (#5da4fa). */
 const ACCENT = '#5da4fa';
 const ACCENT_DARK = '#3b82d6';
+
+let ipLocationDb: Promise<Lookup<LookupResult>> | null = null;
+
+/** 本地 MIT ip2region 库离线查询，不会把用户 IP 发给第三方服务。 */
+export async function resolveIpLocation(ip: string | null): Promise<string> {
+  if (!ip || ip === 'unknown') return '未知属地';
+  try {
+    ipLocationDb ??= openDefault();
+    const result = (await ipLocationDb).lookup(ip);
+    if (!result) return '未知属地';
+    const places = [...(result.country?.name ? [result.country.name] : []), ...(result.subdivisions ?? []).map((part) => part.name).filter(Boolean), ...(result.city?.name ? [result.city.name] : [])];
+    const unique = [...new Set(places)];
+    return unique.length ? unique.join(' ') : '未知属地';
+  } catch {
+    return '未知属地';
+  }
+}
 
 function button(url: string, label: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0 8px;">
@@ -85,6 +104,21 @@ export function renderVerifyEmail(token: string): RenderedMail {
         <p style="margin:0;">点击下方按钮完成邮箱验证：</p>
         ${button(url, '验证邮箱')}`,
       note: '链接 60 分钟内有效。若不是你注册的，请忽略此邮件。',
+    }),
+  };
+}
+
+/** Child account: ask the guardian to give separate consent before access is enabled. */
+export function renderGuardianConsent(token: string, childUsername: string): RenderedMail {
+  const branding = getSiteBranding();
+  const url = `${siteUrl()}/guardian-consent?token=${encodeURIComponent(token)}`;
+  return {
+    subject: `请确认儿童账号的监护人同意 — ${branding.name}`,
+    text: `${childUsername} 注册了 ${branding.name}，并填写您为其监护人。请阅读儿童个人信息保护规则，并通过以下链接单独确认：\n\n${url}\n\n链接 48 小时内有效。若您不认识该儿童或不同意，请忽略此邮件。`,
+    html: shell({
+      title: '监护人单独同意确认',
+      body: `<p style="margin:0 0 6px;"><strong>${escapeHtml(childUsername)}</strong> 注册了 ${escapeHtml(branding.name)}，并填写您为其监护人。</p><p style="margin:0;">请先阅读<a href="${escapeHtml(`${siteUrl()}/legal/children`)}">儿童个人信息保护规则及监护人须知</a>，确认您同意后再点击按钮。</p>${button(url, '阅读并确认同意')}`,
+      note: '链接 48 小时内有效。若您不认识该儿童或不同意，请忽略此邮件。',
     }),
   };
 }
@@ -168,20 +202,21 @@ export function renderVerifyEmailReminder(
  */
 export function renderDeviceVerification(
   token: string,
-  options: { deviceLabel: string; ip: string | null; at: Date; tokenTtlMinutes: number },
+  options: { deviceLabel: string; ip: string | null; ipLocation?: string; at: Date; tokenTtlMinutes: number },
 ): RenderedMail {
   const branding = getSiteBranding();
   const url = `${siteUrl()}/verify-device?token=${encodeURIComponent(token)}`;
   const when = options.at.toISOString().replace('T', ' ').slice(0, 16);
   const from = options.ip ?? '未知地址';
-  const detail = `设备：${options.deviceLabel}；时间：${when} UTC；来源 IP：${from}`;
+  const location = options.ipLocation ?? '未知属地';
+  const detail = `设备：${options.deviceLabel}；时间：${when} UTC；来源 IP：${from}（IP 属地：${location}）`;
   return {
     subject: `新设备登录确认 — ${branding.name}`,
     text: `你的 ${branding.name} 账号刚刚在一台新设备上登录：\n\n${detail}\n\n如果是你本人，请点下面的链接确认这台设备；确认之前这台设备不能访问社区。\n\n${url}\n\n链接 ${options.tokenTtlMinutes} 分钟内有效。如果不是你本人，请立即修改密码。`,
     html: shell({
       title: '确认这台新设备',
       body: `<p style="margin:0 0 6px;">你的 <strong>${escapeHtml(branding.name)}</strong> 账号刚刚在一台新设备上登录：</p>
-        <p style="margin:0 0 6px;color:#3c4754;">设备：<strong>${escapeHtml(options.deviceLabel)}</strong><br>时间：${escapeHtml(when)} UTC<br>来源 IP：${escapeHtml(from)}</p>
+        <p style="margin:0 0 6px;color:#3c4754;">设备：<strong>${escapeHtml(options.deviceLabel)}</strong><br>时间：${escapeHtml(when)} UTC<br>来源 IP：${escapeHtml(from)}<br>IP 属地：${escapeHtml(location)}</p>
         <p style="margin:0;">如果是你本人，点下面按钮确认这台设备；确认之前它不能访问社区。</p>
         ${button(url, '确认这台设备')}`,
       note: `链接 ${options.tokenTtlMinutes} 分钟内有效。如果不是你本人，请立即修改密码。`,

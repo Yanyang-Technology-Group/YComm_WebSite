@@ -71,6 +71,7 @@ export function CardsPanel() {
   const [editorCollapsed, setEditorCollapsed] = useState(false);
   const [myRole, setMyRole] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const titleRef = useRef<HTMLInputElement | null>(null);
   /** 是否首次加载（首载时把手风琴默认收起来，之后刷新不再重置折叠状态）。 */
@@ -191,6 +192,8 @@ export function CardsPanel() {
       });
       await refresh();
       router.refresh();
+      setToast('下载设置已保存');
+      window.setTimeout(() => setToast(null), 2800);
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : '保存失败');
     }
@@ -483,6 +486,7 @@ export function CardsPanel() {
 
   return (
     <div>
+      {toast && <div className="admin-toast" role="status" aria-live="polite">✓ {toast}</div>}
       {/* 编辑器固定在页面顶部，可收起/展开 */}
       <div className="card-editor-pin">
         <div className="card-editor-pin-bar">

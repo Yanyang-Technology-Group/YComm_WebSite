@@ -54,6 +54,9 @@ export function assertAccountCanAct(
   if (requireVerified && user.state === 'unverified') {
     throw errors.accountUnverified();
   }
+  if (requireVerified && user.guardian_email && !user.guardian_consent_at) {
+    throw errors.accountUnverified();
+  }
 }
 
 /** A site with zero users has not been bootstrapped yet. */

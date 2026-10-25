@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { parseMarkdown, type Align, type BlockNode, type InlineNode } from '../lib/markdown';
 import { MarkdownMedia } from './markdown-media';
+import { forumLinkTarget } from '../lib/external-link';
 
 /**
  * Markdown 渲染（论坛帖子 / 用户主页 / 卡片简介共用）。
@@ -27,12 +28,12 @@ function inline(nodes: InlineNode[], keyBase: string): ReactNode[] {
         return <code key={key}>{node.text}</code>;
       case 'break':
         return <br key={key} />;
-      case 'link':
-        return (
-          <a key={key} href={node.url} target="_blank" rel="noopener noreferrer">
+      case 'link': {
+        const target = forumLinkTarget(node.url);
+        return <a key={key} href={target.href} target="_blank" rel="noopener noreferrer">
             {node.label}
-          </a>
-        );
+          </a>;
+      }
       case 'image':
         return <MarkdownMedia key={key} kind="image" src={node.url} alt={node.alt} />;
       case 'video':
@@ -57,18 +58,18 @@ function inline(nodes: InlineNode[], keyBase: string): ReactNode[] {
                 poster={node.attrs.poster}
               />
             );
-          case 'a':
-            return (
-              <a
+          case 'a': {
+            const target = forumLinkTarget(node.attrs.href ?? '');
+            return <a
                 key={key}
-                href={node.attrs.href ?? '#'}
+                href={target.href}
                 title={node.attrs.title}
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 {children}
-              </a>
-            );
+              </a>;
+          }
           case 'details':
             return (
               <details key={key} open={node.attrs.open !== undefined}>

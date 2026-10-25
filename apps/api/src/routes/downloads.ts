@@ -283,6 +283,7 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
     });
 
     if (outcome.kind === 'external') {
+      if (c.req.query('resolve') === '1') return c.json({ ok: true, data: { externalUrl: outcome.url } });
       // Redirect: the URL itself is never handed to client scripts.
       return c.redirect(outcome.url, 302);
     }

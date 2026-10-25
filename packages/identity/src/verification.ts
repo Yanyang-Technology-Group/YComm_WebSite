@@ -7,6 +7,7 @@ import {
   renderDeviceVerification,
   renderVerifyEmail,
   renderVerifyEmailReminder,
+  resolveIpLocation,
   type RenderedMail,
 } from '@ycomm/notify';
 import { findUserByEmail } from './account';
@@ -101,6 +102,7 @@ export async function issueDeviceVerificationToken(
   user: UserRecord,
   input: { deviceHash: string; deviceLabel: string; ip: string | null },
 ): Promise<void> {
+  const ipLocation = await resolveIpLocation(input.ip);
   await issueToken(db, user, user.email, {
     purpose: 'verify_device',
     template: 'verify_device',
@@ -110,6 +112,7 @@ export async function issueDeviceVerificationToken(
       renderDeviceVerification(token, {
         deviceLabel: input.deviceLabel,
         ip: input.ip,
+        ipLocation,
         at: new Date(),
         tokenTtlMinutes: AUTH.deviceVerificationTtlMinutes,
       }),

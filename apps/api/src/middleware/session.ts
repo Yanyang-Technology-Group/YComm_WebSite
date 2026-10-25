@@ -23,7 +23,7 @@ import type { AppVariables } from '../context';
 const UNVERIFIED_ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   {
     method: 'POST',
-    path: /^\/api\/auth\/(register|login|logout|verify-email|resend-verification|forgot-password|reset-password|delete-account|delete-account\/confirm|cancel-deletion)$/,
+    path: /^\/api\/auth\/(register|login|logout|verify-email|guardian-consent|resend-verification|forgot-password|reset-password|delete-account|delete-account\/confirm|cancel-deletion)$/,
   },
   { method: 'GET', path: /^\/api\/auth\/(me|github|github\/callback)$/ },
 ];
@@ -75,6 +75,11 @@ export const sessionAuth = createMiddleware<{ Variables: AppVariables }>(async (
 
       // 闸门 A：绑定邮箱注册的账号必须先验证邮箱，否则什么内容都看不到。
       if (subject.state === 'unverified' && !matches(UNVERIFIED_ALLOWED, c.req.method, c.req.path)) {
+        throw errors.accountUnverified();
+      }
+      // A child account stays locked even after email verification until its
+      // guardian separately confirms the consent request.
+      if (user.guardian_email && !user.guardian_consent_at && !matches(UNVERIFIED_ALLOWED, c.req.method, c.req.path)) {
         throw errors.accountUnverified();
       }
       // 闸门 B：这台设备该账号没见过，先确认是本人在用（邮箱没验证时由闸门 A 负责，

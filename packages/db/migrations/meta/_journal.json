@@ -113,6 +113,13 @@
       "when": 1791098857855,
       "tag": "0015_strange_morbius",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792824565461,
+      "tag": "0016_narrow_nextwave",
+      "breakpoints": true
     }
   ]
 }

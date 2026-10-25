@@ -17,6 +17,7 @@
     "@ycomm/config": "*",
     "@ycomm/db": "*",
     "@ycomm/kernel": "*",
+    "ip2region": "^3.0.0",
     "nodemailer": "^10.0.8"
   },
   "devDependencies": {

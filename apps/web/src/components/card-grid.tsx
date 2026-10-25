@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { MarkdownContent } from './markdown-content';
+import { forumLinkTarget } from '../lib/external-link';
 
 export interface PublicCard {
   id: string;
@@ -49,9 +50,9 @@ export function CardGrid({ cards }: { cards: PublicCard[] }) {
         );
         if (card.kind === 'redirect' && card.redirectUrl) {
           return (
-            <a key={card.id} href={card.redirectUrl} target="_blank" rel="noopener noreferrer" className="card-tile" style={style}>
+            <Link key={card.id} href={forumLinkTarget(card.redirectUrl).href} className="card-tile" style={style}>
               {body}
-            </a>
+            </Link>
           );
         }
         return (

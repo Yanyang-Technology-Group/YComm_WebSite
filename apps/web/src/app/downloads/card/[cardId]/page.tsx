@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { apiGet } from '../../../../lib/server-api';
 import { CardGrid, type PublicCard } from '../../../../components/card-grid';
 import { MarkdownContent } from '../../../../components/markdown-content';
+import { forumLinkTarget } from '../../../../lib/external-link';
 
 export const metadata: Metadata = { title: '下载区' };
 export const dynamic = 'force-dynamic';
@@ -67,7 +68,7 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
   }
 
   if (card.kind === 'redirect' && card.redirectUrl) {
-    redirect(card.redirectUrl);
+    redirect(forumLinkTarget(card.redirectUrl).href);
   }
 
   if (card.kind === 'container') {

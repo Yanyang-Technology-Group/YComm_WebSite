@@ -13,9 +13,11 @@ export {
   describeRemainingTime,
   renderAccountDeletion,
   renderDeviceVerification,
+  renderGuardianConsent,
   renderPasswordReset,
   renderVerifyEmail,
   renderVerifyEmailReminder,
+  resolveIpLocation,
   type RenderedMail,
 } from './templates';
 export {
