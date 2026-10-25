@@ -1500,7 +1500,8 @@ a.uname:hover,
 }
 
 .site-footer-polished {
-  margin-top: 3rem;
+  /* Keep the footer visually separated from the page content. */
+  margin-top: calc(3rem + 300px);
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 88%, var(--bg));
 }
@@ -1514,15 +1515,16 @@ a.uname:hover,
   padding-top: 1.5rem;
   padding-bottom: 1.5rem;
 }
-.footer-brand-block { display: grid; gap: 0.55rem; min-width: 210px; }
+.footer-brand-block { display: grid; justify-items: start; gap: 0.55rem; min-width: 210px; }
 .footer-brand { display: inline-flex; align-items: center; gap: 0.65rem; color: var(--text); font-weight: 750; font-size: 1.05rem; }
 .footer-brand img { object-fit: contain; border-radius: 10px; }
 .footer-copyright { color: var(--muted); font-size: 0.8rem; }
 .footer-meta-grid { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 0.8rem 1.5rem; }
-.footer-meta-grid > span { display: grid; gap: 0.2rem; min-width: 0; color: var(--muted); font-size: 0.82rem; }
+.footer-meta-grid > span { display: grid; justify-items: center; gap: 0.2rem; min-width: 0; color: var(--muted); font-size: 0.82rem; text-align: center; }
 .footer-meta-grid b { color: var(--text); font-size: 0.72rem; letter-spacing: 0.03em; }
-.footer-meta-grid a { width: fit-content; }
-.footer-meta-grid .footer-legal-links { grid-column: span 2; }
+.footer-meta-grid a { width: fit-content; justify-self: center; }
+.footer-meta-grid .footer-legal-links { grid-column: 1 / -1; }
+.footer-legal-links > span { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 0.35rem; }
 .footer-legal-links i { font-style: normal; color: var(--muted); }
 .external-link-panel { max-width: 680px; margin: 3rem auto; padding: 2rem; }
 .external-link-icon { display: grid; place-items: center; width: 46px; height: 46px; margin-bottom: 1rem; border-radius: 14px; background: var(--accent-soft); color: var(--accent-strong); font-size: 1.5rem; }
@@ -1537,6 +1539,7 @@ a.uname:hover,
 .legal-document li { margin: 0.35rem 0; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 760px) {
+  .site-footer-polished { margin-top: calc(3rem + 180px); }
   .site-footer-layout { align-items: flex-start; flex-direction: column; gap: 1.25rem; }
   .footer-meta-grid { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
   .footer-meta-grid .footer-legal-links { grid-column: 1 / -1; }
