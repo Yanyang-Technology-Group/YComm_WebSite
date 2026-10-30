@@ -245,16 +245,16 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 
 ### 邮件中心（管理员和站长）
 
-后台入口 `/admin/mail`。邮件主题与收件人属于信封；`background` 是固定品牌背景（`community` 晏阳社区 / `city` 晏阳城市建设），`subtitle` 是可编辑副标题，`bodyHtml` 是正文。正文预制模板只保存名称和正文，与背景、副标题独立。所有 HTML 由服务端白名单净化；外部图片仅允许 HTTP/HTTPS。
+后台入口 `/admin/mail`。`background` 是固定品牌背景（`community` 晏阳社区 / `city` 晏阳城市建设），`subtitle` 是可编辑副标题，`bodyHtml` 是正文。邮件预制模板保存名称、主题、副标题、背景选择和正文，选用时一起载入；收件人单独填写。背景壳与正文仍分开渲染，不保存自定义背景 HTML。所有 HTML 由服务端白名单净化；外部图片仅允许 HTTP/HTTPS。
 
 | 方法与路径 | 权限 | 请求与响应 |
 |---|---|---|
 | `GET /api/admin/mail/settings` | 仅 owner | `{ config }`：provider、fromAddress、smtpHost、smtpPort、smtpSecurity、smtpUser、hasSecret、configured；从不返回密码、API Key 或密文。 |
 | `PUT /api/admin/mail/settings` | 仅 owner | `provider: environment\|smtp\|resend`、`fromAddress`，SMTP 的 host/port/security/user，`secret` 为密码/授权码或 Resend API Key。security 为 tls/starttls/plain。secret 留空保留同一 provider 的旧凭据；切换必须重填。environment 恢复环境配置。返回 `{ config }`。 |
-| `GET /api/admin/mail/templates` | admin / owner | `{ backgrounds, templates: [{ id, name, bodyHtml }] }`。 |
-| `POST /api/admin/mail/templates` | 仅 owner | `name` 1–80 字、`bodyHtml` ≤100000 字；最多30个正文模板。返回201 `{ template: { id } }`。 |
-| `PUT /api/admin/mail/templates/:id` | 仅 owner | 同上，更新正文模板；背景、副标题不能作为预制模板保存。 |
-| `DELETE /api/admin/mail/templates/:id` | 仅 owner | 删除正文模板，已提交的邮件快照不受影响。 |
+| `GET /api/admin/mail/templates` | admin / owner | `{ backgrounds, templates: [{ id, name, subject, subtitle, background, bodyHtml }] }`。 |
+| `POST /api/admin/mail/templates` | 仅 owner | `name` 1–80 字、`subject` 1–200 字且不得换行、`subtitle` ≤200 字、`background` 为 community/city、`bodyHtml` ≤100000 字；最多30个邮件模板。返回201 `{ template: { id } }`。 |
+| `PUT /api/admin/mail/templates/:id` | 仅 owner | 同上，更新名称、主题、副标题、背景选择和正文；不存在返回404。 |
+| `DELETE /api/admin/mail/templates/:id` | 仅 owner | 删除邮件模板，已提交的邮件快照不受影响。 |
 | `POST /api/admin/mail/preview` | admin / owner | subject（1–200，不得换行）、subtitle（≤200）、background、bodyHtml；返回 `{ subject, html, text }`，不入队、不发送。 |
 | `GET /api/admin/mail/campaigns` | admin / owner | `{ campaigns }`，最近100条；admin 只看自己的提交，owner 看全部。含审核意见、最终正文、收件人和投递计数。 |
 | `POST /api/admin/mail/campaigns` | admin / owner | 预览字段加 `recipients`（1–100个邮箱，去重）；201 `{ campaign: { id, status: pending } }`，只提交审核，不入队。站长自己的邮件同样需审核操作。 |

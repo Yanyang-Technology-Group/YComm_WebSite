@@ -62,17 +62,33 @@ describe('mail configuration and access', () => {
   });
 });
 
-describe('body templates and approval', () => {
-  it('saves only the body and lets staff read sanitized presets', async () => {
-    const response = await request('/templates', 'owner', 'POST', { name: '活动正文', bodyHtml: '<p>活动<script>evil()</script></p>', background: 'city', subtitle: '不应存储' });
+describe('mail templates and approval', () => {
+  it('persists full sanitized presets and restricts edits and deletion to owner', async () => {
+    const original = { name: '活动通知', subject: '城市共建活动', bodyHtml: '<p>活动<script>evil()</script></p>', background: 'city', subtitle: '欢迎参加' };
+    const response = await request('/templates', 'owner', 'POST', original);
     expect(response.status).toBe(201); const id = (await response.json()).data.template.id as string;
     const list = (await (await request('/templates', 'admin')).json()).data;
-    expect(list.backgrounds).toHaveLength(2); expect(list.templates[0]).toEqual({ id, name: '活动正文', bodyHtml: '<p>活动</p>' });
-    expect((await request('/templates/' + id, 'admin', 'PUT', { name: 'x', bodyHtml: '<p>x</p>' })).status).toBe(403);
+    expect(list.backgrounds).toHaveLength(2); expect(list.templates[0]).toEqual({ ...original, id, bodyHtml: '<p>活动</p>' });
+    const updated = { name: '更新通知', subject: '社区活动更新', subtitle: '新副标题', background: 'community', bodyHtml: '<p><strong>更新</strong></p>' };
+    expect((await request('/templates/' + id, 'admin', 'PUT', updated)).status).toBe(403);
     expect((await request('/templates/' + id, 'admin', 'DELETE')).status).toBe(403);
-    expect((await request('/templates/' + id, 'owner', 'PUT', { name: '更新正文', bodyHtml: '<p>更新</p>' })).status).toBe(200);
+    expect((await (await request('/templates', 'admin')).json()).data.templates).toEqual(list.templates);
+    expect((await request('/templates/' + id, 'owner', 'PUT', updated)).status).toBe(200);
+    expect((await (await request('/templates', 'admin')).json()).data.templates).toEqual([{ id, ...updated }]);
+    const campaignId = (await (await request('/campaigns', 'admin', 'POST', { ...updated, recipients: ['snapshot@example.com'] })).json()).data.campaign.id as string;
+    expect((await request('/templates/' + id, 'owner', 'PUT', { ...original, bodyHtml: '<p>第三版</p>' })).status).toBe(200);
     expect((await request('/templates/' + id, 'owner', 'DELETE')).status).toBe(200);
-    expect((await request('/templates', 'owner', 'POST', { name: '空正文', bodyHtml: '<p><br></p>' })).status).toBe(400);
+    expect((await (await request('/templates', 'admin')).json()).data.templates).toEqual([]);
+    const [snapshot] = await handle.db.select().from(schema.mailCampaigns).where(eq(schema.mailCampaigns.id, campaignId));
+    expect(snapshot).toMatchObject({ subject: updated.subject, subtitle: updated.subtitle, background: updated.background, body_html: updated.bodyHtml, status: 'pending' });
+    expect(await handle.db.select().from(schema.jobs)).toHaveLength(0);
+    expect((await request('/templates/' + id, 'owner', 'PUT', updated)).status).toBe(404);
+  });
+  it('validates all template fields before saving', async () => {
+    const preset = { name: '活动', subject: '活动通知', subtitle: '', background: 'city', bodyHtml: '<p>活动</p>' };
+    for (const invalid of [{ subject: '' }, { subject: 'bad\r\nBcc: other@example.com' }, { background: 'unknown' }, { subtitle: 'x'.repeat(201) }, { bodyHtml: '<p><br></p>' }]) {
+      expect((await request('/templates', 'owner', 'POST', { ...preset, ...invalid })).status).toBe(400);
+    }
   });
   it('previews safely without queuing and leaves submissions pending until owner approval', async () => {
     const preview = await request('/preview', 'admin', 'POST', content);

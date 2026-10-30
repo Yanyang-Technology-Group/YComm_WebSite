@@ -173,7 +173,7 @@ Cloudflare Tunnel 的现有 HTTP 服务 `http://localhost:3000` 可以同时代�
 ### CAP 同源资源与邮件中心升级
 
 - CAP 0.0.6 WASM 包位于 `apps/web/public/cap/0.0.6/`，必须随应用发布 cap_wasm.min.js 与 cap_wasm_bg.wasm 两个文件。客户端用同源绝对 URL 初始化 worker；无需放行 jsDelivr 或放宽 script-src。失败或令牌失效会清空旧令牌并重置组件。
-- 此版本使用迁移 `0017_wonderful_frightful_four.sql`；必须先执行 `npm run db:migrate` 再启动新版本，否则系统信也会因缺表失败。容器入口已自动迁移。
+- 邮件中心使用迁移 `0017_wonderful_frightful_four.sql`，完整预制模板使用 `0018_curious_beast.sql`；必须先执行 `npm run db:migrate` 再启动新版本。0018保留旧正文，主题初始设为旧模板名称，副标题为空、背景为晏阳社区，站长可重新编辑保存。容器入口已自动迁移。
 - `/admin/mail` 的发件配置仅站长可见/可改；支持 Resend 和自定义 SMTP，系统验证码等邮件每次投递读取当前配置。选择 environment 恢复现有 MAIL_FROM / RESEND_API_KEY / SMTP_* 环境配置。
 - 数据库存储的密码/API Key 用 SESSION_SECRET 派生 AES-256-GCM 密钥加密，至少32字符；备份应安全保存此环境密钥。轮换 SESSION_SECRET 后需重新保存邮件凭据。不要把密码放进审计日志或普通 settings。
 - Resend 需验证发件域名；SMTP 需正确的邮箱账号、密码或服务商授权码。TLS 通常465，STARTTLS通常587；证书校验保持开启。不加密只用于可信内网中继。

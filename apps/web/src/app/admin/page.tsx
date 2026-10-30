@@ -11,7 +11,7 @@ const MENU = [
   { href: '/admin/badges', title: '徽章管理', desc: '创建徽章（文字 + 渐变色），分配在用户管理里' },
   { href: '/admin/moderation', title: '审核队列', desc: '论坛内容 / 下载资源 / 失效链接' },
   { href: '/admin/audit', title: '操作日志', desc: '管理员做了什么，全部留痕' },
-  { href: '/admin/mail', title: '邮件中心', desc: '邮件编辑 / 正文模板 / 站长审核 / 发件服务' },
+  { href: '/admin/mail', title: '邮件中心', desc: '邮件编辑 / 邮件模板 / 站长审核 / 发件服务' },
   { href: '/admin/settings', title: '违禁词与注册码', desc: '违禁词拦截 / 注册码创建' },
   { href: '/admin/api-keys', title: 'API 密钥（仅站长）', desc: '开放接口密钥：创建 / 只读 / 撤销' },
 ] as const;

@@ -16,10 +16,13 @@ export const mailConfiguration = pgTable('mail_configuration', {
   updated_at: updatedAtColumn(),
 });
 
-/** Reusable body only; the two background shells remain code-owned. */
+/** Reusable mail content; background stores a fixed shell's identifier only. */
 export const mailBodyTemplates = pgTable('mail_body_templates', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
+  subject: text('subject').notNull().default(''),
+  subtitle: text('subtitle').notNull().default(''),
+  background: text('background').notNull().default('community'),
   body_html: text('body_html').notNull(),
   created_by: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   created_at: createdAtColumn(),

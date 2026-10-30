@@ -11,22 +11,24 @@ export interface StaffMailInput {
 }
 
 export async function listMailTemplates(db: Db) {
-  return db.select({ id: schema.mailBodyTemplates.id, name: schema.mailBodyTemplates.name, bodyHtml: schema.mailBodyTemplates.body_html })
+  return db.select({ id: schema.mailBodyTemplates.id, name: schema.mailBodyTemplates.name, subject: schema.mailBodyTemplates.subject,
+    subtitle: schema.mailBodyTemplates.subtitle, background: schema.mailBodyTemplates.background, bodyHtml: schema.mailBodyTemplates.body_html })
     .from(schema.mailBodyTemplates).orderBy(desc(schema.mailBodyTemplates.created_at));
 }
 
-export async function saveMailTemplate(db: Db, actorId: string, input: { id?: string; name: string; bodyHtml: string }) {
+export async function saveMailTemplate(db: Db, actorId: string, input: Omit<StaffMailInput, 'recipients'> & { id?: string; name: string }) {
   const body = sanitizeMailBody(input.bodyHtml);
   if (!mailPlainText(body).trim() && !/<img\b[^>]*src=/.test(body)) throw errors.validation({ issues: [{ path: 'bodyHtml', message: '正文不能为空' }] });
+  const values = { name: input.name, subject: input.subject, subtitle: input.subtitle, background: input.background, body_html: body };
   if (input.id) {
-    const [row] = await db.update(schema.mailBodyTemplates).set({ name: input.name, body_html: body, updated_at: new Date() })
+    const [row] = await db.update(schema.mailBodyTemplates).set({ ...values, updated_at: new Date() })
       .where(eq(schema.mailBodyTemplates.id, input.id)).returning({ id: schema.mailBodyTemplates.id });
     if (!row) throw errors.notFound();
     return row;
   }
   const existing = await listMailTemplates(db);
-  if (existing.length >= MAIL_LIMITS.templates) throw errors.conflict('正文预制模板已达到 30 个上限');
-  const [row] = await db.insert(schema.mailBodyTemplates).values({ name: input.name, body_html: body, created_by: actorId }).returning({ id: schema.mailBodyTemplates.id });
+  if (existing.length >= MAIL_LIMITS.templates) throw errors.conflict('邮件预制模板已达到 30 个上限');
+  const [row] = await db.insert(schema.mailBodyTemplates).values({ ...values, created_by: actorId }).returning({ id: schema.mailBodyTemplates.id });
   return row!;
 }
 

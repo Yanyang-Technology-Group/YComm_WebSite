@@ -127,6 +127,13 @@
       "when": 1793364342668,
       "tag": "0017_wonderful_frightful_four",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793373151957,
+      "tag": "0018_curious_beast",
+      "breakpoints": true
     }
   ]
 }

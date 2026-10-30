@@ -7,7 +7,7 @@ import { apiFetch } from '../lib/api';
 import { getSession } from '../lib/session';
 import { showToast } from '../lib/toast';
 
-interface BodyTemplate { id: string; name: string; bodyHtml: string }
+interface MailTemplate { id: string; name: string; subject: string; subtitle: string; background: MailBackground; bodyHtml: string }
 interface MailConfig {
   provider: 'environment' | 'smtp' | 'resend'; fromAddress: string; smtpHost: string;
   smtpPort: number; smtpSecurity: 'tls' | 'starttls' | 'plain'; smtpUser: string;
@@ -107,7 +107,7 @@ export function MailPanel() {
   const owner = access === 'owner';
   const [config, setConfig] = useState<MailConfig>(INITIAL_CONFIG);
   const [secret, setSecret] = useState('');
-  const [templates, setTemplates] = useState<BodyTemplate[]>([]);
+  const [templates, setTemplates] = useState<MailTemplate[]>([]);
   const [templateId, setTemplateId] = useState('');
   const [templateName, setTemplateName] = useState('');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -133,7 +133,7 @@ export function MailPanel() {
         if (user?.role !== 'owner' && user?.role !== 'admin') { setAccess('denied'); return; }
         setAccess(user.role);
         const [bodies, history, settings] = await Promise.all([
-          apiFetch<{ templates: BodyTemplate[] }>('/api/admin/mail/templates'),
+          apiFetch<{ templates: MailTemplate[] }>('/api/admin/mail/templates'),
           apiFetch<{ campaigns: Campaign[] }>('/api/admin/mail/campaigns'),
           user.role === 'owner' ? apiFetch<{ config: MailConfig }>('/api/admin/mail/settings') : Promise.resolve(null),
         ]);
@@ -154,6 +154,14 @@ export function MailPanel() {
     finally { setBusy(false); }
   }
   const content = { subject: subject.trim(), subtitle, background, bodyHtml };
+  function loadTemplate(id: string) {
+    setTemplateId(id);
+    const item = templates.find((entry) => entry.id === id);
+    if (item) {
+      setSubject(item.subject); setSubtitle(item.subtitle); setBackground(item.background);
+      setBodyHtml(item.bodyHtml); setTemplateName(item.name); setPreview(null);
+    } else setTemplateName('');
+  }
   async function showPreview(input: typeof content) {
     const rendered = await apiFetch<{ html: string }>('/api/admin/mail/preview', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
     setPreview({ title: input.subject, html: rendered.html });
@@ -167,10 +175,10 @@ export function MailPanel() {
   async function saveTemplate(update: boolean) {
     await run(async () => {
       const data = await apiFetch<{ template: { id: string } }>('/api/admin/mail/templates' + (update ? '/' + templateId : ''), {
-        method: update ? 'PUT' : 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: templateName, bodyHtml }),
+        method: update ? 'PUT' : 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: templateName, ...content }),
       });
-      showToast('正文模板保存成功');
-      const list = await apiFetch<{ templates: BodyTemplate[] }>('/api/admin/mail/templates'); setTemplates(list.templates); setTemplateId(data.template.id);
+      showToast(update ? '邮件模板更新成功' : '邮件模板保存成功');
+      const list = await apiFetch<{ templates: MailTemplate[] }>('/api/admin/mail/templates'); setTemplates(list.templates); setTemplateId(data.template.id);
     });
   }
   async function submit(event: FormEvent) {
@@ -223,18 +231,20 @@ export function MailPanel() {
           <label>背景模板<select value={background} onChange={(event) => setBackground(event.target.value as MailBackground)}>{MAIL_BACKGROUNDS.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label>副标题<input maxLength={200} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} /></label>
         </div>
-        <label>正文预制模板<select value={templateId} onChange={(event) => { const id = event.target.value; setTemplateId(id); const item = templates.find((entry) => entry.id === id); if (item) { setBodyHtml(item.bodyHtml); setTemplateName(item.name); } }}>
-          <option value="">自定义正文</option>{templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        <label>邮件预制模板<select value={templateId} onChange={(event) => loadTemplate(event.target.value)}>
+          <option value="">自定义邮件</option>{templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select></label>
-        <p className="muted">背景决定品牌和固定排版；正文预制模板只替换正文，副标题与背景独立保留。</p>
+        <p className="muted">选用预制模板会一起载入邮件主题、副标题、背景模板和正文；收件邮箱单独填写。</p>
         <div className="mail-editor-heading"><strong>正文</strong>{owner && <label><input type="checkbox" checked={sourceMode} onChange={(event) => setSourceMode(event.target.checked)} /> 编辑正文 HTML（仅站长）</label>}</div>
         {owner && sourceMode ? <textarea aria-label="正文 HTML 源码" className="mail-source" rows={14} maxLength={MAIL_LIMITS.bodyLength} value={bodyHtml} onChange={(event) => setBodyHtml(event.target.value)} /> : <MailBodyEditor value={bodyHtml} onChange={setBodyHtml} />}
         {owner && <div className="mail-template-controls">
-          <label>正文模板名称<input maxLength={80} value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="例如：活动通知正文" /></label>
-          <div className="mail-actions"><button type="button" disabled={busy || !templateName.trim()} onClick={() => void saveTemplate(false)}>另存正文模板</button>
-            <button type="button" disabled={busy || !templateId || !templateName.trim()} onClick={() => void saveTemplate(true)}>更新所选正文模板</button>
-            <button type="button" disabled={busy || !templateId} onClick={() => { if (!window.confirm('删除所选正文预制模板？已提交的邮件不会改变。')) return; void run(async () => {
-              await apiFetch('/api/admin/mail/templates/' + templateId, { method: 'DELETE' }); setTemplates(templates.filter((item) => item.id !== templateId)); setTemplateId(''); showToast('正文模板已删除');
+          <label>邮件模板名称<input maxLength={80} value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="例如：城市活动通知" /></label>
+          <p className="muted">模板管理仅限站长：选择已有模板后直接编辑上方内容，再点击“保存模板更改”。另存会创建新模板。</p>
+          <div className="mail-actions"><button type="button" disabled={busy || !templateName.trim() || !subject.trim()} onClick={() => void saveTemplate(false)}>另存邮件模板</button>
+            <button type="button" disabled={busy || !templateId || !templateName.trim() || !subject.trim()} onClick={() => void saveTemplate(true)}>保存模板更改</button>
+            <button type="button" disabled={busy || !templateId} onClick={() => loadTemplate(templateId)}>重新载入所选模板</button>
+            <button type="button" disabled={busy || !templateId} onClick={() => { if (!window.confirm('删除所选邮件预制模板？已提交的邮件不会改变。')) return; void run(async () => {
+              await apiFetch('/api/admin/mail/templates/' + templateId, { method: 'DELETE' }); setTemplates(templates.filter((item) => item.id !== templateId)); setTemplateId(''); setTemplateName(''); showToast('邮件模板已删除');
             }); }}>删除模板</button></div>
         </div>}
         <div className="mail-actions"><button type="button" disabled={busy || !subject.trim()} onClick={() => void run(() => showPreview(content))}>预览完整邮件</button><button type="submit" disabled={busy}>保存并提交站长审核</button></div>

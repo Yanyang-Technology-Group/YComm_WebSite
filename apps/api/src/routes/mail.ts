@@ -22,7 +22,7 @@ const contentSchema = z.object({
   subtitle: z.string().trim().max(200), background: z.enum(['community', 'city']),
   bodyHtml: z.string().min(1).max(MAIL_LIMITS.bodyLength),
 });
-const templateSchema = z.object({ name: z.string().trim().min(1).max(80), bodyHtml: z.string().min(1).max(MAIL_LIMITS.bodyLength) });
+const templateSchema = contentSchema.extend({ name: z.string().trim().min(1).max(80) });
 const campaignSchema = contentSchema.extend({ recipients: z.array(z.email().max(255)).min(1).max(MAIL_LIMITS.recipients) });
 const decisionSchema = z.object({ decision: z.enum(['approve', 'reject']), note: z.string().max(500).optional() });
 
