@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { showToast } from '../lib/toast';
 import { getSession } from '../lib/session';
 import { SanctionDialog, type SanctionKind } from './sanction-dialog';
 
@@ -54,6 +55,7 @@ export function ProfileManageActions({
         body: JSON.stringify(body ?? {}),
       });
       setDialog(null);
+      showToast('用户设置保存成功');
       setOpen(false);
       router.refresh();
     } catch (caught) {

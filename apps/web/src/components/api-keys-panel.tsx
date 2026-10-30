@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { showToast } from '../lib/toast';
 import { formatDateTime } from '../lib/time';
 
 interface ApiKeyItem {
@@ -65,6 +66,7 @@ export function ApiKeysPanel() {
       setExpiresInDays('0');
       await refresh();
       setMessage('密钥已创建 —— 明文只显示这一次，请立刻复制保存。');
+      showToast('API 密钥创建成功');
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : '创建失败');
     } finally {

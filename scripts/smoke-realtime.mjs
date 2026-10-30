@@ -26,7 +26,8 @@ Object.assign(process.env, {
 });
 delete process.env.CAPTCHA_ENDPOINT;
 const { createDb, schema } = await import('@ycomm/db');
-const { hashPassword } = await import('@ycomm/identity');
+const { hashPassword, deviceFingerprint, trustDevice } = await import('@ycomm/identity');
+const userAgent = 'YCommSmoke/1.0';
 let child;
 let ws;
 try {
@@ -35,8 +36,11 @@ try {
   try {
     await handle.runMigrations();
     const password = await hashPassword('smoke-password-123');
-    await handle.db.insert(schema.users).values({ username: 'smoke-owner', email: 'owner@example.com', state: 'active', role: 'owner', password_hash: password });
-    [member] = await handle.db.insert(schema.users).values({ username: 'smoke-member', email: 'member@example.com', state: 'active', password_hash: password }).returning();
+    const [owner] = await handle.db.insert(schema.users).values({ username: 'smoke-owner', email: 'owner@example.com', state: 'active', role: 'owner', password_hash: password, email_verified_at: new Date() }).returning();
+    [member] = await handle.db.insert(schema.users).values({ username: 'smoke-member', email: 'member@example.com', state: 'active', password_hash: password, email_verified_at: new Date() }).returning();
+    // The login API requires new-device confirmation. Seed trust only inside
+    // this disposable fixture so the smoke tests realtime, not email delivery.
+    for (const user of [owner, member]) await trustDevice(handle.db, user.id, deviceFingerprint(userAgent), 'Smoke fixture');
   } finally { await handle.close(); }
   const dev = process.argv.includes('--dev');
   child = spawn(process.execPath, ['--import', 'tsx', 'server.ts', ...(dev ? ['--dev'] : [])], {
@@ -58,7 +62,7 @@ try {
   assert(healthy, 'production healthz did not become ready');
   async function login(username) {
     const response = await fetch(`${base}/api/auth/login`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
+      method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': userAgent },
       body: JSON.stringify({ login: username, password: 'smoke-password-123', agreeTerms: true, rememberMe: true }),
     });
     assert.equal(response.status, 200);

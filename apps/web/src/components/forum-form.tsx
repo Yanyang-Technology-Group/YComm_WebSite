@@ -8,6 +8,7 @@ import { apiFetch } from '../lib/api';
 import { getSession, type SessionUser } from '../lib/session';
 import { ImagePicker } from './image-picker';
 import { UiInput, UiTextarea, UiButton } from './ui-controls';
+import { PostPreviewDrawer, type PostPreview } from './post-preview-drawer';
 
 function Notice({ error, notice }: { error: string | null; notice: string | null }) {
   if (error) return <p style={{ color: '#dc2626', fontSize: '0.9rem' }}>{error}</p>;
@@ -45,6 +46,13 @@ export function NewTopicComposer({ boardSlug, boardName }: { boardSlug: string; 
   const formRef = useRef<HTMLFormElement>(null);
   const [schedule, setSchedule] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
+  const [preview, setPreview] = useState<PostPreview | null>(null);
+
+  function openPreview() {
+    if (!formRef.current) return;
+    const form = new FormData(formRef.current);
+    setPreview({ title: String(form.get('title') ?? ''), content: String(form.get('content') ?? '') });
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -142,11 +150,13 @@ export function NewTopicComposer({ boardSlug, boardName }: { boardSlug: string; 
         )}
         <span className="topic-composer-gap" />
         <ImagePicker label="插入图片或视频" media="all" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
+        <UiButton type="button" onClick={openPreview} disabled={busy}>预览</UiButton>
         <UiButton type="submit" className="topic-composer-submit" disabled={busy}>
           {busy ? '发布中…' : '发布主题'}
         </UiButton>
       </div>
       <Notice error={error} notice={notice} />
+      {preview && <PostPreviewDrawer preview={preview} boardName={boardName} onClose={() => setPreview(null)} />}
     </form>
   );
 }
@@ -157,6 +167,7 @@ export function ReplyForm({ topicId, posts = [] }: { topicId: string; posts?: { 
   const [error, setError] = useState<string | null>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const [replyToPostId, setReplyToPostId] = useState('');
+  const [preview, setPreview] = useState<PostPreview | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -197,7 +208,9 @@ export function ReplyForm({ topicId, posts = [] }: { topicId: string; posts?: { 
           {pending ? '发送中…' : '回复'}
         </UiButton>
         <ImagePicker label="🖼 插入图片/视频" media="all" onPicked={(url) => insertAtCursor(contentRef.current, `\n![](${url})\n`)} />
+        <UiButton type="button" onClick={() => setPreview({ title: '回复预览', content: contentRef.current?.value ?? '' })}>预览</UiButton>
       </div>
+      {preview && <PostPreviewDrawer preview={preview} onClose={() => setPreview(null)} />}
     </form>
   );
 }

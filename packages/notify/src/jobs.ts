@@ -1,11 +1,16 @@
 import { registerJobHandler } from '@ycomm/jobs';
 import { sendMail } from './send';
+import { deliverStaffMail } from './campaigns';
 
 /**
  * Wire the `send_email` job kind. Must be called once at application boot
  * (before the job worker is started).
  */
 export function registerMailJobHandler(): void {
+  registerJobHandler('send_staff_email', async (payload, { db }) => {
+    if (typeof payload.deliveryId !== 'string') throw new Error('Missing delivery ID');
+    await deliverStaffMail(db, payload.deliveryId);
+  });
   registerJobHandler('send_email', async (payload, { db }) => {
     const { to, template, subject, text, html } = payload as Record<string, string>;
     if (!to || !template || !subject || !text) {

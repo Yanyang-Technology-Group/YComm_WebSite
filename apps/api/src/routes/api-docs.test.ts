@@ -8,6 +8,7 @@ const routePrefixes: Record<string, string> = {
   'forum.ts': '/api/forum',
   'downloads.ts': '/api/downloads',
   'admin.ts': '/api/admin',
+  'mail.ts': '/api/admin/mail',
   'uploads.ts': '/api/uploads',
   'users.ts': '/api/users',
   'notifications.ts': '/api/notifications',

@@ -128,7 +128,7 @@ async function rawTokenFromMail(kind: 'verify_email' | 'password_reset'): Promis
   return match[1];
 }
 
-const NEW_USER = { username: 'alice', email: 'alice@example.com', password: 'Secret-12345' };
+const NEW_USER = { username: 'alice', email: 'alice@example.com', password: 'Secret-12345', birthDate: '2000-01-01' };
 
 describe('register', () => {
   it('rejects registration before the site has an owner', async () => {
@@ -169,6 +169,30 @@ describe('register', () => {
     expect(tokens).toHaveLength(1);
     const mails = await handle.db.select().from(schema.jobs).where(eq(schema.jobs.kind, 'send_email'));
     expect(mails.map((mail) => (mail.payload as MailJobPayload).to).filter((to) => to === 'guardian@example.com')).toHaveLength(1);
+  });
+
+  it('rejects missing and invalid dates instead of defaulting to an adult account', async () => {
+    await seedOwner();
+    for (const birthDate of ['', '2013-02-29', '9999-01-01']) {
+      await expect(register(handle.db, { ...NEW_USER, birthDate })).rejects.toMatchObject({
+        code: errors.validation().code,
+      });
+    }
+    const { birthDate: _omitted, ...missingDate } = NEW_USER;
+    await expect(register(handle.db, missingDate as typeof NEW_USER)).rejects.toMatchObject({
+      code: errors.validation().code,
+    });
+    expect(await handle.db.select().from(schema.emailTokens)).toHaveLength(0);
+  });
+
+  it('requires a distinct valid guardian address for children', async () => {
+    await seedOwner();
+    for (const guardianEmail of [undefined, 'invalid', NEW_USER.email.toUpperCase()]) {
+      await expect(register(handle.db, { ...NEW_USER, birthDate: '2020-01-01', guardianEmail })).rejects.toMatchObject({
+        code: errors.validation().code,
+      });
+    }
+    expect(await handle.db.select().from(schema.emailTokens)).toHaveLength(0);
   });
 
   it('username collisions are CONFLICT, email collisions are indistinguishable from success', async () => {
@@ -263,6 +287,7 @@ describe('register', () => {
       username: 'ghost',
       email: 'ghost@example.com',
       password: 'Secret-12345',
+      birthDate: '2000-01-01',
     });
     expect(again.alreadyRegistered).toBe(false);
     expect(again.user.username).toBe('ghost');
@@ -290,6 +315,7 @@ describe('register', () => {
           email: `race${index}@example.com`,
           password: 'Secret-12345',
           inviteCode: code,
+          birthDate: '2000-01-01',
         }),
       ),
     );

@@ -18,9 +18,11 @@
     "@ycomm/db": "*",
     "@ycomm/kernel": "*",
     "ip2region": "^3.0.0",
-    "nodemailer": "^10.0.8"
+    "nodemailer": "^10.0.8",
+    "sanitize-html": "^2.18.1"
   },
   "devDependencies": {
-    "@types/nodemailer": "^8.0.1"
+    "@types/nodemailer": "^8.0.1",
+    "@types/sanitize-html": "^2.16.2"
   }
 }

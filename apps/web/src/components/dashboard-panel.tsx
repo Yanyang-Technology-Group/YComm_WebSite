@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { CaptchaConfig } from '@ycomm/kernel';
 import { REGISTRATION } from '@ycomm/config';
 import { apiFetch } from '../lib/api';
+import { showToast } from '../lib/toast';
 import { AppNav } from './app-nav';
 import { ThemePicker } from './theme-toggle';
 import { ImagePicker } from './image-picker';
@@ -163,6 +164,7 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
     try {
       await fn();
       setMsg(okMessage);
+      showToast(okMessage);
       await load();
       router.refresh();
     } catch (caught) {

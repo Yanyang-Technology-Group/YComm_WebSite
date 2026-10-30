@@ -14,6 +14,8 @@
  * committed to the public repository.
  */
 export * from './access-policy';
+export * from './age';
+export * from './mail';
 export * from './downloads';
 export * from './features';
 export * from './forums';

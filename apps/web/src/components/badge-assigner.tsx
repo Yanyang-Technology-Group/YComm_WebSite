@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { showToast } from '../lib/toast';
 import { BadgePill } from './badge-manager';
 
 interface BadgeView {
@@ -56,8 +57,9 @@ export function BadgeAssigner({ userId }: { userId: string }) {
         else next.add(badge.id);
         return next;
       });
+      showToast('徽章设置保存成功');
     } catch {
-      /* 保持原状 */
+      showToast('徽章设置保存失败，请重试', 'error');
     } finally {
       setBusy(false);
     }

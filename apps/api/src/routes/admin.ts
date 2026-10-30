@@ -50,6 +50,7 @@ import { sessionAuth, clientIp } from '../middleware/session';
 import { requirePermission } from '../middleware/permission';
 import { captchaTokenFields, captchaTokenOf, verifyCaptcha } from '../middleware/captcha';
 import { parseBody } from './forum';
+import { mailRoutes } from './mail';
 
 const roleSchema = z.object({ role: z.enum(['member', 'admin', 'owner']) });
 const banSchema = z.object({
@@ -242,6 +243,7 @@ async function auditAdmin(
 export function adminRoutes(): Hono<{ Variables: AppVariables }> {
   const router = new Hono<{ Variables: AppVariables }>();
   router.use('*', sessionAuth);
+  router.route('/mail', mailRoutes());
 
   router.get('/users', requirePermission(PERMISSION.ADMIN_DASHBOARD_ACCESS), async (c) => {
     const handle = await getDb();
@@ -268,7 +270,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       throw errors.forbidden('无权查看该账号');
     }
     const [detail] = await enrichUserDetails(handle.db, [user]);
-    return c.json({ ok: true, data: { user: detail } });
+    return c.json({ ok: true, data: { user: { ...detail, birthDate: user.birth_date } } });
   });
 
   // Apply the same account visibility to direct per-user management requests.

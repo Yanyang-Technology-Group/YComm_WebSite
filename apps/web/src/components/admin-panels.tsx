@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { CaptchaConfig } from '@ycomm/kernel';
 import { REGISTRATION } from '@ycomm/config';
 import { apiFetch } from '../lib/api';
+import { showToast } from '../lib/toast';
 import { getSession } from '../lib/session';
 import { CaptchaField } from './captcha-field';
 import { CaptchaGateModal } from './captcha-gate-modal';
@@ -75,6 +76,7 @@ export interface AdminUser {
   githubUsername?: string | null;
   lastLoginAt?: string | null;
   inviteCodeUsed?: string | null;
+  birthDate?: string | null;
   postCount?: number;
   likeReceivedCount?: number;
 }
@@ -130,6 +132,7 @@ export function UsersPanel({
         body: JSON.stringify(body ?? {}),
       });
       setDialog(null);
+      showToast('用户设置保存成功');
       setDeleteDialog(null);
       setPwDialog(null);
       router.refresh();
@@ -194,6 +197,7 @@ export function UsersPanel({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ newPassword: pwDialog.password, captchaToken }),
       });
+      showToast('密码保存成功');
       setPwDialog(null);
       router.refresh();
     } catch (caught) {
@@ -635,6 +639,7 @@ export function InviteCodesPanel() {
         body: JSON.stringify({ name, code: code || undefined, maxUses: Number(maxUses) || 1 }),
       });
       setMessage(`注册码已创建${code ? '' : '（自动生成）'}`);
+      showToast('注册码保存成功');
       setName('');
       setCode('');
       setMaxUses('1');
@@ -687,6 +692,7 @@ export function InviteCodesPanel() {
         return copy;
       });
       setMessage(`「${entry.name ?? entry.code}」可绑定数量已改为 ${next}`);
+      showToast('注册码设置保存成功');
       router.refresh();
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : '修改失败');
@@ -933,6 +939,7 @@ export function BannedWordsPanel() {
         body: JSON.stringify({ key: 'bannedWords', value: words }),
       });
       setMessage(`已保存 ${words.length} 个违禁词`);
+      showToast(`保存成功：${words.length} 个违禁词`);
       router.refresh();
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : '保存失败');
@@ -977,6 +984,7 @@ export function ResourcesPanel({
 
   async function createResource(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setBusy(true);
     setError(null);
     const form = new FormData(event.currentTarget);
@@ -998,7 +1006,8 @@ export function ResourcesPanel({
         upload.append('file', file);
         await apiFetch(`/api/downloads/resources/${data.resource.id}/upload`, { method: 'POST', body: upload });
       }
-      event.currentTarget.reset();
+      formElement.reset();
+      showToast('资源已保存并提交审核');
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '操作失败');

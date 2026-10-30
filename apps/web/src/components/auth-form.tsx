@@ -7,6 +7,7 @@ import { LEGAL_DOCS, REGISTRATION } from '@ycomm/config';
 import { CaptchaField } from './captcha-field';
 import { UiButton, UiInput } from './ui-controls';
 import { isCaptchaError, requestCaptchaReset } from '../lib/captcha';
+import type { RegistrationAgeDetails } from '../lib/registration-age';
 
 export type AuthFormKind = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
 
@@ -55,10 +56,12 @@ export function AuthForm({
   kind,
   token,
   captcha,
+  registrationDetails,
 }: {
   kind: AuthFormKind;
   token?: string;
   captcha?: CaptchaConfig | null;
+  registrationDetails?: RegistrationAgeDetails;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -107,6 +110,14 @@ export function AuthForm({
       if (typeof value === 'string' && value.trim() !== '') payload[key] = value;
     }
     if (token) payload.token = token;
+    if (kind === 'register') {
+      if (!registrationDetails) {
+        router.push('/register/date');
+        return;
+      }
+      payload.birthDate = registrationDetails.birthDate;
+      if (registrationDetails.guardianEmail) payload.guardianEmail = registrationDetails.guardianEmail;
+    }
     // 登录/注册：把 checkbox 勾选状态转成布尔送服务端二次校验。
     if (kind === 'login' || kind === 'register') {
       payload.agreeTerms = form.get('agreeTerms') === 'on';
@@ -201,11 +212,6 @@ export function AuthForm({
         <>
           <UiInput name="username" placeholder="用户名（3-20 位字母/数字/_-）" required autoComplete="username" />
           <UiInput name="email" type="email" placeholder="邮箱" required autoComplete="email" />
-          <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
-            出生日期（用于判断是否需要监护人同意）
-            <UiInput name="birthDate" type="date" required autoComplete="bday" />
-          </label>
-          <UiInput name="guardianEmail" type="email" placeholder="监护人邮箱（未满十四周岁必填）" autoComplete="email" />
           <UiInput
             name="password"
             type="password"

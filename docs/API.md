@@ -186,7 +186,7 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | 方法与路径 | 权限 | 路径/Query/请求体 | 成功 `data` 与特殊行为 |
 |---|---|---|---|
 | `GET /api/admin/users` | `ADMIN_DASHBOARD_ACCESS` | Query：可选 `q`，`offset` 默认 0，`limit` 默认 20、最大 100 | `{ users: AdminUser[], total }`。 |
-| `GET /api/admin/users/:userId` | `ADMIN_DASHBOARD_ACCESS` | Path `userId` | `{ user: AdminUser }`；非 owner 仅可查看成员，已注销用户返回 404。 |
+| `GET /api/admin/users/:userId` | `ADMIN_DASHBOARD_ACCESS` | Path `userId` | `{ user: AdminUser & { birthDate: string \| null } }`；出生日期为 YYYY-MM-DD，历史账号未填时为 null，仅此管理详情接口提供；非 owner 仅可查看成员，已注销用户返回 404。 |
 | `PATCH /api/admin/users/:userId/role` | `USER_ROLE_ASSIGN`（实际仅 owner 可授予敏感角色） | Path `userId`；JSON：`role: member\|admin\|owner` | `{ user: AdminUser }`；owner 身份转移受领域规则约束。 |
 | `POST /api/admin/users/:userId/ban` | `USER_BAN` | Path `userId`；JSON：可选 `reason` ≤300，`until` 为 ISO datetime 或 `null`（缺省/null 为永久） | `{ user: AdminUser }`；通知目标用户。 |
 | `POST /api/admin/users/:userId/unban` | `USER_BAN` | Path `userId` | `{ user: AdminUser }`。 |
@@ -242,6 +242,29 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | `PATCH /api/admin/boards/:boardId` | `FORUM_BOARD_MANAGE` | Path `boardId`；JSON：`name`, `description`, `sortOrder`, `visibility`, `postingPolicy` 均可选 | `{ board: AdminBoard }`。slug 不可修改。 |
 | `DELETE /api/admin/boards/:boardId` | `FORUM_BOARD_MANAGE` | Path `boardId` | `null`；软删除（归档），主题和帖子保留。 |
 | `POST /api/admin/boards/:boardId/restore` | `FORUM_BOARD_MANAGE` | Path `boardId` | `null`；恢复已归档版块。 |
+
+### 邮件中心（管理员和站长）
+
+后台入口 `/admin/mail`。邮件主题与收件人属于信封；`background` 是固定品牌背景（`community` 晏阳社区 / `city` 晏阳城市建设），`subtitle` 是可编辑副标题，`bodyHtml` 是正文。正文预制模板只保存名称和正文，与背景、副标题独立。所有 HTML 由服务端白名单净化；外部图片仅允许 HTTP/HTTPS。
+
+| 方法与路径 | 权限 | 请求与响应 |
+|---|---|---|
+| `GET /api/admin/mail/settings` | 仅 owner | `{ config }`：provider、fromAddress、smtpHost、smtpPort、smtpSecurity、smtpUser、hasSecret、configured；从不返回密码、API Key 或密文。 |
+| `PUT /api/admin/mail/settings` | 仅 owner | `provider: environment\|smtp\|resend`、`fromAddress`，SMTP 的 host/port/security/user，`secret` 为密码/授权码或 Resend API Key。security 为 tls/starttls/plain。secret 留空保留同一 provider 的旧凭据；切换必须重填。environment 恢复环境配置。返回 `{ config }`。 |
+| `GET /api/admin/mail/templates` | admin / owner | `{ backgrounds, templates: [{ id, name, bodyHtml }] }`。 |
+| `POST /api/admin/mail/templates` | 仅 owner | `name` 1–80 字、`bodyHtml` ≤100000 字；最多30个正文模板。返回201 `{ template: { id } }`。 |
+| `PUT /api/admin/mail/templates/:id` | 仅 owner | 同上，更新正文模板；背景、副标题不能作为预制模板保存。 |
+| `DELETE /api/admin/mail/templates/:id` | 仅 owner | 删除正文模板，已提交的邮件快照不受影响。 |
+| `POST /api/admin/mail/preview` | admin / owner | subject（1–200，不得换行）、subtitle（≤200）、background、bodyHtml；返回 `{ subject, html, text }`，不入队、不发送。 |
+| `GET /api/admin/mail/campaigns` | admin / owner | `{ campaigns }`，最近100条；admin 只看自己的提交，owner 看全部。含审核意见、最终正文、收件人和投递计数。 |
+| `POST /api/admin/mail/campaigns` | admin / owner | 预览字段加 `recipients`（1–100个邮箱，去重）；201 `{ campaign: { id, status: pending } }`，只提交审核，不入队。站长自己的邮件同样需审核操作。 |
+| `POST /api/admin/mail/campaigns/:id/decide` | 仅 owner / MAIL_BROADCAST | `decision: approve\|reject`，可选note≤500。批准需已配置真实服务；一次事务固定审核状态并创建逐收件人投递任务。重复审核409，拒绝不入队。 |
+
+邮件内容提交后不可修改；修订需重新提交。`pending → rejected` 或 `pending → queued → sent/failed`；失败任务最多尝试5次，列表刷新查看结果。批准只代表进入队列，不能视为已送达。邮件凭据不进入通用 settings 或审计元数据。
+
+### Web 注册日期步骤
+
+浏览器先访问 `/register/date` 填写生日，以 UTC+8 当前日历日期判断是否满14周岁；未满14周岁必须提供不同于本人邮箱的监护人邮箱。服务端保存30分钟、HttpOnly、SameSite=Lax、path=/register 的临时生日信息后进入 `/register`。最终注册 API 再次校验，不能通过跳过页面绕过年龄规则。生日只在管理员授权的用户详情展示，不进入公开资料或用户列表。
 
 ## WebSocket /api/ws
 

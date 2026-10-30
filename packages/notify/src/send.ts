@@ -1,6 +1,7 @@
 import { schema, type Db } from '@ycomm/db';
-import { getEnv, hasResend, hasSmtp, logger } from '@ycomm/kernel';
+import { logger } from '@ycomm/kernel';
 import { createMailTransport, type MailMessage } from './transport';
+import { resolveMailConfig } from './mail-config';
 
 export interface SendMailInput extends MailMessage {
   db: Db;
@@ -20,16 +21,17 @@ export type SendMailResult = 'sent' | 'skipped' | 'failed';
  * investigated; nothing here is redacted.
  */
 export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
-  const env = getEnv();
+  const config = await resolveMailConfig(input.db);
+  const transport = createMailTransport(config);
 
-  if (!hasResend(env) && !hasSmtp(env)) {
+  if (transport.name === 'console') {
     await input.db.insert(schema.emailLogs).values({
       to_email: input.to,
       template: input.template,
       subject: input.subject,
       status: 'skipped',
     });
-    await createMailTransport().send({
+    await transport.send({
       to: input.to,
       subject: input.subject,
       text: input.text,
@@ -39,11 +41,12 @@ export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
   }
 
   try {
-    await createMailTransport().send({
+    await transport.send({
       to: input.to,
       subject: input.subject,
       text: input.text,
       html: input.html,
+      idempotencyKey: input.idempotencyKey,
     });
     await input.db.insert(schema.emailLogs).values({
       to_email: input.to,
@@ -53,7 +56,7 @@ export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
     });
     return 'sent';
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = transport.name + ' 邮件投递失败，请核对发件配置或稍后重试';
     await input.db.insert(schema.emailLogs).values({
       to_email: input.to,
       template: input.template,
@@ -62,6 +65,6 @@ export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
       error: message,
     });
     logger.error('mail send failed', { error: message, to: input.to, template: input.template });
-    throw error;
+    throw new Error(message, { cause: error });
   }
 }

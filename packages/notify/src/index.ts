@@ -9,6 +9,9 @@
 export { createMailTransport, type MailMessage, type MailTransport } from './transport';
 export { registerMailJobHandler } from './jobs';
 export { sendMail, type SendMailInput, type SendMailResult } from './send';
+export { getMailConfigView, saveMailConfig, resolveMailConfig, type MailServiceConfig, type MailConfigView } from './mail-config';
+export { sanitizeMailBody, renderStaffMail, mailPlainText } from './mail-content';
+export { listMailTemplates, saveMailTemplate, deleteMailTemplate, createMailCampaign, decideMailCampaign, listMailCampaigns, deliverStaffMail, type StaffMailInput } from './campaigns';
 export {
   describeRemainingTime,
   renderAccountDeletion,

@@ -1,11 +1,13 @@
 import { createTransport, type Transporter } from 'nodemailer';
-import { getEnv, hasResend, hasSmtp, logger } from '@ycomm/kernel';
+import { logger } from '@ycomm/kernel';
+import { environmentMailConfig, type ResolvedMailConfig } from './mail-config';
 
 export interface MailMessage {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  idempotencyKey?: string;
 }
 
 export interface MailTransport {
@@ -22,27 +24,28 @@ export interface MailTransport {
  */
 class ResendMailTransport implements MailTransport {
   readonly name = 'resend' as const;
+  constructor(private readonly config: ResolvedMailConfig) {}
 
   async send(message: MailMessage): Promise<void> {
-    const env = getEnv();
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${this.config.secret}`,
         'Content-Type': 'application/json',
+        ...(message.idempotencyKey ? { 'Idempotency-Key': message.idempotencyKey } : {}),
       },
       body: JSON.stringify({
-        from: env.MAIL_FROM ?? 'YComm <noreply@localhost>',
+        from: this.config.fromAddress,
         to: [message.to],
         subject: message.subject,
         text: message.text,
         html: message.html,
       }),
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      throw new Error(`Resend API ${response.status}: ${body.slice(0, 300)}`);
+      throw new Error('Resend API returned HTTP ' + response.status);
     }
   }
 }
@@ -51,31 +54,32 @@ class ResendMailTransport implements MailTransport {
 class SmtpMailTransport implements MailTransport {
   readonly name = 'smtp' as const;
   private transporter: Transporter | undefined;
+  constructor(private readonly config: ResolvedMailConfig) {}
 
   private getTransporter(): Transporter {
     if (!this.transporter) {
-      const env = getEnv();
       this.transporter = createTransport({
-        host: env.SMTP_HOST,
-        port: env.SMTP_PORT,
-        secure: env.SMTP_SECURE,
-        auth:
-          env.SMTP_USER && env.SMTP_PASSWORD
-            ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD }
-            : undefined,
+        host: this.config.smtpHost,
+        port: this.config.smtpPort,
+        secure: this.config.smtpSecurity === 'tls',
+        requireTLS: this.config.smtpSecurity === 'starttls',
+        ignoreTLS: this.config.smtpSecurity === 'plain',
+        auth: this.config.smtpUser && this.config.secret ? { user: this.config.smtpUser, pass: this.config.secret } : undefined,
+        connectionTimeout: 15_000, greetingTimeout: 15_000, socketTimeout: 30_000,
+        disableFileAccess: true, disableUrlAccess: true,
       });
     }
     return this.transporter;
   }
 
   async send(message: MailMessage): Promise<void> {
-    const env = getEnv();
     await this.getTransporter().sendMail({
-      from: env.MAIL_FROM ?? 'YComm <noreply@localhost>',
+      from: this.config.fromAddress,
       to: message.to,
       subject: message.subject,
       text: message.text,
       html: message.html,
+      ...(message.idempotencyKey ? { messageId: '<' + message.idempotencyKey + '@ycomm.local>' } : {}),
     });
   }
 }
@@ -101,13 +105,12 @@ class ConsoleMailTransport implements MailTransport {
  * Pick a transport: Resend first (simplest to operate), then the self-hosted
  * SMTP relay (kept for later), then console logging so dev works out of the box.
  */
-export function createMailTransport(): MailTransport {
-  const env = getEnv();
-  if (hasResend(env)) {
-    return new ResendMailTransport();
+export function createMailTransport(config: ResolvedMailConfig = environmentMailConfig()): MailTransport {
+  if (config.provider === 'resend') {
+    return new ResendMailTransport(config);
   }
-  if (hasSmtp(env)) {
-    return new SmtpMailTransport();
+  if (config.provider === 'smtp') {
+    return new SmtpMailTransport(config);
   }
   return new ConsoleMailTransport();
 }

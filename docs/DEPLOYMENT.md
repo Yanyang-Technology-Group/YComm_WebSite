@@ -170,6 +170,17 @@ Cloudflare Tunnel 的现有 HTTP 服务 `http://localhost:3000` 可以同时代�
 
 服务端每 30 秒 ping，下一周期未 pong 则终止连接；定期及推送前复查会话。每用户最多 8 条连接，总计最多 1000 条，最多 100 个待鉴权握手；握手最长 5 秒。慢消费者受 64 KiB 发送缓冲和 64 个待验证事件限制。SIGTERM/SIGINT 关闭监听、订阅与连接，10 秒退出兜底。客户端事件协议、拒绝及关闭码见 [API 文档](API.md)。
 
+### CAP 同源资源与邮件中心升级
+
+- CAP 0.0.6 WASM 包位于 `apps/web/public/cap/0.0.6/`，必须随应用发布 cap_wasm.min.js 与 cap_wasm_bg.wasm 两个文件。客户端用同源绝对 URL 初始化 worker；无需放行 jsDelivr 或放宽 script-src。失败或令牌失效会清空旧令牌并重置组件。
+- 此版本使用迁移 `0017_wonderful_frightful_four.sql`；必须先执行 `npm run db:migrate` 再启动新版本，否则系统信也会因缺表失败。容器入口已自动迁移。
+- `/admin/mail` 的发件配置仅站长可见/可改；支持 Resend 和自定义 SMTP，系统验证码等邮件每次投递读取当前配置。选择 environment 恢复现有 MAIL_FROM / RESEND_API_KEY / SMTP_* 环境配置。
+- 数据库存储的密码/API Key 用 SESSION_SECRET 派生 AES-256-GCM 密钥加密，至少32字符；备份应安全保存此环境密钥。轮换 SESSION_SECRET 后需重新保存邮件凭据。不要把密码放进审计日志或普通 settings。
+- Resend 需验证发件域名；SMTP 需正确的邮箱账号、密码或服务商授权码。TLS 通常465，STARTTLS通常587；证书校验保持开启。不加密只用于可信内网中继。
+- 后台只允许预览、提交和审核。站长通过后任务队列逐人投递，未配置真实发件服务不能批准；配置保存成功不代表连接/送达测试成功。
+- 投递采用可重试队列；Resend 携带稳定 Idempotency-Key，SMTP 使用稳定 Message-ID。SMTP 对端成功收信而本地确认失败时仍可能重复，不保证恰好一次。生产环境应使用持久数据库并监控 jobs/email_logs。
+- HTML 正文经服务端白名单净化，后台预览使用禁用脚本的 sandbox iframe。外部图片由收件人客户端加载，正式信件展示仍受邮件客户端支持影响。
+
 ### 单实例范围与验证
 
 进程内通知总线通过进程共享存储跨 Next 服务端打包模块复用，不存储消息，不提供补发、顺序或恰好一次保证。部署期间/离线期间的实时提示会丢失；客户端在 ready、重连、前台恢复时从 REST 拉取通知。标记已读当前只通过 REST 返回权威未读数，不额外广播。

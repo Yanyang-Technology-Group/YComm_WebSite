@@ -13,6 +13,11 @@ let capScriptSource: string | null = null;
  */
 function loadCapWidget(script: string): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve();
+  // Blob workers need an absolute URL. Configure this before loading CAP so
+  // neither its prefetch nor its dynamic import reaches the blocked CDN.
+  Object.assign(window, {
+    CAP_CUSTOM_WASM_URL: new URL('/cap/0.0.6/cap_wasm.min.js', window.location.origin).href,
+  });
   if (customElements.get('cap-widget')) return Promise.resolve();
   if (capScriptPromise && capScriptSource === script) return capScriptPromise;
 
@@ -126,11 +131,10 @@ export function CaptchaField({
     }
 
     function resetWidget() {
+      clearState();
       const widget = widgetRef.current;
       if (widget && typeof (widget as HTMLElement & { reset?: () => void }).reset === 'function') {
         (widget as HTMLElement & { reset: () => void }).reset();
-      } else {
-        clearState();
       }
     }
 

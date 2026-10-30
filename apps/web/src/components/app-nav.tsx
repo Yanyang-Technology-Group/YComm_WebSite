@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { SettingsNav } from '@extrastu/nuphy-ui';
-import { UserRound, FileText, Eye, LockKeyhole, Paintbrush, House, LayoutDashboard, UsersRound, PanelsTopLeft, Download, Award, ShieldCheck, History, Settings2, KeyRound } from 'lucide-react';
+import { UserRound, FileText, Eye, LockKeyhole, Paintbrush, House, LayoutDashboard, UsersRound, PanelsTopLeft, Download, Award, ShieldCheck, History, Settings2, KeyRound, Mail } from 'lucide-react';
 import { getSession } from '../lib/session';
 import { useUiStyle } from '../lib/use-ui-style';
 
@@ -31,6 +31,7 @@ const ADMIN_LINKS = [
   { href: '/admin/badges', label: '徽章管理' },
   { href: '/admin/moderation', label: '审核队列' },
   { href: '/admin/audit', label: '操作日志' },
+  { href: '/admin/mail', label: '邮件中心' },
   { href: '/admin/settings', label: '违禁词与注册码' },
 ] as const;
 
@@ -64,7 +65,7 @@ export function AppNav() {
 
   if (style === 'apple') {
     const personalIcons = [UserRound, FileText, Eye, LockKeyhole, Paintbrush];
-    const adminIcons = [LayoutDashboard, UsersRound, PanelsTopLeft, Download, Award, ShieldCheck, History, Settings2];
+    const adminIcons = [LayoutDashboard, UsersRound, PanelsTopLeft, Download, Award, ShieldCheck, History, Mail, Settings2];
     const personal = [
       ...PERSONAL_LINKS.map((link, index) => {
         const Icon = personalIcons[index] ?? UserRound;

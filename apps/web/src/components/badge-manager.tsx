@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { showToast } from '../lib/toast';
 
 interface BadgeView {
   id: string;
@@ -64,6 +65,7 @@ export function BadgeManagerPanel() {
       setName('');
       await refresh();
       setMessage('徽章已创建。去「用户管理 → 管理面板」给它分配用户。');
+      showToast('徽章保存成功');
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : '创建失败');
     } finally {

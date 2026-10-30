@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { showToast } from '../lib/toast';
 import { NotificationList } from './notification-list';
 
 interface BoardNav {
@@ -106,6 +107,7 @@ export function ForumShell({ children }: { children: React.ReactNode }) {
           'ycomm_forum_cols',
           JSON.stringify({ left: widthsRef.current.left, right: widthsRef.current.right }),
         );
+        showToast('论坛布局保存成功');
       } catch {
         /* 忽略 */
       }

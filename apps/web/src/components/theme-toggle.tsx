@@ -4,6 +4,7 @@ import { useEffect, useState, type ButtonHTMLAttributes } from 'react';
 import { Button as AppleButton } from '@extrastu/nuphy-ui';
 import { playAnim } from '../lib/anim';
 import { apiFetch } from '../lib/api';
+import { showToast } from '../lib/toast';
 import { getSession } from '../lib/session';
 import { applyUiStyle, readStoredUiStyle, UI_STYLE_KEY } from '../lib/appearance';
 import { AppearancePicker } from './appearance-picker';
@@ -163,12 +164,16 @@ export function readStoredTheme(): { colour: ThemeChoice; mode: ThemeMode } {
 async function persistTheme(colour: ThemeChoice, mode: ThemeMode): Promise<void> {
   try {
     const session = await getSession();
-    if (!session) return;
+    if (!session) {
+      if (localStorage.getItem(COLOUR_KEY) === colour && localStorage.getItem(MODE_KEY) === mode) showToast('主题保存成功');
+      return;
+    }
     await apiFetch('/api/auth/theme', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ colour, mode }),
     });
+    showToast('主题保存成功');
   } catch {
     /* 保存失败不影响本次已生效的主题 */
   }

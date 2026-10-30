@@ -7,6 +7,8 @@ import {
 import { useUiStyle } from '../lib/use-ui-style';
 import { Button } from '@extrastu/nuphy-ui';
 import { GlassSettings } from './liquid-glass';
+import { showToast } from '../lib/toast';
+import { UI_STYLE_KEY } from '../lib/appearance';
 
 const STYLES = [
   { id: 'flat', label: 'Flat Design', note: '默认' },
@@ -21,6 +23,9 @@ export function AppearancePicker() {
 
   function choose(next: UiStyle) {
     applyUiStyle(next, { animate: true });
+    try {
+      if (localStorage.getItem(UI_STYLE_KEY) === next) showToast('界面风格保存成功');
+    } catch { /* The current page still uses the selected style. */ }
   }
 
   return (

@@ -63,6 +63,7 @@ export default async function AdminUserDetailPage({
         </div>
         <div style={{ display: 'grid', gap: '0.75rem', fontSize: '0.95rem' }}>
           <DetailRow label="邮箱">{user.email}</DetailRow>
+          <DetailRow label="出生日期">{user.birthDate ?? '未填写（历史账号）'}</DetailRow>
           <DetailRow label="GitHub">
             {user.githubUsername ? (
               <a href={`https://github.com/${encodeURIComponent(user.githubUsername)}`} target="_blank" rel="noopener noreferrer" className="uname">

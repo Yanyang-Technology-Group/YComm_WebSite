@@ -13,6 +13,7 @@ import { DEFAULT_UI_STYLE, UI_STYLE_BOOT_SCRIPT } from '../lib/appearance';
 import { GLASS_BOOT_SCRIPT } from '../lib/glass-preference';
 import { LiquidGlassEffects } from '../components/liquid-glass';
 import { SiteFooter } from '../components/site-footer';
+import { ToastViewport } from '../components/toast-viewport';
 import './styles.css';
 
 /** 首帧前应用本地主题（避免闪白）；账号主题由 ThemeSync 登录后校正。 */
@@ -74,6 +75,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </VerificationGate>
         </main>
         <SiteFooter branding={branding} version={appVersion} />
+        <ToastViewport />
         {/* 弹窗自身会先自检登录态（客户端），已登录不显示 */}
         <GuestPrompt siteName={branding.name} />
       </body>

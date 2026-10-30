@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { apiFetch } from '../lib/api';
+import { showToast } from '../lib/toast';
 import { getSession } from '../lib/session';
 
 interface AdminCard {
@@ -71,7 +72,6 @@ export function CardsPanel() {
   const [editorCollapsed, setEditorCollapsed] = useState(false);
   const [myRole, setMyRole] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const titleRef = useRef<HTMLInputElement | null>(null);
   /** 是否首次加载（首载时把手风琴默认收起来，之后刷新不再重置折叠状态）。 */
@@ -157,6 +157,7 @@ export function CardsPanel() {
         body: JSON.stringify(payload),
       });
       form.reset();
+      showToast('卡片保存成功');
       setNewParentId('');
       await refresh();
       router.refresh();
@@ -192,8 +193,7 @@ export function CardsPanel() {
       });
       await refresh();
       router.refresh();
-      setToast('下载设置已保存');
-      window.setTimeout(() => setToast(null), 2800);
+      showToast('下载设置保存成功');
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : '保存失败');
     }
@@ -249,9 +249,9 @@ export function CardsPanel() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ w: d.w, h: d.h }),
       })
-        .then(() => router.refresh())
-        .catch(() => {
-          /* 保存失败不回滚，下次刷新仍是服务端的值 */
+        .then(() => { showToast('卡片尺寸保存成功'); router.refresh(); })
+        .catch((caught: unknown) => {
+          setMessage(caught instanceof Error ? caught.message : '尺寸保存失败');
         });
     }
 
@@ -293,6 +293,7 @@ export function CardsPanel() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ w: nextW, h: nextH }),
       });
+      showToast('卡片尺寸保存成功');
       router.refresh();
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : '尺寸保存失败');
@@ -347,6 +348,7 @@ export function CardsPanel() {
       await refresh();
       router.refresh();
       setMessage(`已在「${card.title}」前面插入一张卡片，同层后面的卡片已自动后移`);
+      showToast('卡片保存成功');
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : '插入失败');
     }
@@ -379,6 +381,7 @@ export function CardsPanel() {
         body: JSON.stringify({ direction }),
       });
       setMessage(direction === 'up' ? `「${card.title}」已上移` : `「${card.title}」已下移`);
+      showToast('卡片排序保存成功');
       await refresh();
       router.refresh();
     } catch (caught) {
@@ -486,7 +489,6 @@ export function CardsPanel() {
 
   return (
     <div>
-      {toast && <div className="admin-toast" role="status" aria-live="polite">✓ {toast}</div>}
       {/* 编辑器固定在页面顶部，可收起/展开 */}
       <div className="card-editor-pin">
         <div className="card-editor-pin-bar">

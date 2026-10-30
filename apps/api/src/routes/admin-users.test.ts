@@ -24,6 +24,7 @@ beforeAll(async () => {
   for (const role of ['owner', 'admin', 'member'] as const) {
     const [user] = await handle.db.insert(schema.users).values({
       username: `test-${role}`, email: `${role}@example.com`, role, state: 'active',
+      birth_date: role === 'member' ? '2010-06-15' : null,
     }).returning();
     const session = await createSession(handle.db, { userId: user!.id, ttlDays: 1 });
     accounts[role] = { id: user!.id, cookie: `${getEnv().SESSION_COOKIE_NAME}=${session.rawToken}` };
@@ -53,9 +54,17 @@ describe('Account management visibility', () => {
   });
 
   it('user details are visible to admins only for members', async () => {
-    expect((await app.request(`/api/admin/users/${accounts.member!.id}`, {
+    const details = await app.request(`/api/admin/users/${accounts.member!.id}`, {
       headers: { cookie: accounts.admin!.cookie },
-    })).status).toBe(200);
+    });
+    expect(details.status).toBe(200);
+    expect((await details.json()).data.user.birthDate).toBe('2010-06-15');
+    expect((await app.request(`/api/admin/users/${accounts.member!.id}`)).status).toBe(401);
+    expect((await app.request(`/api/admin/users/${accounts.member!.id}`, {
+      headers: { cookie: accounts.member!.cookie },
+    })).status).toBe(403);
+    const listing = await app.request('/api/admin/users', { headers: { cookie: accounts.admin!.cookie } });
+    expect((await listing.json()).data.users[0]).not.toHaveProperty('birthDate');
     expect((await app.request(`/api/admin/users/${accounts.owner!.id}`, {
       headers: { cookie: accounts.admin!.cookie },
     })).status).toBe(403);

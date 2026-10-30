@@ -86,6 +86,15 @@ npm run owner:recover -- --email owner@example.com --password <new-secret>   # �
 
 ## 生产 vs 开发
 
+### 邮件中心数据（迁移 0017）
+
+- `mail_configuration`：单例 site 发件服务配置，密码/授权码/API Key 仅存 AES-256-GCM 密文，独立于通用 settings。
+- `mail_body_templates`：站长保存的正文预制（name/body_html），不存背景或副标题。
+- `mail_campaigns`：提交时固定的主题、副标题、品牌背景、净化正文、收件人、提交者与审核记录。管理员不能修改已提交内容或审核状态。
+- `mail_deliveries`：每个收件人独立状态、尝试次数、通用错误与发送时间；批准事务同时创建 send_staff_email jobs。
+
+发布新版本前执行 `npm run db:migrate`。数据库备份需要与 SESSION_SECRET 安全配套保管；密钥丢失无法解密原凭据。
+
 | 场景 | 驱动 | 说明 |
 |---|---|---|
 | 本地开发 | `pglite`（默认） | 零安装，数据在 `.data/pglite` |

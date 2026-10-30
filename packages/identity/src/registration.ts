@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
-import { FEATURE_DEFAULTS, LEGAL_VERSION, REGISTRATION, validatePassword } from '@ycomm/config';
+import { FEATURE_DEFAULTS, LEGAL_VERSION, REGISTRATION, registrationAge, validatePassword } from '@ycomm/config';
 import { errors, hashToken, newToken } from '@ycomm/kernel';
 import { enqueue } from '@ycomm/jobs';
 import { renderGuardianConsent, renderVerifyEmail } from '@ycomm/notify';
@@ -16,7 +16,7 @@ export interface RegisterInput {
   email: string;
   password: string;
   inviteCode?: string;
-  birthDate?: string;
+  birthDate: string;
   guardianEmail?: string;
 }
 
@@ -68,14 +68,11 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
   if (passwordIssue) {
     throw errors.validation({ issues: [{ path: 'password', message: passwordIssue }] });
   }
-  const birthDateValue = input.birthDate ?? '1990-01-01';
-  const birthDate = new Date(`${birthDateValue}T00:00:00.000Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDateValue) || Number.isNaN(birthDate.getTime()) || birthDate.toISOString().slice(0, 10) !== birthDateValue || birthDate > new Date()) {
+  const birthDateValue = input.birthDate;
+  const age = registrationAge(birthDateValue);
+  if (age === null) {
     throw errors.validation({ issues: [{ path: 'birthDate', message: '请填写有效的出生日期' }] });
   }
-  const today = new Date();
-  let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
-  if (today.getUTCMonth() < birthDate.getUTCMonth() || (today.getUTCMonth() === birthDate.getUTCMonth() && today.getUTCDate() < birthDate.getUTCDate())) age--;
   const isChild = age < 14;
   const guardianEmail = input.guardianEmail?.trim().toLowerCase();
   if (isChild && (!guardianEmail || !EMAIL_PATTERN.test(guardianEmail) || guardianEmail === email)) {

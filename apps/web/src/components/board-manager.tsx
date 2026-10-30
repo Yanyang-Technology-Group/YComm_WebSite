@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { apiFetch } from '../lib/api';
+import { showToast } from '../lib/toast';
 
 interface AdminBoard {
   id: string;
@@ -54,6 +55,7 @@ export function BoardManager() {
     try {
       await fn();
       setMsg(ok);
+      showToast(ok === '已保存' ? '版块设置保存成功' : ok);
       await load();
     } catch (caught) {
       setMsg(caught instanceof Error ? caught.message : '操作失败');
