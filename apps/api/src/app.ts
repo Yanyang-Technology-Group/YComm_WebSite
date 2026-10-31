@@ -64,8 +64,8 @@ function startUnverifiedAccountSweep(options: { db: Db; logger: Logger }): () =>
   const run = () => {
     void sweepUnverifiedAccounts(options.db)
       .then((result) => {
-        if (result.reminded > 0 || result.purged > 0) {
-          options.logger.info('unverified account sweep', { ...result });
+        if (result.reminded > 0 || result.purged > 0 || (result.birthDateReminded ?? 0) > 0 || (result.birthDatePurged ?? 0) > 0) {
+          options.logger.info('account completion sweep', { ...result });
         }
       })
       .catch((error) => {

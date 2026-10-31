@@ -92,6 +92,8 @@ export const users = pgTable(
      * 只存日期不存时间；本人注册时填写，之后不允许自行修改（防止绕过年龄门槛）。
      */
     birth_date: date('birth_date'),
+    /** 新注册账号补填出生日期的 72 小时截止时间；历史账号保持 NULL。 */
+    birth_date_due_at: timestamp('birth_date_due_at', { withTimezone: true, mode: 'date' }),
     /** 未满十四周岁时收集的监护人邮箱。 */
     guardian_email: text('guardian_email'),
     /** 监护人点确认链接同意的时间；NULL = 未同意（儿童账号此时不能使用）。 */
@@ -108,6 +110,7 @@ export const users = pgTable(
     index('users_role_idx').on(table.role),
     index('users_level_idx').on(table.level),
     index('users_created_at_idx').on(table.created_at),
+    index('users_birth_date_due_idx').on(table.birth_date_due_at).where(sql`${table.birth_date} IS NULL`),
   ],
 );
 

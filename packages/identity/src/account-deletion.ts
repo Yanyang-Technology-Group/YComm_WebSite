@@ -26,6 +26,9 @@ function releasedIdentity(user: Pick<UserRecord, 'id'>) {
     display_name: '已注销用户',
     bio: '',
     avatar_path: null,
+    birth_date_due_at: null,
+    guardian_email: null,
+    guardian_consent_at: null,
   };
 }
 
@@ -246,6 +249,14 @@ export async function deleteAccountNow(db: Db, userId: string): Promise<void> {
 export async function purgeUnverifiedAccount(db: Db, userId: string): Promise<boolean> {
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
   if (!user || user.state !== 'unverified') return false;
+  await markAccountDeleted(db, user);
+  return true;
+}
+
+/** Immediately remove a newly created account that never completed birth-date registration. */
+export async function purgeBirthDatePendingAccount(db: Db, userId: string): Promise<boolean> {
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user || user.birth_date !== null || user.birth_date_due_at === null) return false;
   await markAccountDeleted(db, user);
   return true;
 }

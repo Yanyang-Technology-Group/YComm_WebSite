@@ -7,6 +7,7 @@ import {
   renderDeviceVerification,
   renderVerifyEmail,
   renderVerifyEmailReminder,
+  renderBirthDateReminder,
   resolveIpLocation,
   type RenderedMail,
 } from '@ycomm/notify';
@@ -92,6 +93,11 @@ export async function sendVerificationReminder(
         tokenTtlMinutes: AUTH.verificationTokenTtlMinutes,
       }),
   });
+}
+
+export async function sendBirthDateReminder(db: Db, user: UserRecord): Promise<void> {
+  const mail = renderBirthDateReminder();
+  await enqueue(db, 'send_email', { payload: { to: user.email, template: 'birth_date_reminder', subject: mail.subject, text: mail.text, html: mail.html } });
 }
 
 /**

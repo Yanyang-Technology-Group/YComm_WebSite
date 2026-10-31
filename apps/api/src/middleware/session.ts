@@ -23,8 +23,14 @@ import type { AppVariables } from '../context';
 const UNVERIFIED_ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   {
     method: 'POST',
-    path: /^\/api\/auth\/(register|login|logout|verify-email|guardian-consent|resend-verification|forgot-password|reset-password|delete-account|delete-account\/confirm|cancel-deletion)$/,
+    path: /^\/api\/auth\/(register|login|logout|birth-date|verify-email|guardian-consent|resend-verification|forgot-password|reset-password|delete-account|delete-account\/confirm|cancel-deletion)$/,
   },
+  { method: 'GET', path: /^\/api\/auth\/(me|github|github\/callback)$/ },
+];
+
+/** Missing birth dates are allowed to use only the completion and account recovery endpoints. */
+const BIRTH_DATE_ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
+  { method: 'POST', path: /^\/api\/auth\/(birth-date|logout|verify-email|guardian-consent|resend-verification|forgot-password|reset-password|delete-account|delete-account\/confirm|cancel-deletion)$/ },
   { method: 'GET', path: /^\/api\/auth\/(me|github|github\/callback)$/ },
 ];
 
@@ -33,7 +39,7 @@ const UNVERIFIED_ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
  * 别的都不行 —— 这台设备还没证明是本人。
  */
 const PENDING_DEVICE_ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
-  { method: 'POST', path: /^\/api\/auth\/(verify-device|resend-device|logout)$/ },
+  { method: 'POST', path: /^\/api\/auth\/(verify-device|resend-device|birth-date|logout)$/ },
   { method: 'GET', path: /^\/api\/auth\/me$/ },
 ];
 
@@ -75,6 +81,9 @@ export const sessionAuth = createMiddleware<{ Variables: AppVariables }>(async (
 
       // 闸门 A：绑定邮箱注册的账号必须先验证邮箱，否则什么内容都看不到。
       if (subject.state === 'unverified' && !matches(UNVERIFIED_ALLOWED, c.req.method, c.req.path)) {
+        throw errors.accountUnverified();
+      }
+      if (user.birth_date === null && !matches(BIRTH_DATE_ALLOWED, c.req.method, c.req.path)) {
         throw errors.accountUnverified();
       }
       // A child account stays locked even after email verification until its

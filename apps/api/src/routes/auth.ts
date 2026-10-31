@@ -11,6 +11,7 @@ import {
   cancelAccountDeletion,
   changeEmail,
   changePassword,
+  completeBirthDate,
   confirmAccountDeletion,
   describeDevice,
   deviceFingerprint,
@@ -101,7 +102,7 @@ const registerSchema = z.object({
   username: z.string().trim().min(1).max(20),
   email: z.string().trim().min(3).max(255),
   password: z.string().min(1).max(200),
-  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   guardianEmail: z.string().email().max(255).optional(),
   inviteCode: z.string().trim().min(1).optional(),
   ...captchaTokenFields,
@@ -188,8 +189,9 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       email: body.email,
       password: body.password,
       inviteCode: body.inviteCode,
-      birthDate: body.birthDate,
-      guardianEmail: body.guardianEmail,
+      // Birth date is deliberately collected only after the account/session exists.
+      birthDate: undefined,
+      deferBirthDate: true,
     });
 
     await logAudit(handle.db, {
@@ -201,15 +203,34 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       meta: { verified: !result.needsVerification },
     });
 
+    if (!result.alreadyRegistered) {
+      const env = getEnv();
+      const session = await openSession(handle.db, result.user, { ip: clientIp(c), userAgent: c.req.header('user-agent') });
+      setCookie(c, env.SESSION_COOKIE_NAME, session.rawToken, sessionCookieOptions(env));
+    }
+
     // Identical response whether the email was new or already registered —
     // the caller cannot tell, and neither can an enumeration attacker.
     return c.json(
       {
         ok: true,
-        data: { needsVerification: result.needsVerification, needsGuardianConsent: result.needsGuardianConsent, alreadyRegistered: result.alreadyRegistered },
+        data: { needsVerification: result.needsVerification, needsGuardianConsent: result.needsGuardianConsent, needsBirthDate: result.needsBirthDate, alreadyRegistered: result.alreadyRegistered },
       },
       201,
     );
+  });
+
+  // ---- birth date completion -------------------------------------------
+  router.post('/birth-date', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) throw errors.unauthenticated();
+    const body = await parseBody(c, z.object({
+      birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      guardianEmail: z.string().email().max(255).optional(),
+    }));
+    const handle = await getDb();
+    const user = await completeBirthDate(handle.db, auth.userId, body.birthDate, body.guardianEmail);
+    return c.json({ ok: true, data: { user: toPublicUser(user), needsGuardianConsent: Boolean(user.guardian_email && !user.guardian_consent_at) } });
   });
 
   // ---- email verification ----------------------------------------------
@@ -361,6 +382,8 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
       data: {
         user: toPublicUser(user),
         needsVerification: user.state === 'unverified',
+        needsBirthDate: user.birth_date === null,
+        birthDateDueAt: user.birth_date_due_at?.toISOString() ?? null,
         expiresAt: session.expiresAt.toISOString(),
       },
     });
@@ -400,6 +423,8 @@ export function authRoutes(): Hono<{ Variables: AppVariables }> {
         email: user.email,
         /** 账号邮箱还没验证：什么都看不了，先去验证。 */
         needsEmailVerification: user.state === 'unverified',
+        needsBirthDate: user.birth_date === null,
+        birthDateDueAt: user.birth_date_due_at?.toISOString() ?? null,
         /** 这台设备还没确认：先点邮箱里的确认链接。 */
         pendingDevice: !auth.deviceTrusted,
         verificationGraceEndsAt: graceEndsAt,

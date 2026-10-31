@@ -18,6 +18,7 @@ import { getSessionState, invalidateSession, type SessionState } from '../lib/se
 const EXEMPT_PATHS = [
   '/login',
   '/register',
+  '/register/date',
   '/forgot-password',
   '/reset-password',
   '/verify-email',
@@ -50,6 +51,12 @@ export function VerificationGate({ children }: { children: React.ReactNode }) {
     };
   }, [pathname]);
 
+  useEffect(() => {
+    if (state?.needsBirthDate && pathname !== '/register/date') {
+      window.location.assign('/register/date');
+    }
+  }, [state?.needsBirthDate, pathname]);
+
   const resend = async (kind: 'email' | 'device') => {
     setBusy(true);
     setFeedback(null);
@@ -79,7 +86,19 @@ export function VerificationGate({ children }: { children: React.ReactNode }) {
 
   // 还没读到会话状态时先正常渲染：内容接口本来就会被服务端拦住，这里不必闪一下。
   if (!state || isExempt(pathname)) return <>{children}</>;
-  if (!state.needsEmailVerification && !state.pendingDevice) return <>{children}</>;
+  if (!state.needsEmailVerification && !state.pendingDevice && !state.needsBirthDate) return <>{children}</>;
+
+  if (state.needsBirthDate) {
+    return (
+      <div className="panel" style={{ maxWidth: 640, margin: '2rem auto' }}>
+        <h1 style={{ margin: '0 0 0.6rem', fontSize: '1.35rem' }}>请先填写出生日期</h1>
+        <p style={{ margin: '0 0 0.6rem' }}>完成出生日期后才能继续使用社区功能。</p>
+        {state.birthDateDueAt && <p style={{ margin: '0 0 1rem', color: '#b45309' }}>请在 72 小时内完成填写，逾期账号会自动注销。</p>}
+        <Link className="primary" href="/register/date">填写出生日期</Link>
+        <button type="button" disabled={busy} onClick={() => void logout()} style={{ marginLeft: '.6rem' }}>退出登录</button>
+      </div>
+    );
+  }
 
   const email = state.email ?? '你的邮箱';
   const deadline = state.verificationGraceEndsAt ? formatDateTime(state.verificationGraceEndsAt) : null;

@@ -1,8 +1,8 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { schema, type Db } from '@ycomm/db';
 import { AUTH } from '@ycomm/config';
-import { isDeliverableEmail, sendVerificationReminder } from './verification';
-import { purgeUnverifiedAccount } from './account-deletion';
+import { isDeliverableEmail, sendBirthDateReminder, sendVerificationReminder } from './verification';
+import { purgeBirthDatePendingAccount, purgeUnverifiedAccount } from './account-deletion';
 import type { UserRecord } from './types';
 
 /**
@@ -33,12 +33,14 @@ export interface UnverifiedSweepResult {
   reminded: number;
   /** 本轮自动注销的数量。 */
   purged: number;
+  birthDateReminded?: number;
+  birthDatePurged?: number;
 }
 
 const HOUR_MS = 60 * 60 * 1000;
 
 /** 提醒邮件也算「验证邮件」：注册那封 + 后续提醒共用同一套节流判断。 */
-const VERIFICATION_MAIL_TEMPLATES = ['verify_email', 'verify_email_reminder'];
+const VERIFICATION_MAIL_TEMPLATES = ['verify_email', 'verify_email_reminder', 'birth_date_reminder'];
 
 /**
  * 上一封验证邮件是什么时候发的。
@@ -83,9 +85,12 @@ export async function sweepUnverifiedAccounts(
   const reminderHours = options.reminderHours ?? AUTH.verificationReminderHours;
 
   const pending = await db.select().from(schema.users).where(eq(schema.users.state, 'unverified'));
+  const birthPending = await db.select().from(schema.users).where(and(sql`${schema.users.birth_date} IS NULL`, sql`${schema.users.birth_date_due_at} IS NOT NULL`));
 
   let reminded = 0;
   let purged = 0;
+  let birthDateReminded = 0;
+  let birthDatePurged = 0;
 
   for (const user of pending) {
     const ageMs = now.getTime() - user.created_at.getTime();
@@ -104,5 +109,23 @@ export async function sweepUnverifiedAccounts(
     reminded += 1;
   }
 
-  return { scanned: pending.length, reminded, purged };
+  for (const user of birthPending) {
+    const dueAt = user.birth_date_due_at!;
+    if (now.getTime() >= dueAt.getTime()) {
+      if (await purgeBirthDatePendingAccount(db, user.id)) birthDatePurged += 1;
+      continue;
+    }
+    if (!isDeliverableEmail(user.email)) continue;
+    const lastMail = await lastVerificationMailAt(db, user.email);
+    if (lastMail && now.getTime() - lastMail.getTime() < reminderHours * HOUR_MS) continue;
+    await sendBirthDateReminder(db, user);
+    birthDateReminded += 1;
+  }
+
+  return {
+    scanned: pending.length,
+    reminded,
+    purged,
+    ...(birthDateReminded || birthDatePurged ? { birthDateReminded, birthDatePurged } : {}),
+  };
 }

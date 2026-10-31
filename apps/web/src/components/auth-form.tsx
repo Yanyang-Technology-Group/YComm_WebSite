@@ -56,7 +56,7 @@ export function AuthForm({
   kind,
   token,
   captcha,
-  registrationDetails,
+  registrationDetails: _registrationDetails,
 }: {
   kind: AuthFormKind;
   token?: string;
@@ -110,14 +110,6 @@ export function AuthForm({
       if (typeof value === 'string' && value.trim() !== '') payload[key] = value;
     }
     if (token) payload.token = token;
-    if (kind === 'register') {
-      if (!registrationDetails) {
-        router.push('/register/date');
-        return;
-      }
-      payload.birthDate = registrationDetails.birthDate;
-      if (registrationDetails.guardianEmail) payload.guardianEmail = registrationDetails.guardianEmail;
-    }
     // 登录/注册：把 checkbox 勾选状态转成布尔送服务端二次校验。
     if (kind === 'login' || kind === 'register') {
       payload.agreeTerms = form.get('agreeTerms') === 'on';
@@ -144,7 +136,7 @@ export function AuthForm({
         body: JSON.stringify(payload),
       });
       const json = (await response.json().catch(() => null)) as
-        | { ok: boolean; data?: { needsGuardianConsent?: boolean }; error?: ApiError }
+        | { ok: boolean; data?: { needsGuardianConsent?: boolean; needsBirthDate?: boolean }; error?: ApiError }
         | null;
       if (!json || !json.ok) {
         // CAP validation consumes a valid token before account/password checks.
@@ -161,13 +153,11 @@ export function AuthForm({
 
       if (kind === 'login') {
         // 硬跳转：带新会话 cookie 让服务端重新渲染，避免前端状态不生效。
-        window.location.assign('/');
+        window.location.assign(json.data?.needsBirthDate ? '/register/date' : '/');
         return;
       }
       if (kind === 'register') {
-        setNotice(json.data?.needsGuardianConsent
-          ? '注册成功！请完成邮箱验证，并请监护人查收确认邮件；监护人同意前账号不能使用。'
-          : '注册成功！若邮箱未被注册，验证邮件已发送，请查收。');
+        router.push('/register/date');
         return;
       }
       if (kind === 'verify') {

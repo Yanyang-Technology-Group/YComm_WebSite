@@ -26,6 +26,8 @@ export interface SessionState {
   verificationGraceEndsAt: string | null;
   /** 提醒邮件间隔（小时）。 */
   verificationReminderHours: number;
+  needsBirthDate: boolean;
+  birthDateDueAt: string | null;
 }
 
 const ANONYMOUS: SessionState = {
@@ -34,6 +36,8 @@ const ANONYMOUS: SessionState = {
   pendingDevice: false,
   verificationGraceEndsAt: null,
   verificationReminderHours: 6,
+  needsBirthDate: false,
+  birthDateDueAt: null,
 };
 
 interface CacheEntry {
@@ -69,6 +73,8 @@ export async function getSessionState(force = false): Promise<SessionState> {
           pendingDevice?: boolean;
           verificationGraceEndsAt?: string | null;
           verificationReminderHours?: number;
+          needsBirthDate?: boolean;
+          birthDateDueAt?: string | null;
         };
       };
       const data = json.data;
@@ -80,6 +86,8 @@ export async function getSessionState(force = false): Promise<SessionState> {
         pendingDevice: data.pendingDevice === true,
         verificationGraceEndsAt: data.verificationGraceEndsAt ?? null,
         verificationReminderHours: data.verificationReminderHours ?? 6,
+        needsBirthDate: data.needsBirthDate === true,
+        birthDateDueAt: data.birthDateDueAt ?? null,
       };
     } catch {
       return ANONYMOUS;

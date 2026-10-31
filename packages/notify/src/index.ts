@@ -19,6 +19,7 @@ export {
   renderGuardianConsent,
   renderPasswordReset,
   renderVerifyEmail,
+  renderBirthDateReminder,
   renderVerifyEmailReminder,
   resolveIpLocation,
   type RenderedMail,

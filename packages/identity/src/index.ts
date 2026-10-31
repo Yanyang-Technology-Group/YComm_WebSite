@@ -10,6 +10,7 @@ export {
   confirmAccountDeletion,
   deleteAccountNow,
   purgeUnverifiedAccount,
+  purgeBirthDatePendingAccount,
   requestAccountDeletion,
   reviveIfPendingDeletion,
 } from './account-deletion';
@@ -62,7 +63,7 @@ export {
   requestPasswordReset,
   resetPassword,
 } from './password-reset';
-export { register, type RegisterInput, type RegisterResult } from './registration';
+export { completeBirthDate, register, type RegisterInput, type RegisterResult } from './registration';
 export {
   createSession,
   describeDevice,
@@ -83,6 +84,7 @@ export {
   issueVerificationTokenForUser,
   resendVerification,
   sendVerificationReminder,
+  sendBirthDateReminder,
   verifyDeviceToken,
   verifyEmail,
 } from './verification';

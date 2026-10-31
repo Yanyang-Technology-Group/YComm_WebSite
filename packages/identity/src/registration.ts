@@ -3,7 +3,7 @@ import { schema, type Db } from '@ycomm/db';
 import { FEATURE_DEFAULTS, LEGAL_VERSION, REGISTRATION, registrationAge, validatePassword } from '@ycomm/config';
 import { errors, hashToken, newToken } from '@ycomm/kernel';
 import { enqueue } from '@ycomm/jobs';
-import { renderGuardianConsent, renderVerifyEmail } from '@ycomm/notify';
+import { renderBirthDateReminder, renderGuardianConsent, renderVerifyEmail } from '@ycomm/notify';
 import { hashPassword } from './password';
 import { consumeInviteCode } from './invites';
 import { findUserByEmail, hasAnyUser } from './account';
@@ -16,8 +16,10 @@ export interface RegisterInput {
   email: string;
   password: string;
   inviteCode?: string;
-  birthDate: string;
+  /** API registration now creates the account first; direct callers can retain the old strict mode. */
+  birthDate?: string;
   guardianEmail?: string;
+  deferBirthDate?: boolean;
 }
 
 export interface RegisterResult {
@@ -29,6 +31,7 @@ export interface RegisterResult {
    * identical to a successful registration (enumeration protection).
    */
   alreadyRegistered: boolean;
+  needsBirthDate: boolean;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -69,11 +72,11 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
     throw errors.validation({ issues: [{ path: 'password', message: passwordIssue }] });
   }
   const birthDateValue = input.birthDate;
-  const age = registrationAge(birthDateValue);
-  if (age === null) {
+  const age = birthDateValue ? registrationAge(birthDateValue) : null;
+  if (age === null && !input.deferBirthDate) {
     throw errors.validation({ issues: [{ path: 'birthDate', message: '请填写有效的出生日期' }] });
   }
-  const isChild = age < 14;
+  const isChild = age !== null && age < 14;
   const guardianEmail = input.guardianEmail?.trim().toLowerCase();
   if (isChild && (!guardianEmail || !EMAIL_PATTERN.test(guardianEmail) || guardianEmail === email)) {
     throw errors.validation({ issues: [{ path: 'guardianEmail', message: '未满十四周岁需要填写监护人邮箱，且不能与本人邮箱相同' }] });
@@ -91,7 +94,7 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
 
   const existingByEmail = await findUserByEmail(db, email);
   if (existingByEmail && !(await releaseIdentityIfDeletionDone(db, existingByEmail))) {
-    return { user: existingByEmail, needsVerification: false, needsGuardianConsent: Boolean(existingByEmail.guardian_email && !existingByEmail.guardian_consent_at), alreadyRegistered: true };
+    return { user: existingByEmail, needsVerification: false, needsGuardianConsent: Boolean(existingByEmail.guardian_email && !existingByEmail.guardian_consent_at), alreadyRegistered: true, needsBirthDate: existingByEmail.birth_date === null };
   }
 
   if (REGISTRATION.requireInviteByDefault && !input.inviteCode) {
@@ -117,8 +120,9 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
         display_name: username,
         terms_version: LEGAL_VERSION,
         terms_accepted_at: new Date(),
-        birth_date: birthDateValue,
+        birth_date: birthDateValue ?? null,
         guardian_email: isChild ? guardianEmail! : null,
+        birth_date_due_at: birthDateValue ? null : new Date(Date.now() + 72 * 60 * 60 * 1000),
       })
       .returning();
     const created = inserted as UserRecord;
@@ -172,5 +176,44 @@ export async function register(db: Db, input: RegisterInput): Promise<RegisterRe
     await enqueue(db, 'send_email', { payload: { to: guardianEmail!, template: 'guardian_consent', subject: mail.subject, text: mail.text, html: mail.html } });
   }
 
-  return { user, needsVerification, needsGuardianConsent: isChild, alreadyRegistered: false };
+  if (!birthDateValue) {
+    const reminder = renderBirthDateReminder();
+    await enqueue(db, 'send_email', { payload: { to: email, template: 'birth_date_reminder', subject: reminder.subject, text: reminder.text, html: reminder.html } });
+  }
+
+  return { user, needsVerification, needsGuardianConsent: isChild, alreadyRegistered: false, needsBirthDate: !birthDateValue };
+}
+
+/** Complete the one-time birth-date step after the account has been created. */
+export async function completeBirthDate(
+  db: Db,
+  userId: string,
+  birthDate: string,
+  guardianEmail?: string,
+): Promise<UserRecord> {
+  const age = registrationAge(birthDate);
+  if (age === null) throw errors.validation({ issues: [{ path: 'birthDate', message: '请填写有效的出生日期' }] });
+  const [current] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!current) throw errors.notFound('账号不存在');
+  if (current.birth_date !== null) throw errors.conflict('出生日期已经填写，不能修改');
+  const normalizedGuardian = guardianEmail?.trim().toLowerCase();
+  if (age < 14 && (!normalizedGuardian || !EMAIL_PATTERN.test(normalizedGuardian) || normalizedGuardian === current.email)) {
+    throw errors.validation({ issues: [{ path: 'guardianEmail', message: '未满十四周岁需要填写监护人邮箱，且不能与本人邮箱相同' }] });
+  }
+  const now = new Date();
+  const [updated] = await db.update(schema.users).set({
+    birth_date: birthDate,
+    guardian_email: age < 14 ? normalizedGuardian! : null,
+    guardian_consent_at: null,
+    birth_date_due_at: null,
+    updated_at: now,
+  }).where(eq(schema.users.id, userId)).returning();
+  const user = updated as UserRecord;
+  if (age < 14) {
+    const token = newToken(32);
+    await db.insert(schema.emailTokens).values({ user_id: user.id, purpose: 'guardian_consent', token_hash: hashToken(token), new_email: normalizedGuardian!, expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000) });
+    const mail = renderGuardianConsent(token, user.username);
+    await enqueue(db, 'send_email', { payload: { to: normalizedGuardian!, template: 'guardian_consent', subject: mail.subject, text: mail.text, html: mail.html } });
+  }
+  return user;
 }

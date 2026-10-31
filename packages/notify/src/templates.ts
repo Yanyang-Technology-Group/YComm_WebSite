@@ -108,6 +108,21 @@ export function renderVerifyEmail(token: string): RenderedMail {
   };
 }
 
+/** New registrations must complete the separate birth-date step within 72 hours. */
+export function renderBirthDateReminder(): RenderedMail {
+  const branding = getSiteBranding();
+  const url = `${siteUrl()}/register/date`;
+  return {
+    subject: `请填写出生日期 — ${branding.name}`,
+    text: `你的 ${branding.name} 账号还没有填写出生日期。请在注册后 72 小时内打开以下页面完成填写，否则账号会自动注销：\n\n${url}`,
+    html: shell({
+      title: '请填写出生日期',
+      body: `<p style="margin:0 0 6px;">你的 <strong>${escapeHtml(branding.name)}</strong> 账号还没有填写出生日期。</p><p style="margin:0 0 6px;color:#c0392b;font-weight:600;">请在注册后 72 小时内完成填写，否则账号会自动注销。</p>${button(url, '填写出生日期')}`,
+      note: '如果不是你注册的，请忽略此邮件。',
+    }),
+  };
+}
+
 /** Child account: ask the guardian to give separate consent before access is enabled. */
 export function renderGuardianConsent(token: string, childUsername: string): RenderedMail {
   const branding = getSiteBranding();
