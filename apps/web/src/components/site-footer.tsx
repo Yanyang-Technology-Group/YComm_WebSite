@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import type { SiteBranding } from '@ycomm/config';
 import { LEGAL_DOCS } from '@ycomm/config';
 import { normalizeUiStyle, UI_STYLE_CHANGE_EVENT } from '../lib/appearance';
+import { GLASS_EVENT, readActiveGlass } from '../lib/glass-preference';
 
 const UI_NAMES = { flat: 'Flat Design', apple: 'Apple UI', legacy: '经典界面' } as const;
 const THEME_NAMES: Record<string, string> = {
@@ -23,7 +24,7 @@ function PlatformIcon({ platform }: { platform: Platform }) {
 }
 
 export function SiteFooter({ branding, version }: { branding: SiteBranding; version: string }) {
-  const [appearance, setAppearance] = useState({ ui: 'flat', theme: '晏阳蓝 · 跟随系统' });
+  const [appearance, setAppearance] = useState({ ui: 'flat', theme: '晏阳蓝 · 跟随系统', isApple: false, glassTransparency: '无' });
 
   useEffect(() => {
     const sync = () => {
@@ -31,15 +32,23 @@ export function SiteFooter({ branding, version }: { branding: SiteBranding; vers
       const ui = normalizeUiStyle(root.dataset.uiStyle);
       const colour = THEME_NAMES[root.dataset.themeColour ?? 'azure'] ?? '自定义';
       const mode = root.dataset.themeMode === 'dark' ? '深色' : root.dataset.themeMode === 'light' ? '浅色' : '跟随系统';
-      setAppearance({ ui: UI_NAMES[ui], theme: `${colour} · ${mode}` });
+      const glass = readActiveGlass();
+      setAppearance({
+        ui: UI_NAMES[ui],
+        theme: `${colour} · ${mode}`,
+        isApple: ui === 'apple',
+        glassTransparency: glass.enabled ? `${glass.transparency}%` : '无',
+      });
     };
     sync();
     const observer = new MutationObserver(sync);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-ui-style', 'data-theme-colour', 'data-theme-mode'] });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-ui-style', 'data-theme-colour', 'data-theme-mode', 'data-apple-glass', 'style'] });
     window.addEventListener(UI_STYLE_CHANGE_EVENT, sync);
+    window.addEventListener(GLASS_EVENT, sync);
     return () => {
       observer.disconnect();
       window.removeEventListener(UI_STYLE_CHANGE_EVENT, sync);
+      window.removeEventListener(GLASS_EVENT, sync);
     };
   }, []);
 
@@ -65,7 +74,7 @@ export function SiteFooter({ branding, version }: { branding: SiteBranding; vers
           <span><b>当前主题</b><span>{appearance.theme}</span></span>
           <span><b>Gitee Mirrors</b><a className="footer-platform-link" href="https://gitee.com/Yanyang-Technology-Group/YComm_WebSite" target="_blank" rel="noopener noreferrer"><PlatformIcon platform="gitee" />Gitee ↗</a></span>
           <span><b>Gitea Mirrors</b><a className="footer-platform-link" href="https://gitea.com/Yanyang-Technology-Group/YComm_WebSite" target="_blank" rel="noopener noreferrer"><PlatformIcon platform="gitea" />Gitea ↗</a></span>
-          <span><b>当前 UI</b><span>{appearance.ui}</span></span>
+          <span><b>当前 UI</b><span>{appearance.ui}{appearance.isApple ? `（液态玻璃透明度：${appearance.glassTransparency}）` : ''}</span></span>
           <span><b>Github Repo</b><a className="footer-platform-link" href="https://github.com/Yanyang-Technology-Group/YComm_WebSite" target="_blank" rel="noopener noreferrer"><PlatformIcon platform="github" />GitHub ↗</a></span>
           <span className="footer-legal-links"><b>文档</b><span>
             {LEGAL_DOCS.filter((doc) => doc.mirror).map((doc, index) => (
