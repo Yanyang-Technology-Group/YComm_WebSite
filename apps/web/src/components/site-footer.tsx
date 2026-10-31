@@ -52,6 +52,11 @@ export function SiteFooter({ branding, version }: { branding: SiteBranding; vers
             <span>{branding.name}</span>
           </Link>
           <span className="footer-copyright">© 2025-2026 晏阳技术组</span>
+          <div className="footer-credits" aria-label="鸣谢">
+            <span>主要编写: 深水6</span>
+            <span>资金赞助: dyzihnieg、小白</span>
+            <span>特别鸣谢: 安云墨 AnYunMo</span>
+          </div>
           {branding.icp && <span className="footer-copyright">{branding.icp}</span>}
         </div>
         <div className="footer-meta-grid">
