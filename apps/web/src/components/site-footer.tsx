@@ -57,6 +57,8 @@ export function SiteFooter({ branding, version }: { branding: SiteBranding; vers
                 <a href={doc.mirror} target="_blank" rel="noopener noreferrer">{doc.label.replace(/[《》]/g, '')}（腾讯文档）</a>
               </span>
             ))}
+            {LEGAL_DOCS.some((doc) => doc.mirror) && <i aria-hidden="true"> · </i>}
+            <a href="https://community.yanyn.cn/legal/privacy" target="_blank" rel="noopener noreferrer">隐私政策</a>
           </span></span>
         </div>
       </div>
