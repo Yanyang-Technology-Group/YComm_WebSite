@@ -57,11 +57,11 @@ export function SiteFooter({ branding, version }: { branding: SiteBranding; vers
         <div className="footer-meta-grid">
           <span><b>版本</b><span title="版本号（yyyy.mm.dd.提交数）">{version}</span></span>
           <span><b>架构</b><span>Next.js · React · Hono API</span></span>
-          <span><b>Github Repo</b><a className="footer-platform-link" href="https://github.com/Yanyang-Technology-Group/YComm_WebSite" target="_blank" rel="noopener noreferrer"><PlatformIcon platform="github" />GitHub ↗</a></span>
+          <span><b>当前主题</b><span>{appearance.theme}</span></span>
           <span><b>Gitee Mirrors</b><a className="footer-platform-link" href="https://gitee.com/Yanyang-Technology-Group/YComm_WebSite" target="_blank" rel="noopener noreferrer"><PlatformIcon platform="gitee" />Gitee ↗</a></span>
           <span><b>Gitea Mirrors</b><a className="footer-platform-link" href="https://gitea.com/Yanyang-Technology-Group/YComm_WebSite" target="_blank" rel="noopener noreferrer"><PlatformIcon platform="gitea" />Gitea ↗</a></span>
           <span><b>当前 UI</b><span>{appearance.ui}</span></span>
-          <span><b>当前主题</b><span>{appearance.theme}</span></span>
+          <span><b>Github Repo</b><a className="footer-platform-link" href="https://github.com/Yanyang-Technology-Group/YComm_WebSite" target="_blank" rel="noopener noreferrer"><PlatformIcon platform="github" />GitHub ↗</a></span>
           <span className="footer-legal-links"><b>文档</b><span>
             {LEGAL_DOCS.filter((doc) => doc.mirror).map((doc, index) => (
               <span key={doc.href}>
