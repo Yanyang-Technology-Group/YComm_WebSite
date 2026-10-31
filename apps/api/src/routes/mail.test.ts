@@ -26,7 +26,7 @@ beforeAll(async () => {
   (globalThis as unknown as Record<string, unknown>).__ycomm_db_handle__ = Promise.resolve(handle);
   app = new Hono(); app.onError(errorHandler); app.route('/api/admin', adminRoutes());
   for (const role of ['owner', 'admin', 'member'] as const) {
-    const [user] = await handle.db.insert(schema.users).values({ username: 'mail-' + role, email: role + '@example.com', role, state: 'active' }).returning();
+    const [user] = await handle.db.insert(schema.users).values({ username: 'mail-' + role, email: role + '@example.com', role, state: 'active', birth_date: '2000-01-01' }).returning();
     const session = await createSession(handle.db, { userId: user!.id, ttlDays: 1 });
     accounts[role] = { id: user!.id, cookie: getEnv().SESSION_COOKIE_NAME + '=' + session.rawToken };
   }

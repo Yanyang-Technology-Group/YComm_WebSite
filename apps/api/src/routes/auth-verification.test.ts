@@ -83,6 +83,7 @@ async function seedUser(username: string, state: 'unverified' | 'active' = 'acti
       role: 'member',
       state,
       display_name: username,
+      birth_date: '2000-01-01',
     })
     .returning();
   if (!row) throw new Error('no user');

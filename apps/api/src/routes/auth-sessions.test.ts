@@ -63,6 +63,7 @@ async function seedUser(username: string, role: 'member' | 'owner' = 'member'): 
       role,
       state: 'active',
       display_name: username,
+      birth_date: '2000-01-01',
     })
     .returning({ id: schema.users.id });
   if (!row) throw new Error('no user');

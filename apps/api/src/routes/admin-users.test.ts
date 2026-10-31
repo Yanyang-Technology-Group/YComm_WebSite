@@ -24,7 +24,7 @@ beforeAll(async () => {
   for (const role of ['owner', 'admin', 'member'] as const) {
     const [user] = await handle.db.insert(schema.users).values({
       username: `test-${role}`, email: `${role}@example.com`, role, state: 'active',
-      birth_date: role === 'member' ? '2010-06-15' : null,
+      birth_date: role === 'member' ? '2010-06-15' : '2000-01-01',
     }).returning();
     const session = await createSession(handle.db, { userId: user!.id, ttlDays: 1 });
     accounts[role] = { id: user!.id, cookie: `${getEnv().SESSION_COOKIE_NAME}=${session.rawToken}` };
