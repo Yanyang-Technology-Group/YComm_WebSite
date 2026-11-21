@@ -3,7 +3,7 @@ html[data-ui-style='apple'] {
   --surface: light-dark(#fff, #252527);
   --text: light-dark(#1d1d1f, #f5f5f7);
   --muted: light-dark(#6e6e73, #a1a1a6);
-  --border: light-dark(#dcdce1, #3e3e42);
+  --border-color: light-dark(#dcdce1, #3e3e42);
   --header-bg: var(--surface);
   --header-text: var(--text);
   --shadow-sm: 0 2px 6px light-dark(#00000006, #00000020);
@@ -20,7 +20,7 @@ html[data-ui-style='apple'] :is(h1, h2, h3, .page-title, .panel-title, .app-nav-
   text-transform: none;
 }
 html[data-ui-style='apple'] .page-title { font-size: 26px; font-weight: 650; line-height: 1.35; }
-html[data-ui-style='apple'] .site-header { box-shadow: none; border-bottom: 1px solid var(--border); }
+html[data-ui-style='apple'] .site-header { box-shadow: none; border-bottom: 1px solid var(--border-color); }
 html[data-ui-style='apple'] .site-header-inner { min-height: 68px; }
 html[data-ui-style='apple'] .brand-name { font-size: 17px; font-weight: 650; }
 html[data-ui-style='apple'] .site-nav { gap: 4px; padding: 0; background: transparent; }
@@ -33,10 +33,10 @@ html[data-ui-style='apple'] :is(button.primary, .hero-btn.primary, .nav-auth-str
   color: light-dark(#fff, #161618); box-shadow: none; font-weight: 500;
 }
 html[data-ui-style='apple'] :is(input, textarea, select):not([type='checkbox'], [type='radio'], [type='range'], [type='file'], .search-input, .search-scope) {
-  background: var(--surface); border-radius: 6px; border-color: var(--border); font-size: 14px;
+  background: var(--surface); border-radius: 6px; border-color: var(--border-color); font-size: 14px;
 }
 html[data-ui-style='apple'] :is(button, a, input, textarea, select):focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
-html[data-ui-style='apple'] :is(.card-tile, .card-editor-tile, .notif-group, .topic-block) { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: none; }
+html[data-ui-style='apple'] :is(.card-tile, .card-editor-tile, .notif-group, .topic-block) { background: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: none; }
 html[data-ui-style='apple'] .topic-block { margin-bottom: 12px; }
 html[data-ui-style='apple'] :is(.forum-sidebar, .forum-info) .panel { background: transparent; border: 0; box-shadow: none; }
 html[data-ui-style='apple'] .board-link { padding: 10px 12px; background: transparent; border-radius: 6px; margin: 2px 0; }
@@ -47,7 +47,7 @@ html[data-ui-style='apple'] .apple-app-nav {
   display: flex; flex-direction: column; gap: 24px; width: 248px; min-width: 248px;
   border-radius: 0; padding: 24px 16px; top: 68px; height: calc(100dvh - 68px);
 }
-.apple-nav-identity { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 8px 16px; border-bottom: 1px solid var(--border); }
+.apple-nav-identity { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 8px 16px; border-bottom: 1px solid var(--border-color); }
 .apple-nav-identity > svg { width: 36px; height: 36px; padding: 8px; border-radius: 50%; background: var(--surface); color: var(--muted); flex-shrink: 0; }
 .apple-nav-identity > span { min-width: 0; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
 .apple-nav-identity small { display: block; font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 3px; }
@@ -75,7 +75,7 @@ html[data-ui-style='apple'] .admin-menu-desc { font-size: 12px; }
 html[data-ui-style='apple'] :is(.theme-picker, .ui-style-picker) { padding: 0; background: transparent; border: 0; border-radius: 0; gap: 12px; }
 html[data-ui-style='apple'] .appearance-heading { font-size: 13px; margin: 0 0 12px; }
 html[data-ui-style='apple'] .theme-picker > span { display: flex; }
-html[data-ui-style='apple'] :is(.theme-option, .theme-mode-option, .ui-style-option) { background: var(--surface); border-radius: 8px; box-shadow: none; border: 1px solid var(--border); color: var(--text); font-size: 13px; font-weight: 500; }
+html[data-ui-style='apple'] :is(.theme-option, .theme-mode-option, .ui-style-option) { background: var(--surface); border-radius: 8px; box-shadow: none; border: 1px solid var(--border-color); color: var(--text); font-size: 13px; font-weight: 500; }
 html[data-ui-style='apple'] :is(.theme-option, .theme-mode-option, .ui-style-option).active { background: var(--surface); border-color: var(--accent-strong); box-shadow: 0 0 0 1px var(--accent-strong); }
 html[data-ui-style='apple'] .ui-style-option { height: auto; display: flex; flex-direction: column; min-width: 0; min-height: 156px; padding: 14px; gap: 12px; }
 html[data-ui-style='apple'] .ui-style-option-title { width: 100%; font-size: 13px; }

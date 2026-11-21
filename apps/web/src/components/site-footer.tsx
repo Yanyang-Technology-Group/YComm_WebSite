@@ -7,7 +7,7 @@ import { LEGAL_DOCS } from '@ycomm/config';
 import { normalizeUiStyle, UI_STYLE_CHANGE_EVENT } from '../lib/appearance';
 import { GLASS_EVENT, readActiveGlass } from '../lib/glass-preference';
 
-const UI_NAMES = { flat: 'Flat Design', apple: 'Apple UI', legacy: '经典界面' } as const;
+const UI_NAMES = { daisyui: 'DaisyUI', tremor: 'Tremor', shadcn: 'shadcn/ui', apple: 'Apple UI', legacy: '经典界面' } as const;
 const THEME_NAMES: Record<string, string> = {
   azure: '晏阳蓝', red: '玫瑰红', pink: '猛男粉', mint: '纳西妲绿', orange: '活力橙', slate: '默认灰',
 };
@@ -24,7 +24,7 @@ function PlatformIcon({ platform }: { platform: Platform }) {
 }
 
 export function SiteFooter({ branding, version }: { branding: SiteBranding; version: string }) {
-  const [appearance, setAppearance] = useState({ ui: 'flat', theme: '晏阳蓝 · 跟随系统', isApple: false, glassTransparency: '无' });
+  const [appearance, setAppearance] = useState({ ui: 'DaisyUI', theme: '晏阳蓝 · 跟随系统', isApple: false, glassTransparency: '无' });
 
   useEffect(() => {
     const sync = () => {

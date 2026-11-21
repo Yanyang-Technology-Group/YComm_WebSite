@@ -1,10 +1,17 @@
 @import 'tailwindcss';
 @import '@extrastu/nuphy-ui/styles/tokens.css' layer(nuphy);
 @import './globals.css';
-@import './flat-design.css';
+@import './daisyui-design.css';
+@import './tremor-design.css';
+@import './shadcn-design.css';
 @import './apple-ui.css';
 @import './appearance.css';
 @import './liquid-glass.css';
+
+@plugin "daisyui" {
+  themes: false;
+  include: button, input, select, textarea, badge, card, alert, menu, tab, loading, progress, checkbox, radio, toggle, range, divider, dropdown, tooltip, collapse;
+}
 
 @source '../../../../node_modules/@extrastu/nuphy-ui/dist';
 
@@ -14,8 +21,7 @@
 
 @custom-variant dark (&:where(html[data-theme-mode='dark'], html[data-theme-mode='dark'] *));
 
-/* The library imports Tailwind Preflight. Preserve existing native element
-   defaults in Flat and classic while retaining the library's utility styles. */
+/* Preserve the site's native element defaults while retaining component styles. */
 @layer base {
   *, ::before, ::after, ::backdrop, ::file-selector-button,
   html, body, h1, h2, h3, h4, h5, h6, p, a, b, strong, small, sub, sup,

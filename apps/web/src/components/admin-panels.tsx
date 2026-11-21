@@ -905,8 +905,8 @@ export function InviteCodesPanel() {
   );
 }
 
-const thStyle: React.CSSProperties = { textAlign: 'left', padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border)' };
-const tdStyle: React.CSSProperties = { padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border)' };
+const thStyle: React.CSSProperties = { textAlign: 'left', padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border-color)' };
+const tdStyle: React.CSSProperties = { padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border-color)' };
 
 /** 违禁词管理：管理员维护，含违禁词的内容在发布时被拦截。 */
 export function BannedWordsPanel() {

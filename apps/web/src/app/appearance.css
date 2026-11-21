@@ -1,22 +1,111 @@
+.appearance-picker {
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.appearance-heading {
+  margin: 0 0 0.3rem;
+}
+
+.appearance-hint {
+  margin: 0 0 0.9rem;
+}
+
 .ui-style-picker {
+  display: grid;
+  gap: 1rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   max-width: 780px;
 }
 
 .ui-style-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
   min-height: 158px;
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: left;
+  background: var(--surface);
   letter-spacing: 0;
   transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
 }
 
+.ui-style-option.active {
+  border-color: var(--accent-strong);
+  outline: 1px solid var(--accent-strong);
+  outline-offset: -2px;
+}
+
 .ui-style-option-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  font-weight: 700;
   flex-wrap: wrap;
   line-height: 1.5;
 }
 
+.ui-style-default {
+  padding: 0.05rem 0.4rem;
+  border-radius: 3px;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
 .ui-style-check {
+  margin-left: auto;
   width: 1rem;
   flex-shrink: 0;
+  color: var(--accent-strong);
+}
+
+.ui-style-option-desc {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.ui-style-preview {
+  display: flex;
+  gap: 0.65rem;
+  width: 100%;
+  height: 96px;
+  padding: 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg);
+}
+
+.ui-style-preview-nav {
+  width: 20%;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent-strong);
+}
+
+.ui-style-preview-body {
+  display: grid;
+  flex: 1;
+  gap: 0.5rem;
+  grid-template-rows: 5px 1fr 13px;
+}
+
+.ui-style-preview-line {
+  width: 55%;
+  background: var(--muted);
+}
+
+.ui-style-preview-card {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+}
+
+.ui-style-preview-action {
+  width: 34%;
+  background: var(--accent-strong);
 }
 
 .ui-style-preview-apple {
@@ -56,35 +145,35 @@ html[data-ui-transition='fallback'] :is(.site-header, .site-main, .site-footer) 
   .ui-style-option { min-height: 0; }
 }
 
-html:is([data-ui-style='flat'], [data-ui-style='apple']) .nav-auth {
+html:is([data-ui-style='daisyui'], [data-ui-style='tremor'], [data-ui-style='shadcn'], [data-ui-style='apple']) .nav-auth {
   white-space: nowrap;
 }
 
 @media (max-width: 480px) {
-  html:is([data-ui-style='flat'], [data-ui-style='apple']) .brand-name { display: none; }
-  html:is([data-ui-style='flat'], [data-ui-style='apple']) .site-header-inner {
+  html:is([data-ui-style='daisyui'], [data-ui-style='tremor'], [data-ui-style='shadcn'], [data-ui-style='apple']) .brand-name { display: none; }
+  html:is([data-ui-style='daisyui'], [data-ui-style='tremor'], [data-ui-style='shadcn'], [data-ui-style='apple']) .site-header-inner {
     gap: 0.5rem;
     padding-inline: 0.75rem;
   }
-  html:is([data-ui-style='flat'], [data-ui-style='apple']) .site-actions {
+  html:is([data-ui-style='daisyui'], [data-ui-style='tremor'], [data-ui-style='shadcn'], [data-ui-style='apple']) .site-actions {
     gap: 0.35rem;
     flex-shrink: 0;
     white-space: nowrap;
   }
-  html:is([data-ui-style='flat'], [data-ui-style='apple']) .nav-console:not(.nav-console-avatar) {
+  html:is([data-ui-style='daisyui'], [data-ui-style='tremor'], [data-ui-style='shadcn'], [data-ui-style='apple']) .nav-console:not(.nav-console-avatar) {
     padding-inline: 0.4rem;
   }
 }
 
 @media (max-width: 380px) {
-  html:is([data-ui-style='flat'], [data-ui-style='apple']) .site-header-inner {
+  html:is([data-ui-style='daisyui'], [data-ui-style='tremor'], [data-ui-style='shadcn'], [data-ui-style='apple']) .site-header-inner {
     gap: 0.5rem;
     padding: 0 0.75rem;
   }
-  html:is([data-ui-style='flat'], [data-ui-style='apple']) .brand { gap: 0.4rem; }
-  html:is([data-ui-style='flat'], [data-ui-style='apple']) .brand .logo { height: 1.7rem; }
-  html:is([data-ui-style='flat'], [data-ui-style='apple']) .site-actions { gap: 0.35rem; }
-  html:is([data-ui-style='flat'], [data-ui-style='apple']) .nav-auth { padding-inline: 0.5rem; }
+  html:is([data-ui-style='daisyui'], [data-ui-style='tremor'], [data-ui-style='shadcn'], [data-ui-style='apple']) .brand { gap: 0.4rem; }
+  html:is([data-ui-style='daisyui'], [data-ui-style='tremor'], [data-ui-style='shadcn'], [data-ui-style='apple']) .brand .logo { height: 1.7rem; }
+  html:is([data-ui-style='daisyui'], [data-ui-style='tremor'], [data-ui-style='shadcn'], [data-ui-style='apple']) .site-actions { gap: 0.35rem; }
+  html:is([data-ui-style='daisyui'], [data-ui-style='tremor'], [data-ui-style='shadcn'], [data-ui-style='apple']) .nav-auth { padding-inline: 0.5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

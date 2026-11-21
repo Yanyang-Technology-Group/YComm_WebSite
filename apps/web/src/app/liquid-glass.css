@@ -5,7 +5,7 @@ html[data-ui-style='apple'] {
   --secondary: var(--surface); --secondary-foreground: var(--text); --accent-foreground: var(--text);
   --canvas: var(--bg); --surface-2: light-dark(#f4f4f7, #2c2c2f);
   --fill: light-dark(#00000006, #ffffff0b); --fill-strong: light-dark(#00000012, #ffffff1a);
-  --hairline: var(--border); --input: var(--border); --ring: var(--accent-strong); --radius: 8px;
+  --hairline: var(--border-color); --input: var(--border-color); --ring: var(--accent-strong); --radius: 8px;
 }
 
 /* Keep blur in the optical chain: refraction alone leaves flat backdrops unchanged. */
@@ -39,12 +39,12 @@ html[data-ui-style='apple'][data-apple-glass='on'] :is(.theme-option, .theme-mod
 html[data-ui-style='apple'][data-apple-glass='on'] :is(.theme-option, .theme-mode-option, .ui-style-option).active { border-color: var(--accent-strong); box-shadow: 0 0 0 1px var(--accent-strong); }
 html[data-ui-style='apple'][data-apple-glass='off'] :is(.site-header, .app-nav, .glass-preview-pane) { -webkit-backdrop-filter: none; backdrop-filter: none; }
 
-.apple-glass-preferences { margin-top: 24px; display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: center; gap: 24px; padding-block: 20px; border-block: 1px solid var(--border); }
+.apple-glass-preferences { margin-top: 24px; display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: center; gap: 24px; padding-block: 20px; border-block: 1px solid var(--border-color); }
 .glass-material-preview { height: 150px; position: relative; overflow: hidden; border-radius: 8px; background: light-dark(#bad6dd, #345a66); }
 .glass-preview-content { display: flex; flex-direction: column; gap: 6px; padding: 16px; color: light-dark(#28414b, #d6e7ed); font-size: 12px; }
 .glass-preview-content > img { width: 30px; height: 30px; object-fit: contain; }
 .glass-preview-content > span { align-self: flex-end; }
-.glass-preview-pane { position: absolute; inset: 48px 14px 16px; display: flex; gap: 10px; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.glass-preview-pane { position: absolute; inset: 48px 14px 16px; display: flex; gap: 10px; align-items: center; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-sm); }
 .glass-preview-pane > img { width: 30px; height: 30px; object-fit: contain; flex-shrink: 0; }
 .glass-preview-pane > span { font-size: 13px; font-weight: 600; }
 .glass-preview-pane small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; margin-top: 4px; }

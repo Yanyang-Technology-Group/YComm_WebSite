@@ -10,7 +10,7 @@ describe('web appearance preference', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.useFakeTimers();
-    root.dataset = { uiStyle: 'flat' };
+    root.dataset = { uiStyle: 'daisyui' };
     storage.getItem.mockReset().mockReturnValue(null);
     storage.setItem.mockReset();
     page.startViewTransition.mockReset();
@@ -26,12 +26,12 @@ describe('web appearance preference', () => {
     vi.unstubAllGlobals();
   });
 
-  it.each([null, 'daisyui', 'apple', 'flat', 'legacy', 'invalid'])('restores %s before the first paint', async (saved) => {
+  it.each([null, 'daisyui', 'apple', 'tremor', 'shadcn', 'flat', 'legacy', 'invalid'])('restores %s before the first paint', async (saved) => {
     const { UI_STYLE_BOOT_SCRIPT, readStoredUiStyle } = await import('./appearance');
     storage.getItem.mockReturnValue(saved);
     runInNewContext(UI_STYLE_BOOT_SCRIPT, { document: page, localStorage: storage });
     expect(root.dataset.uiStyle).toBe(readStoredUiStyle());
-    expect(root.dataset.uiStyle).toBe(saved === 'apple' || saved === 'legacy' ? saved : 'flat');
+    expect(root.dataset.uiStyle).toBe(['apple', 'tremor', 'shadcn', 'legacy'].includes(saved ?? '') ? saved : 'daisyui');
   });
 
   it('applies the preference when browser storage is blocked', async () => {
@@ -40,8 +40,8 @@ describe('web appearance preference', () => {
     storage.setItem.mockImplementation(() => { throw new Error('storage blocked'); });
     root.dataset.uiStyle = 'legacy';
     runInNewContext(UI_STYLE_BOOT_SCRIPT, { document: page, localStorage: storage });
-    expect(root.dataset.uiStyle).toBe('flat');
-    expect(readStoredUiStyle()).toBe('flat');
+    expect(root.dataset.uiStyle).toBe('daisyui');
+    expect(readStoredUiStyle()).toBe('daisyui');
     applyUiStyle('apple');
     expect(root.dataset.uiStyle).toBe('apple');
   });
@@ -67,7 +67,7 @@ describe('web appearance preference', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it.each(['flat', 'legacy'] as const)('switches immediately from %s to Apple UI despite broken snapshot animations', async (previous) => {
+  it.each(['daisyui', 'legacy'] as const)('switches immediately from %s to Apple UI despite broken snapshot animations', async (previous) => {
     root.dataset.uiStyle = previous;
     page.startViewTransition.mockImplementation(() => { throw new Error('snapshot failed'); });
     const { applyUiStyle, UI_STYLE_CHANGE_EVENT, UI_STYLE_BOOT_SCRIPT } = await import('./appearance');
@@ -84,7 +84,7 @@ describe('web appearance preference', () => {
 
   it('keeps the most recent style after rapid switching', async () => {
     const { applyUiStyle } = await import('./appearance');
-    for (const style of ['legacy', 'apple', 'flat', 'apple'] as const) {
+    for (const style of ['legacy', 'apple', 'daisyui', 'tremor', 'shadcn', 'apple'] as const) {
       applyUiStyle(style, { animate: true });
       expect(root.dataset.uiStyle).toBe(style);
     }

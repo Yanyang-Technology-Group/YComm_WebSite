@@ -209,7 +209,7 @@ export function LoginDevicesPanel() {
       )}
 
       {/* 受信任设备：新设备登录要先在邮箱里确认一次，确认过的设备列在这里 */}
-      <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '1.2rem 0 0.9rem' }} />
+      <hr style={{ border: 0, borderTop: '1px solid var(--border-color)', margin: '1.2rem 0 0.9rem' }} />
       <p className="panel-title" style={{ fontSize: '1rem' }}>
         受信任设备
       </p>
@@ -260,5 +260,5 @@ export function LoginDevicesPanel() {
   );
 }
 
-const thStyle: React.CSSProperties = { textAlign: 'left', padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border)' };
-const tdStyle: React.CSSProperties = { padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border)' };
+const thStyle: React.CSSProperties = { textAlign: 'left', padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border-color)' };
+const tdStyle: React.CSSProperties = { padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border-color)' };

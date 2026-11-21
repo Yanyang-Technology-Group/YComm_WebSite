@@ -1,10 +1,11 @@
 /** Web-only UI preference, separate from the account's colour and light/dark mode. */
-export type UiStyle = 'apple' | 'flat' | 'legacy';
+export type UiStyle = 'apple' | 'daisyui' | 'tremor' | 'shadcn' | 'legacy';
 export const UI_STYLE_KEY = 'ycomm_ui_style';
-export const DEFAULT_UI_STYLE: UiStyle = 'flat';
+export const DEFAULT_UI_STYLE: UiStyle = 'daisyui';
 
 export function normalizeUiStyle(value: string | null | undefined): UiStyle {
-  return value === 'apple' || value === 'legacy' ? value : DEFAULT_UI_STYLE;
+  if (value === 'apple' || value === 'tremor' || value === 'shadcn' || value === 'legacy') return value;
+  return DEFAULT_UI_STYLE;
 }
 
 export function readStoredUiStyle(): UiStyle {
@@ -44,4 +45,4 @@ export function applyUiStyle(style: UiStyle, { animate = false } = {}): void {
 }
 
 /** Runs before page content is painted; existing explicit choices stay compatible. */
-export const UI_STYLE_BOOT_SCRIPT = `(function(){var r=document.documentElement;r.dataset.uiStyle='${DEFAULT_UI_STYLE}';try{var s=localStorage.getItem('${UI_STYLE_KEY}');if(s==='apple'||s==='legacy')r.dataset.uiStyle=s;}catch(e){}})();`;
+export const UI_STYLE_BOOT_SCRIPT = `(function(){var r=document.documentElement;r.dataset.uiStyle='${DEFAULT_UI_STYLE}';try{var s=localStorage.getItem('${UI_STYLE_KEY}');if(s==='apple'||s==='tremor'||s==='shadcn'||s==='legacy')r.dataset.uiStyle=s;}catch(e){}})();`;

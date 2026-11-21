@@ -11,7 +11,9 @@ import { showToast } from '../lib/toast';
 import { UI_STYLE_KEY } from '../lib/appearance';
 
 const STYLES = [
-  { id: 'flat', label: 'Flat Design', note: '默认' },
+  { id: 'daisyui', label: 'DaisyUI', note: '默认' },
+  { id: 'tremor', label: 'Tremor', note: '' },
+  { id: 'shadcn', label: 'shadcn/ui', note: '' },
   { id: 'apple', label: 'Apple UI', note: '' },
   { id: 'legacy', label: '经典', note: '' },
 ] as const;
@@ -36,7 +38,7 @@ export function AppearancePicker() {
           <StyleButton
             key={entry.id}
             type="button"
-            className={`ui-style-option${style === entry.id ? ' active' : ''}`}
+            className={`${entry.id === 'daisyui' ? 'btn btn-outline ' : ''}ui-style-option${style === entry.id ? ' active' : ''}`}
             aria-pressed={style === entry.id}
             onClick={() => choose(entry.id)}
           >
