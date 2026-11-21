@@ -5,7 +5,7 @@ import { getSiteBranding } from '@ycomm/config';
 import { SessionNav } from '../components/session-nav';
 import { SiteNav } from '../components/site-nav';
 import { SearchBox } from '../components/search-box';
-import { ThemeSync } from '../components/theme-toggle';
+import { ThemeSync } from '../components/theme-sync';
 import { GuestPrompt } from '../components/guest-prompt';
 import { PageTransition } from '../components/page-transition';
 import { VerificationGate } from '../components/verification-gate';

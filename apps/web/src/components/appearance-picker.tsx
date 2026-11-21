@@ -6,7 +6,7 @@ import {
 } from '../lib/appearance';
 import { useUiStyle } from '../lib/use-ui-style';
 import { Button } from '@extrastu/nuphy-ui';
-import { GlassSettings } from './liquid-glass';
+import { GlassSettings } from './glass-settings';
 import { showToast } from '../lib/toast';
 import { UI_STYLE_KEY } from '../lib/appearance';
 

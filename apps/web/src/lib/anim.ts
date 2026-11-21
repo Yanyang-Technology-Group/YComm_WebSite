@@ -6,7 +6,7 @@
  * 摘掉后再次挂上之前会强制一次回流，所以连续切换主题也能重新播放。
  */
 
-export type AnimKind = 'route' | 'theme';
+export type AnimKind = 'theme';
 
 const ATTR = 'data-anim';
 /** 略长于 CSS 动画时长，保证动画播完再清理标记。 */

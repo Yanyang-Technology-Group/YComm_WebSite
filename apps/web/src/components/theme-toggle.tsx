@@ -6,9 +6,12 @@ import { playAnim } from '../lib/anim';
 import { apiFetch } from '../lib/api';
 import { showToast } from '../lib/toast';
 import { getSession } from '../lib/session';
-import { applyUiStyle, readStoredUiStyle, UI_STYLE_KEY } from '../lib/appearance';
 import { AppearancePicker } from './appearance-picker';
 import { useUiStyle } from '../lib/use-ui-style';
+import { applyTheme, THEME_FAMILIES, type ThemeChoice, type ThemeFamilyId, type ThemeMode } from '../lib/theme-preference';
+
+export { THEME_FAMILIES };
+export type { ThemeChoice, ThemeFamilyId, ThemeMode };
 
 function PreferenceButton({ apple, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { apple: boolean }) {
   return apple
@@ -21,25 +24,6 @@ function PreferenceButton({ apple, children, ...props }: ButtonHTMLAttributes<HT
  * 底色用 light-dark() 由 color-scheme 决定，所以「深色/浅色」只是改 <html> 的 color-scheme。
  * 「跟随系统」不再是可选项：只有账号从未设置过时才按系统深浅走一次，之后由用户选定的明暗固定。
  */
-export const THEME_FAMILIES = [
-  { id: 'azure', label: '晏阳蓝', dark: '#24466e', light: '#bcd3f0' },
-  { id: 'red', label: '玫瑰红', dark: '#b30000', light: '#ff0000' },
-  { id: 'pink', label: '猛男粉', dark: '#5c2c38', light: '#f3c2cb' },
-  { id: 'mint', label: '纳西妲绿', dark: '#2a4a2c', light: '#c4e3b8' },
-  { id: 'orange', label: '活力橙', dark: '#66370f', light: '#ffd2a1' },
-] as const;
-
-export type ThemeFamilyId = (typeof THEME_FAMILIES)[number]['id'];
-
-/** 「无」= 不加任何强调色，用纯系统灰（深色深灰 / 浅色浅灰）。 */
-export type ThemeChoice = ThemeFamilyId | 'none';
-
-/**
- * 明暗：dark 固定深色 / light 固定浅色 / auto 跟随系统（仅作为「从未设置过」时的默认值，
- * 不出现在选项里 —— 用户一旦选了深色或浅色就固定下来）。
- */
-export type ThemeMode = 'auto' | 'dark' | 'light';
-
 const COLOUR_KEY = 'ycomm_theme_colour';
 const MODE_KEY = 'ycomm_theme_mode';
 const PAIR_KEY = 'ycomm_theme_pair';
@@ -47,11 +31,6 @@ const OLD_KEY = 'ycomm_theme';
 
 const DEFAULT_COLOUR: ThemeChoice = 'azure';
 const DEFAULT_MODE: ThemeMode = 'auto';
-
-function attrFor(choice: ThemeChoice): string {
-  // 「无」映射到灰调色系（即系统默认灰组合）。
-  return choice === 'none' ? 'slate' : choice;
-}
 
 /** 灰调已经撤掉，历史上选过灰调的账号统一按「无」显示与高亮。 */
 function normalizeColour(value: string | undefined): ThemeChoice | null {
@@ -65,20 +44,6 @@ function isValidColour(value: string | undefined): value is ThemeChoice {
 
 function isValidMode(value: string | undefined): value is ThemeMode {
   return value === 'auto' || value === 'dark' || value === 'light';
-}
-
-/** 把选中的颜色 + 明暗写入 <html> 三个属性，并持久化。 */
-export function applyTheme(colour: ThemeChoice, mode: ThemeMode): void {
-  if (typeof document === 'undefined') return;
-  const root = document.documentElement;
-  root.dataset.themeColour = attrFor(colour);
-  root.dataset.themeMode = mode;
-  try {
-    localStorage.setItem(COLOUR_KEY, colour);
-    localStorage.setItem(MODE_KEY, mode);
-  } catch {
-    /* localStorage 不可用时仅本次会话生效 */
-  }
 }
 
 /** 兼容旧数据：Edge 配对（深浅两档各一色）→ 颜色取深色档（无则浅色档），明暗跟随系统。 */
@@ -145,21 +110,6 @@ const MODES: { id: ThemeMode; label: string; icon: string; hint: string }[] = [
   { id: 'light', label: '浅色', icon: '☀', hint: '固定浅色底' },
 ];
 
-/** 浏览器本地缓存的主题（游客也用，先上色避免闪白）。 */
-export function readStoredTheme(): { colour: ThemeChoice; mode: ThemeMode } {
-  if (typeof localStorage === 'undefined') return { colour: DEFAULT_COLOUR, mode: DEFAULT_MODE };
-  try {
-    const colour = localStorage.getItem(COLOUR_KEY) ?? undefined;
-    const mode = localStorage.getItem(MODE_KEY) ?? undefined;
-    return {
-      colour: normalizeColour(colour) ?? DEFAULT_COLOUR,
-      mode: isValidMode(mode) ? mode : DEFAULT_MODE,
-    };
-  } catch {
-    return { colour: DEFAULT_COLOUR, mode: DEFAULT_MODE };
-  }
-}
-
 /** 把主题存进账号（按账号生效，换设备登录也是同一套）；游客只存本地。 */
 async function persistTheme(colour: ThemeChoice, mode: ThemeMode): Promise<void> {
   try {
@@ -177,50 +127,6 @@ async function persistTheme(colour: ThemeChoice, mode: ThemeMode): Promise<void>
   } catch {
     /* 保存失败不影响本次已生效的主题 */
   }
-}
-
-/**
- * 退出登录：回到默认（晏阳蓝 + 跟随系统），
- * 不把上一个账号的配色留给同一台电脑上的下一个人。
- */
-export function resetThemeToDefault(): void {
-  applyTheme(DEFAULT_COLOUR, DEFAULT_MODE);
-}
-
-/**
- * 主题同步（挂在根布局，全站生效）：
- * 1) 先用浏览器缓存立刻上色（避免闪烁）；
- * 2) 已登录时以「账号里的主题」为准 —— 换设备、换账号登录都会切到该账号自己的配色；
- *    从未设置过的新账号 → 用默认「晏阳蓝 + 跟随系统」。
- */
-export function ThemeSync() {
-  useEffect(() => {
-    function syncStyle(event?: StorageEvent) {
-      if (event && event.key !== UI_STYLE_KEY && event.key !== null) return;
-      applyUiStyle(readStoredUiStyle(), { animate: !!event });
-    }
-    syncStyle();
-    window.addEventListener('storage', syncStyle);
-    return () => window.removeEventListener('storage', syncStyle);
-  }, []);
-
-  useEffect(() => {
-    const stored = readStoredTheme();
-    applyTheme(stored.colour, stored.mode);
-
-    let active = true;
-    void getSession().then((session) => {
-      if (!active || !session) return; // 未登录：保持本地缓存
-      const colour = normalizeColour(session.themeColour ?? undefined) ?? DEFAULT_COLOUR;
-      const mode = isValidMode(session.themeMode ?? undefined) ? (session.themeMode as ThemeMode) : DEFAULT_MODE;
-      applyTheme(colour, mode);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  return null;
 }
 
 /**

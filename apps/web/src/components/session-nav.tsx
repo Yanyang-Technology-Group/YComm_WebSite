@@ -1,12 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getSession } from '../lib/session';
 import { apiFetch } from '../lib/api';
 import { LogoutButton } from './logout-button';
-import { NotificationList } from './notification-list';
+
+const NotificationList = dynamic(() => import('./notification-list').then((module) => module.NotificationList), {
+  ssr: false,
+  loading: () => <p className="muted">通知加载中…</p>,
+});
 
 /**
  * 头部登录状态（经 getSession 去重缓存，整页只请求一次 /me）：

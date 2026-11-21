@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { invalidateSession } from '../lib/session';
-import { resetThemeToDefault } from './theme-toggle';
+import { resetThemeToDefault } from '../lib/theme-preference';
 
 export function LogoutButton() {
   const [pending, setPending] = useState(false);

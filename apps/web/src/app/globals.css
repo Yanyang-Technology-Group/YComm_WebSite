@@ -2372,7 +2372,6 @@ html[data-theme-mode='dark'] .card-vis-staff {
 
 /* =============================================================
    切换动效：渐变幕布 + 组件「坠落又弹回」
-   - 路由切换：<html data-anim="route">（PageTransition 触发）
    - 主题切换：<html data-anim="theme">（主题选择器触发）
    由 CSS 完成，JS 只切标记；颜色取自当前主题的 --accent。
    ============================================================= */
@@ -2391,10 +2390,6 @@ html[data-theme-mode='dark'] .card-vis-staff {
   );
 }
 
-html[data-anim='route'] .anim-veil {
-  animation: veil-sweep-down 0.7s cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-
 html[data-anim='theme'] .anim-veil {
   background: linear-gradient(
     100deg,
@@ -2405,17 +2400,6 @@ html[data-anim='theme'] .anim-veil {
     transparent 100%
   );
   animation: veil-sweep-across 0.75s cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-
-@keyframes veil-sweep-down {
-  0% {
-    opacity: 0.85;
-    transform: translateY(-100%);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(100%);
-  }
 }
 
 @keyframes veil-sweep-across {
@@ -2447,29 +2431,6 @@ html[data-anim='theme'] .anim-veil {
        both 即使以 none 结束也可能残留单位矩阵，使祖先成为 fixed 的包含块。 */
     transform: none;
   }
-}
-
-.page-anim > * {
-  animation: drop-bounce 0.6s cubic-bezier(0.22, 1.1, 0.36, 1) backwards;
-}
-
-.page-anim > *:nth-child(1) {
-  animation-delay: 0.02s;
-}
-.page-anim > *:nth-child(2) {
-  animation-delay: 0.06s;
-}
-.page-anim > *:nth-child(3) {
-  animation-delay: 0.1s;
-}
-.page-anim > *:nth-child(4) {
-  animation-delay: 0.14s;
-}
-.page-anim > *:nth-child(5) {
-  animation-delay: 0.18s;
-}
-.page-anim > *:nth-child(n + 6) {
-  animation-delay: 0.22s;
 }
 
 html[data-anim='theme'] .page-anim > * {
