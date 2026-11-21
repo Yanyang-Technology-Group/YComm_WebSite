@@ -38,7 +38,7 @@ export function AppearancePicker() {
           <StyleButton
             key={entry.id}
             type="button"
-            className={`${entry.id === 'daisyui' ? 'btn btn-outline ' : ''}ui-style-option${style === entry.id ? ' active' : ''}`}
+            className={`ui-style-option${style === entry.id ? ' active' : ''}`}
             aria-pressed={style === entry.id}
             onClick={() => choose(entry.id)}
           >

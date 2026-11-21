@@ -106,6 +106,7 @@ const cardCreateSchema = z.object({
   kind: z.enum(['container', 'redirect', 'resources']).default('container'),
   redirectUrl: z.string().max(2000).nullable().optional(),
   redirectProxy: z.boolean().default(true),
+  oneTimeLinkEnabled: z.boolean().default(false),
   w: z.number().int().min(1).max(6).optional(),
   h: z.number().int().min(1).max(6).optional(),
   visibility: z.enum(['public', 'login', 'invite', 'staff']).default('public'),
@@ -120,6 +121,7 @@ const cardUpdateSchema = z.object({
   kind: z.enum(['container', 'redirect', 'resources']).optional(),
   redirectUrl: z.string().max(2000).nullable().optional(),
   redirectProxy: z.boolean().optional(),
+  oneTimeLinkEnabled: z.boolean().optional(),
   w: z.number().int().min(1).max(6).optional(),
   h: z.number().int().min(1).max(6).optional(),
   visibility: z.enum(['public', 'login', 'invite', 'staff']).optional(),
@@ -709,6 +711,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
             kind: body.kind,
             redirectUrl: body.redirectUrl,
             redirectProxy: body.redirectProxy,
+            oneTimeLinkEnabled: body.oneTimeLinkEnabled,
             w: body.w,
             h: body.h,
             visibility: body.visibility,
@@ -726,6 +729,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
             kind: body.kind,
             redirectUrl: body.redirectUrl,
             redirectProxy: body.redirectProxy,
+            oneTimeLinkEnabled: body.oneTimeLinkEnabled,
             w: body.w,
             h: body.h,
             visibility: body.visibility,
@@ -760,6 +764,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       kind: body.kind,
       redirectUrl: body.redirectUrl,
       redirectProxy: body.redirectProxy,
+      oneTimeLinkEnabled: body.oneTimeLinkEnabled,
       w: body.w,
       h: body.h,
       visibility: body.visibility,
@@ -936,6 +941,7 @@ function adminCard(card: {
   kind: string;
   redirect_url: string | null;
   redirect_proxy: boolean;
+  one_time_link_enabled: boolean;
   w: number;
   h: number;
   visibility: string;
@@ -951,6 +957,7 @@ function adminCard(card: {
     kind: card.kind,
     redirectUrl: card.redirect_url,
     redirectProxy: card.redirect_proxy,
+    oneTimeLinkEnabled: card.one_time_link_enabled,
     w: card.w,
     h: card.h,
     visibility: card.visibility,

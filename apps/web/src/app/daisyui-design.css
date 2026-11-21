@@ -44,7 +44,7 @@ html[data-ui-style='daisyui'] body {
   color: var(--color-base-content);
 }
 
-html[data-ui-style='daisyui'] :where(button:not(.nav-burger, .nav-bell, .modal-close, .modal-skip, .nuphy-button)) {
+html[data-ui-style='daisyui'] :where(button:not(.nav-burger, .nav-bell, .modal-close, .modal-skip, .nuphy-button, .ui-style-option, .toast-close)) {
   display: inline-flex;
   align-items: center;
   justify-content: center;

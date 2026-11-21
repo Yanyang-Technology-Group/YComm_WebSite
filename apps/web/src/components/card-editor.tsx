@@ -15,6 +15,7 @@ interface AdminCard {
   kind: string;
   redirectUrl: string | null;
   redirectProxy: boolean;
+  oneTimeLinkEnabled: boolean;
   w: number;
   h: number;
   visibility: string;
@@ -149,6 +150,7 @@ export function CardsPanel() {
       parentId: newParentId || null,
       redirectUrl: kind === 'redirect' ? String(fd.get('redirectUrl') ?? '') : null,
       redirectProxy: fd.get('redirectProxy') === 'on',
+      oneTimeLinkEnabled: fd.get('oneTimeLinkEnabled') === 'on',
       w: 1,
       h: 1,
     };
@@ -192,6 +194,7 @@ export function CardsPanel() {
           parentId: fd.get('parentId') ? String(fd.get('parentId')) : null,
           redirectUrl: kind === 'redirect' ? String(fd.get('redirectUrl') ?? '') : null,
           redirectProxy: fd.get('redirectProxy') === 'on',
+          oneTimeLinkEnabled: fd.get('oneTimeLinkEnabled') === 'on',
         }),
       });
       await refresh();
@@ -563,6 +566,10 @@ export function CardsPanel() {
           <input type="checkbox" name="redirectProxy" defaultChecked />
           代理加密下载地址（访问者不会收到原始 URL）
         </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+          <input type="checkbox" name="oneTimeLinkEnabled" />
+          显示复制一次性下载链接按钮（仅外链卡片，有效期 1 小时）
+        </label>
         <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
           {newParentId ? `新增子卡片到「${parentTitle(newParentId)}」` : '新增卡片'}
         </button>
@@ -663,6 +670,10 @@ export function CardsPanel() {
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
             <input type="checkbox" name="redirectProxy" defaultChecked={selected.redirectProxy} />
             代理加密下载地址（访问者不会收到原始 URL）
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+            <input type="checkbox" name="oneTimeLinkEnabled" defaultChecked={selected.oneTimeLinkEnabled} />
+            显示复制一次性下载链接按钮（仅外链卡片，有效期 1 小时）
           </label>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>

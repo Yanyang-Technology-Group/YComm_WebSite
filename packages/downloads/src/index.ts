@@ -33,6 +33,7 @@ export {
   type UpdateCardInput,
 } from './cards';
 export { registerDownloadDeciders } from './deciders';
+export { createOneTimeLink, redeemOneTimeLink } from './one-time-links';
 export {
   authorizedExtractCode,
   authorizedFetch,

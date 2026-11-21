@@ -105,6 +105,7 @@ export interface CreateCardInput {
   kind: CardKind;
   redirectUrl?: string | null;
   redirectProxy?: boolean;
+  oneTimeLinkEnabled?: boolean;
   w?: number;
   h?: number;
   visibility?: CardVisibility;
@@ -148,6 +149,7 @@ export async function createCard(
       kind: input.kind,
       redirect_url: input.redirectUrl ?? null,
       redirect_proxy: input.redirectProxy ?? true,
+      one_time_link_enabled: input.oneTimeLinkEnabled ?? false,
       w: input.w ?? 1,
       h: input.h ?? 1,
       visibility: input.visibility ?? 'public',
@@ -202,6 +204,7 @@ export interface UpdateCardInput {
   kind?: CardKind;
   redirectUrl?: string | null;
   redirectProxy?: boolean;
+  oneTimeLinkEnabled?: boolean;
   w?: number;
   h?: number;
   visibility?: CardVisibility;
@@ -219,6 +222,7 @@ export async function updateCard(db: Db, cardId: string, patch: UpdateCardInput)
       ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
       ...(patch.redirectUrl !== undefined ? { redirect_url: patch.redirectUrl } : {}),
       ...(patch.redirectProxy !== undefined ? { redirect_proxy: patch.redirectProxy } : {}),
+      ...(patch.oneTimeLinkEnabled !== undefined ? { one_time_link_enabled: patch.oneTimeLinkEnabled } : {}),
       ...(patch.w !== undefined ? { w: patch.w } : {}),
       ...(patch.h !== undefined ? { h: patch.h } : {}),
       ...(patch.visibility !== undefined ? { visibility: patch.visibility } : {}),

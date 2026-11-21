@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { MarkdownContent } from './markdown-content';
+import { CopyOnceDownload } from './copy-once-download';
 
 function directDownloadTarget(raw: string): string {
   try {
@@ -19,6 +20,7 @@ export interface PublicCard {
   kind: string;
   redirectUrl: string | null;
   redirectProxy?: boolean;
+  oneTimeLinkEnabled?: boolean;
   /** 可见度：public 公开 / login 需登录 / invite 需注册码 / staff 仅管理员。 */
   visibility?: string;
   w: number;
@@ -39,7 +41,7 @@ export function CardGrid({ cards }: { cards: PublicCard[] }) {
     <div className="card-grid">
       {cards.map((card) => {
         const style = { gridColumn: `span ${card.w}`, gridRow: `span ${card.h}` } as React.CSSProperties;
-        const isRedirect = card.kind === 'redirect' && card.redirectUrl;
+        const isRedirect = card.kind === 'redirect';
         const badge = VISIBILITY_BADGE[card.visibility ?? 'public'];
         const body = (
           <>
@@ -58,15 +60,22 @@ export function CardGrid({ cards }: { cards: PublicCard[] }) {
           </>
         );
         if (card.kind === 'redirect' && (card.redirectProxy || card.redirectUrl)) {
+          const href = card.redirectProxy ? `/api/downloads/cards/${card.id}/go` : directDownloadTarget(card.redirectUrl!);
+          if (card.oneTimeLinkEnabled) {
+            return <div key={card.id} className="card-tile card-tile-with-actions" style={style}>
+              <a href={href} className="card-tile-link">{body}</a>
+              <CopyOnceDownload cardId={card.id} />
+            </div>;
+          }
           return (
-            <Link
+            <a
               key={card.id}
-              href={card.redirectProxy ? `/api/downloads/cards/${card.id}/go` : directDownloadTarget(card.redirectUrl!)}
+              href={href}
               className="card-tile"
               style={style}
             >
               {body}
-            </Link>
+            </a>
           );
         }
         return (

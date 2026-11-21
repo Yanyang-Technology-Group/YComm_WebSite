@@ -6,9 +6,6 @@ html[data-ui-style='shadcn'] {
   --border-color: light-dark(#e4e4e7, #27272a);
   --header-bg: var(--surface);
   --header-text: var(--text);
-  --accent: light-dark(#18181b, #fafafa);
-  --accent-strong: light-dark(#18181b, #fafafa);
-  --accent-soft: light-dark(#f4f4f5, #27272a);
   --shadow-sm: 0 1px 2px #09090b0d;
   --shadow: 0 1px 3px #09090b12, 0 8px 18px #09090b0a;
 }

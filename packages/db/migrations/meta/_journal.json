@@ -148,6 +148,13 @@
       "when": 1795261200000,
       "tag": "0020_even_iron_fist",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795281480930,
+      "tag": "0021_striped_weapon_omega",
+      "breakpoints": true
     }
   ]
 }

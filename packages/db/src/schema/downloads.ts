@@ -181,6 +181,7 @@ export const downloadCards = pgTable(
     kind: downloadCardKindEnum('kind').notNull().default('container'),
     redirect_url: text('redirect_url'),
     redirect_proxy: boolean('redirect_proxy').notNull().default(true),
+    one_time_link_enabled: boolean('one_time_link_enabled').notNull().default(false),
     w: integer('w').notNull().default(1),
     h: integer('h').notNull().default(1),
     visibility: text('visibility').notNull().default('public'),
@@ -201,3 +202,11 @@ export const downloadCards = pgTable(
   },
   (table) => [index('download_cards_parent_idx').on(table.parent_id)],
 );
+
+/** Only the hash is persisted; redemption atomically claims a ticket once. */
+export const downloadCardTickets = pgTable('download_card_tickets', {
+  token_hash: varchar('token_hash', { length: 64 }).primaryKey(),
+  card_id: uuid('card_id').notNull().references(() => downloadCards.id, { onDelete: 'cascade' }),
+  expires_at: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+  consumed_at: timestamp('consumed_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [index('download_card_tickets_expiry_idx').on(table.expires_at)]);

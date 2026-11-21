@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { getDb } from '@ycomm/db';
 import { errors } from '@ycomm/kernel';
@@ -16,6 +16,9 @@ import {
   listVisibleCategories,
   listVisibleCards,
   getCard,
+  createOneTimeLink,
+  redeemOneTimeLink,
+  type CardRow,
   openLocalFile,
   removeLink,
   reportDeadLink,
@@ -87,6 +90,7 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
           kind: card.kind,
           redirectUrl: card.redirect_proxy ? null : card.redirect_url,
           redirectProxy: card.redirect_proxy,
+          oneTimeLinkEnabled: card.one_time_link_enabled,
           // 可见度对外展示（公开 / 需登录 / 需注册码 / 仅管理员）
           visibility: card.visibility,
           w: card.w,
@@ -95,6 +99,34 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
         })),
       },
     });
+  });
+
+  router.post('/cards/:cardId/one-time-links', rateLimitByUser('downloadBurst'), async (c) => {
+    const handle = await getDb();
+    const subject = c.get('auth')?.subject ?? null;
+    assertSubjectCanAct(subject);
+    const cards = await listVisibleCards(handle.db, subject);
+    const card = cards.find((entry) => entry.id === c.req.param('cardId'));
+    if (!card || card.kind !== 'redirect' || !card.redirect_url || !card.one_time_link_enabled) {
+      throw errors.notFound('一次性下载链接未开启');
+    }
+    const ticket = await createOneTimeLink(handle.db, card.id);
+    c.header('Cache-Control', 'private, no-store');
+    return c.json({ ok: true, data: {
+      url: `/api/downloads/one-time?token=${ticket.token}`, expiresAt: ticket.expiresAt.toISOString(),
+    } }, 201);
+  });
+
+  router.on(['GET', 'HEAD'], '/one-time', async (c) => {
+    c.header('Cache-Control', 'private, no-store');
+    c.header('Referrer-Policy', 'no-referrer');
+    const handle = await getDb();
+    const cardId = await redeemOneTimeLink(handle.db, c.req.query('token') ?? '', c.req.method !== 'HEAD');
+    const card = cardId ? await getCard(handle.db, cardId) : null;
+    if (!card || card.status !== 'approved' || card.kind !== 'redirect' || !card.redirect_url || !card.one_time_link_enabled) {
+      return c.json({ ok: false, error: { code: 'DOWNLOAD_LINK_EXPIRED', message: '一次性下载链接已使用、已过期或已关闭，请重新复制' } }, 410);
+    }
+    return proxyCardDownload(c, card);
   });
 
   router.on(['GET', 'HEAD'], '/cards/:cardId/go', async (c) => {
@@ -107,56 +139,7 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
     const visibleCards = await listVisibleCards(handle.db, subject);
     if (!visibleCards.some((entry) => entry.id === card.id)) throw errors.notFound('卡片不存在');
 
-    let target: URL;
-    try {
-      target = new URL(card.redirect_url);
-    } catch {
-      throw errors.notFound('跳转地址无效');
-    }
-    if (target.protocol !== 'https:' && target.protocol !== 'http:') throw errors.notFound('跳转地址无效');
-
-    let upstream: Response;
-    try {
-      const forwardedHeaders: Record<string, string> = { 'accept-encoding': 'identity' };
-      for (const name of ['range', 'if-range', 'if-match', 'if-none-match', 'if-modified-since', 'if-unmodified-since']) {
-        const value = c.req.header(name);
-        if (value) forwardedHeaders[name] = value;
-      }
-      upstream = await fetch(target, {
-        method: c.req.method,
-        headers: forwardedHeaders,
-        // Follow redirects on the server so CDN URLs never appear in Location headers.
-        redirect: 'follow',
-        signal: AbortSignal.timeout(30_000),
-      });
-    } catch {
-      throw errors.notFound('目标下载暂时无法访问');
-    }
-
-    c.header('Cache-Control', 'private, no-store');
-    c.header('X-Content-Type-Options', 'nosniff');
-    for (const header of [
-      'content-type', 'content-length', 'accept-ranges', 'content-range',
-      'etag', 'last-modified',
-    ]) {
-      const value = upstream.headers.get(header);
-      if (value) c.header(header, value);
-    }
-    const contentDisposition = upstream.headers.get('content-disposition');
-    if (contentDisposition) {
-      c.header('Content-Disposition', contentDisposition);
-    } else {
-      const lastPathSegment = new URL(upstream.url || target).pathname.split('/').pop() ?? '';
-      let fileName = lastPathSegment;
-      try { fileName = decodeURIComponent(lastPathSegment); } catch { /* Keep the encoded segment. */ }
-      fileName = Array.from(fileName, (character) => {
-        const code = character.charCodeAt(0);
-        return code < 0x20 || code === 0x7f || character === '/' || character === '\\' ? '_' : character;
-      }).join('').trim().slice(0, 180) || 'download';
-      c.header('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-    }
-    if (!upstream.body) return c.body(null, upstream.status as never);
-    return c.body(upstream.body, upstream.status as never);
+    return proxyCardDownload(c, card);
   });
 
   router.get('/resources', async (c) => {
@@ -436,3 +419,67 @@ function publicResource(resource: {
 }
 
 // Range 解析与视频上传共用同一份实现（见 ../middleware/range）。
+
+async function proxyCardDownload(c: Context<{ Variables: AppVariables }>, card: CardRow): Promise<Response> {
+  let target: URL;
+  try {
+    target = new URL(card.redirect_url!);
+  } catch {
+    throw errors.notFound('跳转地址无效');
+  }
+  if (target.protocol !== 'https:' && target.protocol !== 'http:') throw errors.notFound('跳转地址无效');
+
+  let upstream: Response;
+  const controller = new AbortController();
+  // Limit connection/header wait without aborting large downloads after 30 seconds.
+  const headerTimeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const forwardedHeaders: Record<string, string> = { 'accept-encoding': 'identity' };
+    for (const name of ['range', 'if-range', 'if-match', 'if-none-match', 'if-modified-since', 'if-unmodified-since']) {
+      const value = c.req.header(name);
+      if (value) forwardedHeaders[name] = value;
+    }
+    upstream = await fetch(target, {
+      method: c.req.method,
+      headers: forwardedHeaders,
+      // Follow redirects on the server so CDN URLs never appear in Location headers.
+      redirect: 'follow',
+      signal: AbortSignal.any([controller.signal, c.req.raw.signal]),
+    });
+  } catch {
+    throw errors.notFound('目标下载暂时无法访问');
+  } finally {
+    clearTimeout(headerTimeout);
+  }
+
+  if (upstream.status >= 400 && upstream.status !== 416) {
+    await upstream.body?.cancel();
+    throw errors.notFound('目标下载暂时无法访问');
+  }
+
+  c.header('Cache-Control', 'private, no-store');
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('Referrer-Policy', 'no-referrer');
+  for (const header of [
+    'content-type', 'content-length', 'accept-ranges', 'content-range',
+    'etag', 'last-modified',
+  ]) {
+    const value = upstream.headers.get(header);
+    if (value) c.header(header, value);
+  }
+  const contentDisposition = upstream.headers.get('content-disposition');
+  if (contentDisposition) {
+    c.header('Content-Disposition', contentDisposition);
+  } else {
+    const lastPathSegment = new URL(upstream.url || target).pathname.split('/').pop() ?? '';
+    let fileName = lastPathSegment;
+    try { fileName = decodeURIComponent(lastPathSegment); } catch { /* Keep the encoded segment. */ }
+    fileName = Array.from(fileName, (character) => {
+      const code = character.charCodeAt(0);
+      return code < 0x20 || code === 0x7f || character === '/' || character === '\\' ? '_' : character;
+    }).join('').trim().slice(0, 180) || 'download';
+    c.header('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+  }
+  if (!upstream.body) return c.body(null, upstream.status as never);
+  return c.body(upstream.body, upstream.status as never);
+}

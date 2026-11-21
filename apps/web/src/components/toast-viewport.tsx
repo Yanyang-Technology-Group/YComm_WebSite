@@ -22,7 +22,7 @@ export function ToastViewport() {
     {toast && <div key={toast.id} className={`site-toast site-toast-${toast.tone}`}>
       <span aria-hidden="true">{toast.tone === 'success' ? '✓' : '!'}</span>
       <span>{toast.message}</span>
-      <button type="button" aria-label="关闭提示" onClick={() => setToast(null)}>×</button>
+      <button type="button" className="toast-close" aria-label="关闭提示" onClick={() => setToast(null)}>×</button>
     </div>}
   </div>, document.body);
 }

@@ -1535,7 +1535,7 @@ a.uname:hover,
 .external-link-host { overflow-wrap: anywhere; }
 .external-link-url { display: block; padding: 0.8rem; border-radius: 9px; background: var(--bg); overflow-wrap: anywhere; font-size: 0.82rem; }
 .external-link-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
-.toast-viewport { position: fixed; z-index: 200; right: max(1.25rem, env(safe-area-inset-right)); bottom: max(1.25rem, env(safe-area-inset-bottom)); max-width: min(420px, calc(100vw - 2.5rem)); pointer-events: none; }
+.toast-viewport { position: fixed; z-index: 200; top: max(1rem, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: max-content; max-width: min(420px, calc(100vw - 2rem)); pointer-events: none; }
 .site-toast { display: flex; align-items: center; gap: .65rem; padding: .8rem 1rem; border: 1px solid var(--border-color); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); pointer-events: auto; animation: toast-in 180ms ease-out; overflow-wrap: anywhere; }
 .site-toast-success { border-color: color-mix(in srgb, #16a34a 45%, var(--border-color)); }
 .site-toast-success > span:first-child { color: #16a34a; }
@@ -1557,7 +1557,7 @@ a.uname:hover,
 .legal-document h1 { margin-top: 0; }
 .legal-document h2 { margin: 1.8rem 0 0.4rem; font-size: 1.15rem; }
 .legal-document li { margin: 0.35rem 0; }
-@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 760px) {
   .site-footer-polished { margin-top: calc(3rem + 180px); }
   .site-footer-layout { align-items: flex-start; flex-direction: column; gap: 1.25rem; }
@@ -1990,6 +1990,28 @@ input:-webkit-autofill {
   color: var(--text);
   overflow: hidden;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.card-tile.card-tile-with-actions {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-width: 0;
+}
+
+.card-tile-link {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.65rem 1rem;
+  color: inherit;
+}
+
+.copy-once-button {
+  flex-shrink: 0;
+  margin: 0 0.5rem 0.5rem;
+  font-size: 0.75rem;
 }
 
 .card-tile:hover {
