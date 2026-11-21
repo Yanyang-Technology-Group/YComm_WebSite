@@ -49,11 +49,11 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | `Post` | `id`, `topic_id`, `author_id`, `position`, `content_md`, `status`, `reply_to_post_id`, `edited_at`, `edit_count`, `created_at`, `deleted_at`, `deleted_by`；详情列表另有 `authorUsername`, `authorDisplayName`, `authorAvatarPath`, `authorBadges`。 |
 | `Resource` | 对外字段：`id`, `categoryId`, `authorId`, `title`, `summary`, `descriptionMd`, `versionLabel`, `sourceType`, `status`, `downloadCount`, `viewCount`, `publishedAt`, `createdAt`。下载链接、提取码和访问策略不会随资源返回。 |
 | `Category` | `id`, `slug`, `name`, `description`, `sort_order`, `access_policy`, `archived_at`, `created_at`, `updated_at`，另加解析后的 `policy`；只返回当前访问者可见的分类。 |
-| `Card` | 公开卡片为 `id`, `parentId`, `title`, `subtitle`, `subtitleUrl`, `kind`, `redirectUrl`, `redirectProxy`, `w`, `h`, `position`；扁平返回，客户端按 `parentId` 组树。代理开启时 `redirectUrl` 为 null。 |
+| `Card` | 公开卡片为 `id`, `parentId`, `title`, `subtitle`, `subtitleUrl`, `kind`, `redirectUrl`, `redirectProxy`, `oneTimeLinkEnabled`, `w`, `h`, `position`；扁平返回，客户端按 `parentId` 组树。代理开启时 `redirectUrl` 为 null；`oneTimeLinkEnabled` 控制复制一次性下载链接按钮，默认 false。 |
 | `ModerationItem` | `id`, `target_type`, `target_id`, `reason`, `reporter_id`, `detail`, `status`, `decided_by`, `decided_at`, `decision_note`, `created_at`。 |
 | `NotificationGroup` | `key`, `kind`, `title`, `body`, `linkUrl`, `isAdmin`, `count`, `unreadCount`, `latestAt`, `actors`（最多 8 个）、`sampleCreatedAt`。 |
 | `AdminUser` | `PublicUser` 加 `email`, `postCount`, `likeReceivedCount`, `createdAt`, `mutedUntil`, `bannedUntil`, `muteReason`, `banReason`；用户列表另加 `githubUsername`, `lastLoginAt`, `inviteCodeUsed`。 |
-| `AdminCard` | `id`, `parentId`, `title`, `subtitle`, `subtitleUrl`, `kind`, `redirectUrl`, `w`, `h`, `visibility`, `position`, `status`。 |
+| `AdminCard` | `id`, `parentId`, `title`, `subtitle`, `subtitleUrl`, `kind`, `redirectUrl`, `redirectProxy`, `oneTimeLinkEnabled`, `w`, `h`, `visibility`, `position`, `status`。 |
 | `AdminBoard` | `id`, `slug`, `name`, `description`, `parentId`, `sortOrder`, `visibility`, `minLevel`, `requireInvite`, `postingPolicy`, `archivedAt`, `createdAt`。 |
 
 下列表格中的 `Path` 表示路径参数、`Query` 表示查询参数、`JSON` 表示请求体。未列出的参数类别表示无；没有请求体的接口不要发送业务 JSON。字符串字段的数字范围表示字符长度。
@@ -131,6 +131,10 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | `GET /api/downloads/categories` | 公开/可选会话 | 无 | `{ categories: Category[] }`，按访问策略过滤。 |
 | `GET /api/downloads/cards` | 公开/可选会话 | 无 | `{ cards: Card[] }`，仅已发布且可见卡片，扁平返回。 |
 | `GET /api/downloads/cards/:cardId/go` | 公开/可选会话；卡片必须已审核且当前访问者可见 | Path `cardId`；可选 `Range`、`If-Range` | 仅代理开启的外链卡片可用；服务器代理目标响应并支持范围请求，不向客户端返回目标 URL 或跟随目标重定向。 |
+| `HEAD /api/downloads/cards/:cardId/go` | 与 GET 相同 | 同 GET | 返回代理下载的响应头，不返回响应体，供下载器探测。 |
+| `POST /api/downloads/cards/:cardId/one-time-links` | 公开/可选会话；卡片必须当前可见且已开启一次性链接；限流 | Path `cardId`；无请求体 | HTTP 201；`{ url, expiresAt }`，`url` 为本站相对下载地址，`expiresAt` 为 ISO 8601；有效期 1 小时。未开启或卡片不可见时返回 404。 |
+| `GET /api/downloads/one-time` | 无需 Cookie；持有有效 token 即可下载 | Query：`token`；可选 `Range`、`If-Range` | 首个 GET 原子消耗链接并代理下载，不暴露原始 URL；并发或后续 GET、过期、开关关闭、卡片删除或非已批准状态返回 HTTP 410（`DOWNLOAD_LINK_EXPIRED`）。代理失败也不会恢复已消耗链接。 |
+| `HEAD /api/downloads/one-time` | 无需 Cookie；有效 token | Query：`token` | 仅探测响应头，不消耗链接；链接失效时同样返回 HTTP 410。 |
 | `GET /api/downloads/resources` | 公开/可选会话 | Query：可选 `categoryId`，`offset` 默认 0，`limit` 默认 20、最大 100 | `{ resources, total }`，仅已发布且当前主体可见。 |
 | `GET /api/downloads/resources/:resourceId` | 可选会话；须账号状态可用、策略允许且有 `DOWNLOAD_RESOURCE_VIEW` | Path `resourceId` | `{ resource: Resource }`。 |
 | `POST /api/downloads/resources` | 权限 `DOWNLOAD_RESOURCE_CREATE` | JSON：`categorySlug`, `title` 1–80；可选 `summary` ≤300、`description` ≤20000、`versionLabel` ≤40；`sourceType=external\|local` 默认 external；`visibility=public\|login\|invite` 默认 login | HTTP 201；`{ resource: Resource }`；资源状态由创建者角色/审核规则决定。 |
@@ -235,7 +239,7 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | 方法与路径 | 权限 | 路径/请求体 | 成功 `data` 与特殊行为 |
 |---|---|---|---|
 | `GET /api/admin/cards` | `ADMIN_DASHBOARD_ACCESS` | 无 | `{ cards: AdminCard[] }`，含所有状态和可见度。 |
-| `POST /api/admin/cards` | `ADMIN_DASHBOARD_ACCESS` | JSON：`title` 1–80；可选 `parentId`（可 null）、`insertBeforeId`, `subtitle` ≤200、`subtitleUrl` ≤2000/null、`kind: container\|redirect\|resources`（默认 container）、`redirectUrl` ≤2000/null、`w`,`h` 1–6、`visibility: public\|login\|invite\|staff`（默认 public）、整数 `position` | HTTP 201；`{ card: AdminCard }`。`insertBeforeId` 存在时优先使用其同层位置并忽略 `parentId/position`。非 owner 创建可能进入审核。 |
+| `POST /api/admin/cards` | `ADMIN_DASHBOARD_ACCESS` | JSON：`title` 1–80；可选 `parentId`（可 null）、`insertBeforeId`, `subtitle` ≤200、`subtitleUrl` ≤2000/null、`kind: container\|redirect\|resources`（默认 container）、`redirectUrl` ≤2000/null、`redirectProxy: boolean`（默认 true）、`oneTimeLinkEnabled: boolean`（默认 false，旧卡片也默认关闭）、`w`,`h` 1–6、`visibility: public\|login\|invite\|staff`（默认 public）、整数 `position` | HTTP 201；`{ card: AdminCard }`。`insertBeforeId` 存在时优先使用其同层位置并忽略 `parentId/position`。非 owner 创建可能进入审核。 |
 | `PATCH /api/admin/cards/:cardId` | `ADMIN_DASHBOARD_ACCESS` | Path `cardId`；JSON 为创建字段的可选版本（不含 `insertBeforeId`） | `{ card: AdminCard }`；防止形成父子循环。 |
 | `POST /api/admin/cards/:cardId/review` | `ADMIN_DASHBOARD_ACCESS` 且角色必须 owner | Path `cardId`；JSON：`decision: approve\|reject` | `{ card: AdminCard }`；通知创建者。 |
 | `DELETE /api/admin/cards/:cardId` | `ADMIN_DASHBOARD_ACCESS` | Path `cardId` | `null`。 |
