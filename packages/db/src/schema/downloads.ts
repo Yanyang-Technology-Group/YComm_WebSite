@@ -1,5 +1,6 @@
 import {
   bigint,
+  boolean,
   index,
   integer,
   pgEnum,
@@ -179,6 +180,7 @@ export const downloadCards = pgTable(
     subtitle_url: text('subtitle_url'),
     kind: downloadCardKindEnum('kind').notNull().default('container'),
     redirect_url: text('redirect_url'),
+    redirect_proxy: boolean('redirect_proxy').notNull().default(true),
     w: integer('w').notNull().default(1),
     h: integer('h').notNull().default(1),
     visibility: text('visibility').notNull().default('public'),

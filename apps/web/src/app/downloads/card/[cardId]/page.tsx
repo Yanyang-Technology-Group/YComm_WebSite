@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation';
 import { apiGet } from '../../../../lib/server-api';
 import { CardGrid, type PublicCard } from '../../../../components/card-grid';
 import { MarkdownContent } from '../../../../components/markdown-content';
-import { forumLinkTarget } from '../../../../lib/external-link';
 
 export const metadata: Metadata = { title: '下载区' };
 export const dynamic = 'force-dynamic';
@@ -67,8 +66,16 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
     );
   }
 
-  if (card.kind === 'redirect' && card.redirectUrl) {
-    redirect(forumLinkTarget(card.redirectUrl).href);
+  if (card.kind === 'redirect') {
+    if (card.redirectProxy) redirect(`/api/downloads/cards/${card.id}/go`);
+    if (card.redirectUrl) {
+      try {
+        const target = new URL(card.redirectUrl);
+        if (target.protocol === 'http:' || target.protocol === 'https:') redirect(target.href);
+      } catch {
+        // Invalid configured URLs fall through to the card's unavailable state.
+      }
+    }
   }
 
   if (card.kind === 'container') {

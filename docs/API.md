@@ -49,7 +49,7 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 | `Post` | `id`, `topic_id`, `author_id`, `position`, `content_md`, `status`, `reply_to_post_id`, `edited_at`, `edit_count`, `created_at`, `deleted_at`, `deleted_by`；详情列表另有 `authorUsername`, `authorDisplayName`, `authorAvatarPath`, `authorBadges`。 |
 | `Resource` | 对外字段：`id`, `categoryId`, `authorId`, `title`, `summary`, `descriptionMd`, `versionLabel`, `sourceType`, `status`, `downloadCount`, `viewCount`, `publishedAt`, `createdAt`。下载链接、提取码和访问策略不会随资源返回。 |
 | `Category` | `id`, `slug`, `name`, `description`, `sort_order`, `access_policy`, `archived_at`, `created_at`, `updated_at`，另加解析后的 `policy`；只返回当前访问者可见的分类。 |
-| `Card` | 公开卡片为 `id`, `parentId`, `title`, `subtitle`, `subtitleUrl`, `kind`, `redirectUrl`, `w`, `h`, `position`；扁平返回，客户端按 `parentId` 组树。 |
+| `Card` | 公开卡片为 `id`, `parentId`, `title`, `subtitle`, `subtitleUrl`, `kind`, `redirectUrl`, `redirectProxy`, `w`, `h`, `position`；扁平返回，客户端按 `parentId` 组树。代理开启时 `redirectUrl` 为 null。 |
 | `ModerationItem` | `id`, `target_type`, `target_id`, `reason`, `reporter_id`, `detail`, `status`, `decided_by`, `decided_at`, `decision_note`, `created_at`。 |
 | `NotificationGroup` | `key`, `kind`, `title`, `body`, `linkUrl`, `isAdmin`, `count`, `unreadCount`, `latestAt`, `actors`（最多 8 个）、`sampleCreatedAt`。 |
 | `AdminUser` | `PublicUser` 加 `email`, `postCount`, `likeReceivedCount`, `createdAt`, `mutedUntil`, `bannedUntil`, `muteReason`, `banReason`；用户列表另加 `githubUsername`, `lastLoginAt`, `inviteCodeUsed`。 |
@@ -130,6 +130,7 @@ JSON 请求使用 `Content-Type: application/json`。文件和图片上传使用
 |---|---|---|---|
 | `GET /api/downloads/categories` | 公开/可选会话 | 无 | `{ categories: Category[] }`，按访问策略过滤。 |
 | `GET /api/downloads/cards` | 公开/可选会话 | 无 | `{ cards: Card[] }`，仅已发布且可见卡片，扁平返回。 |
+| `GET /api/downloads/cards/:cardId/go` | 公开/可选会话；卡片必须已审核且当前访问者可见 | Path `cardId`；可选 `Range`、`If-Range` | 仅代理开启的外链卡片可用；服务器代理目标响应并支持范围请求，不向客户端返回目标 URL 或跟随目标重定向。 |
 | `GET /api/downloads/resources` | 公开/可选会话 | Query：可选 `categoryId`，`offset` 默认 0，`limit` 默认 20、最大 100 | `{ resources, total }`，仅已发布且当前主体可见。 |
 | `GET /api/downloads/resources/:resourceId` | 可选会话；须账号状态可用、策略允许且有 `DOWNLOAD_RESOURCE_VIEW` | Path `resourceId` | `{ resource: Resource }`。 |
 | `POST /api/downloads/resources` | 权限 `DOWNLOAD_RESOURCE_CREATE` | JSON：`categorySlug`, `title` 1–80；可选 `summary` ≤300、`description` ≤20000、`versionLabel` ≤40；`sourceType=external\|local` 默认 external；`visibility=public\|login\|invite` 默认 login | HTTP 201；`{ resource: Resource }`；资源状态由创建者角色/审核规则决定。 |

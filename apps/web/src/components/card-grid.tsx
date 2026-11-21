@@ -1,6 +1,14 @@
 import Link from 'next/link';
 import { MarkdownContent } from './markdown-content';
-import { forumLinkTarget } from '../lib/external-link';
+
+function directDownloadTarget(raw: string): string {
+  try {
+    const url = new URL(raw);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '#';
+  } catch {
+    return '#';
+  }
+}
 
 export interface PublicCard {
   id: string;
@@ -10,6 +18,7 @@ export interface PublicCard {
   subtitleUrl: string | null;
   kind: string;
   redirectUrl: string | null;
+  redirectProxy?: boolean;
   /** 可见度：public 公开 / login 需登录 / invite 需注册码 / staff 仅管理员。 */
   visibility?: string;
   w: number;
@@ -48,9 +57,14 @@ export function CardGrid({ cards }: { cards: PublicCard[] }) {
             )}
           </>
         );
-        if (card.kind === 'redirect' && card.redirectUrl) {
+        if (card.kind === 'redirect' && (card.redirectProxy || card.redirectUrl)) {
           return (
-            <Link key={card.id} href={forumLinkTarget(card.redirectUrl).href} className="card-tile" style={style}>
+            <Link
+              key={card.id}
+              href={card.redirectProxy ? `/api/downloads/cards/${card.id}/go` : directDownloadTarget(card.redirectUrl!)}
+              className="card-tile"
+              style={style}
+            >
               {body}
             </Link>
           );

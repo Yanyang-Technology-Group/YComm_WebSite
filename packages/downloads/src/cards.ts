@@ -104,6 +104,7 @@ export interface CreateCardInput {
   subtitle?: string;
   kind: CardKind;
   redirectUrl?: string | null;
+  redirectProxy?: boolean;
   w?: number;
   h?: number;
   visibility?: CardVisibility;
@@ -146,6 +147,7 @@ export async function createCard(
       subtitle_url: input.subtitleUrl ?? null,
       kind: input.kind,
       redirect_url: input.redirectUrl ?? null,
+      redirect_proxy: input.redirectProxy ?? true,
       w: input.w ?? 1,
       h: input.h ?? 1,
       visibility: input.visibility ?? 'public',
@@ -199,6 +201,7 @@ export interface UpdateCardInput {
   subtitleUrl?: string | null;
   kind?: CardKind;
   redirectUrl?: string | null;
+  redirectProxy?: boolean;
   w?: number;
   h?: number;
   visibility?: CardVisibility;
@@ -215,6 +218,7 @@ export async function updateCard(db: Db, cardId: string, patch: UpdateCardInput)
       ...(patch.subtitleUrl !== undefined ? { subtitle_url: patch.subtitleUrl } : {}),
       ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
       ...(patch.redirectUrl !== undefined ? { redirect_url: patch.redirectUrl } : {}),
+      ...(patch.redirectProxy !== undefined ? { redirect_proxy: patch.redirectProxy } : {}),
       ...(patch.w !== undefined ? { w: patch.w } : {}),
       ...(patch.h !== undefined ? { h: patch.h } : {}),
       ...(patch.visibility !== undefined ? { visibility: patch.visibility } : {}),

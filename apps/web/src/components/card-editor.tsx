@@ -14,6 +14,7 @@ interface AdminCard {
   subtitleUrl: string | null;
   kind: string;
   redirectUrl: string | null;
+  redirectProxy: boolean;
   w: number;
   h: number;
   visibility: string;
@@ -147,6 +148,7 @@ export function CardsPanel() {
       visibility: String(fd.get('visibility') ?? 'public'),
       parentId: newParentId || null,
       redirectUrl: kind === 'redirect' ? String(fd.get('redirectUrl') ?? '') : null,
+      redirectProxy: fd.get('redirectProxy') === 'on',
       w: 1,
       h: 1,
     };
@@ -189,6 +191,7 @@ export function CardsPanel() {
           // 允许把已有卡片移动到另一张卡片里（真正的「套娃」开关）。
           parentId: fd.get('parentId') ? String(fd.get('parentId')) : null,
           redirectUrl: kind === 'redirect' ? String(fd.get('redirectUrl') ?? '') : null,
+          redirectProxy: fd.get('redirectProxy') === 'on',
         }),
       });
       await refresh();
@@ -556,6 +559,10 @@ export function CardsPanel() {
           </select>
         </div>
         <input name="redirectUrl" placeholder="外链地址（仅「外链跳转」时用）" style={{ padding: '0.4rem' }} />
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+          <input type="checkbox" name="redirectProxy" defaultChecked />
+          代理加密下载地址（访问者不会收到原始 URL）
+        </label>
         <button type="submit" className="primary" style={{ alignSelf: 'flex-start' }}>
           {newParentId ? `新增子卡片到「${parentTitle(newParentId)}」` : '新增卡片'}
         </button>
@@ -653,6 +660,10 @@ export function CardsPanel() {
             </select>
           </div>
           <input name="redirectUrl" defaultValue={selected.redirectUrl ?? ''} placeholder="外链地址" style={{ padding: '0.4rem' }} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+            <input type="checkbox" name="redirectProxy" defaultChecked={selected.redirectProxy} />
+            代理加密下载地址（访问者不会收到原始 URL）
+          </label>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
               宽

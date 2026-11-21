@@ -105,6 +105,7 @@ const cardCreateSchema = z.object({
   subtitleUrl: z.string().max(2000).nullable().optional(),
   kind: z.enum(['container', 'redirect', 'resources']).default('container'),
   redirectUrl: z.string().max(2000).nullable().optional(),
+  redirectProxy: z.boolean().default(true),
   w: z.number().int().min(1).max(6).optional(),
   h: z.number().int().min(1).max(6).optional(),
   visibility: z.enum(['public', 'login', 'invite', 'staff']).default('public'),
@@ -118,6 +119,7 @@ const cardUpdateSchema = z.object({
   subtitleUrl: z.string().max(2000).nullable().optional(),
   kind: z.enum(['container', 'redirect', 'resources']).optional(),
   redirectUrl: z.string().max(2000).nullable().optional(),
+  redirectProxy: z.boolean().optional(),
   w: z.number().int().min(1).max(6).optional(),
   h: z.number().int().min(1).max(6).optional(),
   visibility: z.enum(['public', 'login', 'invite', 'staff']).optional(),
@@ -706,6 +708,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
             subtitleUrl: body.subtitleUrl,
             kind: body.kind,
             redirectUrl: body.redirectUrl,
+            redirectProxy: body.redirectProxy,
             w: body.w,
             h: body.h,
             visibility: body.visibility,
@@ -722,6 +725,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
             subtitleUrl: body.subtitleUrl,
             kind: body.kind,
             redirectUrl: body.redirectUrl,
+            redirectProxy: body.redirectProxy,
             w: body.w,
             h: body.h,
             visibility: body.visibility,
@@ -755,6 +759,7 @@ export function adminRoutes(): Hono<{ Variables: AppVariables }> {
       subtitleUrl: body.subtitleUrl,
       kind: body.kind,
       redirectUrl: body.redirectUrl,
+      redirectProxy: body.redirectProxy,
       w: body.w,
       h: body.h,
       visibility: body.visibility,
@@ -930,6 +935,7 @@ function adminCard(card: {
   subtitle_url: string | null;
   kind: string;
   redirect_url: string | null;
+  redirect_proxy: boolean;
   w: number;
   h: number;
   visibility: string;
@@ -944,6 +950,7 @@ function adminCard(card: {
     subtitleUrl: card.subtitle_url,
     kind: card.kind,
     redirectUrl: card.redirect_url,
+    redirectProxy: card.redirect_proxy,
     w: card.w,
     h: card.h,
     visibility: card.visibility,

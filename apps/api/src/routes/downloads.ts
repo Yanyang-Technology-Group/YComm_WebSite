@@ -15,6 +15,7 @@ import {
   listPublishedResources,
   listVisibleCategories,
   listVisibleCards,
+  getCard,
   openLocalFile,
   removeLink,
   reportDeadLink,
@@ -84,7 +85,8 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
           subtitle: card.subtitle,
           subtitleUrl: card.subtitle_url,
           kind: card.kind,
-          redirectUrl: card.redirect_url,
+          redirectUrl: card.redirect_proxy ? null : card.redirect_url,
+          redirectProxy: card.redirect_proxy,
           // 可见度对外展示（公开 / 需登录 / 需注册码 / 仅管理员）
           visibility: card.visibility,
           w: card.w,
@@ -93,6 +95,51 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
         })),
       },
     });
+  });
+
+  router.get('/cards/:cardId/go', async (c) => {
+    const handle = await getDb();
+    const card = await getCard(handle.db, c.req.param('cardId'));
+    if (!card || card.kind !== 'redirect' || !card.redirect_proxy || !card.redirect_url) {
+      throw errors.notFound('加密跳转卡片不存在');
+    }
+    const subject = c.get('auth')?.subject ?? null;
+    const visibleCards = await listVisibleCards(handle.db, subject);
+    if (!visibleCards.some((entry) => entry.id === card.id)) throw errors.notFound('卡片不存在');
+
+    let target: URL;
+    try {
+      target = new URL(card.redirect_url);
+    } catch {
+      throw errors.notFound('跳转地址无效');
+    }
+    if (target.protocol !== 'https:' && target.protocol !== 'http:') throw errors.notFound('跳转地址无效');
+
+    let upstream: Response;
+    try {
+      const range = c.req.header('range');
+      const ifRange = c.req.header('if-range');
+      upstream = await fetch(target, {
+        headers: {
+          ...(range ? { range } : {}),
+          ...(ifRange ? { 'if-range': ifRange } : {}),
+        },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch {
+      throw errors.notFound('目标下载暂时无法访问');
+    }
+    if (upstream.status >= 300 && upstream.status < 400) throw errors.notFound('目标地址暂不支持跳转');
+
+    c.header('Cache-Control', 'private, no-store');
+    c.header('X-Content-Type-Options', 'nosniff');
+    for (const header of ['content-type', 'content-length', 'content-disposition', 'accept-ranges', 'content-range']) {
+      const value = upstream.headers.get(header);
+      if (value) c.header(header, value);
+    }
+    if (!upstream.body) return c.body(null, upstream.status as never);
+    return c.body(upstream.body, upstream.status as never);
   });
 
   router.get('/resources', async (c) => {
