@@ -97,7 +97,7 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
     });
   });
 
-  router.get('/cards/:cardId/go', async (c) => {
+  router.on(['GET', 'HEAD'], '/cards/:cardId/go', async (c) => {
     const handle = await getDb();
     const card = await getCard(handle.db, c.req.param('cardId'));
     if (!card || card.kind !== 'redirect' || !card.redirect_proxy || !card.redirect_url) {
@@ -117,26 +117,43 @@ export function downloadsRoutes(): Hono<{ Variables: AppVariables }> {
 
     let upstream: Response;
     try {
-      const range = c.req.header('range');
-      const ifRange = c.req.header('if-range');
+      const forwardedHeaders: Record<string, string> = { 'accept-encoding': 'identity' };
+      for (const name of ['range', 'if-range', 'if-match', 'if-none-match', 'if-modified-since', 'if-unmodified-since']) {
+        const value = c.req.header(name);
+        if (value) forwardedHeaders[name] = value;
+      }
       upstream = await fetch(target, {
-        headers: {
-          ...(range ? { range } : {}),
-          ...(ifRange ? { 'if-range': ifRange } : {}),
-        },
-        redirect: 'manual',
+        method: c.req.method,
+        headers: forwardedHeaders,
+        // Follow redirects on the server so CDN URLs never appear in Location headers.
+        redirect: 'follow',
         signal: AbortSignal.timeout(30_000),
       });
     } catch {
       throw errors.notFound('目标下载暂时无法访问');
     }
-    if (upstream.status >= 300 && upstream.status < 400) throw errors.notFound('目标地址暂不支持跳转');
 
     c.header('Cache-Control', 'private, no-store');
     c.header('X-Content-Type-Options', 'nosniff');
-    for (const header of ['content-type', 'content-length', 'content-disposition', 'accept-ranges', 'content-range']) {
+    for (const header of [
+      'content-type', 'content-length', 'accept-ranges', 'content-range',
+      'etag', 'last-modified',
+    ]) {
       const value = upstream.headers.get(header);
       if (value) c.header(header, value);
+    }
+    const contentDisposition = upstream.headers.get('content-disposition');
+    if (contentDisposition) {
+      c.header('Content-Disposition', contentDisposition);
+    } else {
+      const lastPathSegment = new URL(upstream.url || target).pathname.split('/').pop() ?? '';
+      let fileName = lastPathSegment;
+      try { fileName = decodeURIComponent(lastPathSegment); } catch { /* Keep the encoded segment. */ }
+      fileName = Array.from(fileName, (character) => {
+        const code = character.charCodeAt(0);
+        return code < 0x20 || code === 0x7f || character === '/' || character === '\\' ? '_' : character;
+      }).join('').trim().slice(0, 180) || 'download';
+      c.header('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
     }
     if (!upstream.body) return c.body(null, upstream.status as never);
     return c.body(upstream.body, upstream.status as never);
