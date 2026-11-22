@@ -47,7 +47,7 @@ export function SiteNav() {
       {open && (
         <div className="nav-drawer">
           {items.map((item) => (
-            <Link key={item.href} href={item.href} className="nav-drawer-link">
+            <Link key={item.href} href={item.href} prefetch={false} className="nav-drawer-link">
               {item.label}
             </Link>
           ))}
@@ -56,7 +56,7 @@ export function SiteNav() {
 
       <nav className="site-nav">
         {items.map((item) => (
-          <Link key={item.href} href={item.href} className="nav-link" aria-current={(item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)) ? 'page' : undefined}>
+        <Link key={item.href} href={item.href} prefetch={false} className="nav-link" aria-current={(item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)) ? 'page' : undefined}>
             {item.label}
           </Link>
         ))}

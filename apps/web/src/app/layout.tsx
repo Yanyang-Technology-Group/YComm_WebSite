@@ -55,7 +55,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <div className="anim-veil" aria-hidden="true" />
         <header className="site-header">
           <div className="site-header-inner">
-            <Link href="/" className="brand">
+            <Link href="/" prefetch={false} className="brand">
               <img src="/logo.png" alt={branding.name} className="logo" />
               <span className="brand-name">{branding.name}</span>
             </Link>

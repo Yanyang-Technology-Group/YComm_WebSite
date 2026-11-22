@@ -89,7 +89,7 @@ export default async function TopicPage({
           <div className="post-footer">
             <div className="post-author">
               {post.authorUsername ? (
-                <Link href={`/users/${encodeURIComponent(post.authorUsername)}`}>
+                <Link href={`/users/${encodeURIComponent(post.authorUsername)}`} prefetch={false}>
                   {post.authorAvatarPath ? (
                     <img
                       src={post.authorAvatarPath}
@@ -120,6 +120,7 @@ export default async function TopicPage({
                   <Link
                     className="uname"
                     href={`/users/${encodeURIComponent(post.authorUsername)}`}
+                    prefetch={false}
                   >
                     {post.authorDisplayName ?? post.authorUsername}
                   </Link>

@@ -79,7 +79,7 @@ export function CardGrid({ cards }: { cards: PublicCard[] }) {
           );
         }
         return (
-          <Link key={card.id} href={`/downloads/card/${card.id}`} className="card-tile" style={style}>
+          <Link key={card.id} href={`/downloads/card/${card.id}`} prefetch={false} className="card-tile" style={style}>
             {body}
           </Link>
         );

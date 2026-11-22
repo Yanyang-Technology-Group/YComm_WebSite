@@ -111,7 +111,7 @@ export default async function CardPage({ params }: { params: Promise<{ cardId: s
       )}
       {resources.length === 0 && <p className="muted">暂无已发布资源。</p>}
       {resources.map((resource) => (
-        <Link key={resource.id} href={`/downloads/${resource.id}`} className="card topic-link">
+        <Link key={resource.id} href={`/downloads/${resource.id}`} prefetch={false} className="card topic-link">
           <strong>{resource.title}</strong>
           {resource.versionLabel && <span className="muted"> v{resource.versionLabel}</span>}
           {resource.summary && <div className="muted">{resource.summary}</div>}

@@ -69,10 +69,10 @@ export function SessionNav() {
   if (!user) {
     return (
       <>
-        <Link href="/login" className="nav-auth">
+        <Link href="/login" prefetch={false} className="nav-auth">
           登录
         </Link>
-        <Link href="/register" className="nav-auth nav-auth-strong">
+        <Link href="/register" prefetch={false} className="nav-auth nav-auth-strong">
           注册
         </Link>
       </>
@@ -115,6 +115,7 @@ export function SessionNav() {
 
       <Link
         href={homeHref}
+        prefetch={false}
         className="nav-console nav-console-avatar"
         title="我的主页"
         aria-label="我的主页"
@@ -125,7 +126,7 @@ export function SessionNav() {
           <span className="nav-avatar-initial">{user.username.slice(0, 1).toUpperCase()}</span>
         )}
       </Link>
-      <Link href="/dashboard" className="nav-console" title="进入控制台">
+      <Link href="/dashboard" prefetch={false} className="nav-console" title="进入控制台">
         控制台
       </Link>
       <LogoutButton />

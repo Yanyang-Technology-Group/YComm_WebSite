@@ -84,12 +84,13 @@ export function TopicRow({ topic, slug }: { topic: TopicRowData; slug: string })
     return (
       <>
         {!labelOnly && (
-          <Link href={href} onClick={(event) => event.stopPropagation()} aria-label={displayName ?? username}>
+          <Link href={href} prefetch={false} onClick={(event) => event.stopPropagation()} aria-label={displayName ?? username}>
             <Avatar path={avatarPath} name={displayName} small={small} />
           </Link>
         )}
         <Link
           href={href}
+          prefetch={false}
           className="uname"
           onClick={(event) => event.stopPropagation()}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}

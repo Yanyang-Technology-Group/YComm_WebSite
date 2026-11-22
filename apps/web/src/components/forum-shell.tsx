@@ -140,12 +140,12 @@ export function ForumShell({ children }: { children: React.ReactNode }) {
         {boards.map((board) => {
           const active = pathname === `/forum/${board.slug}`;
           return (
-            <Link key={board.slug} href={`/forum/${board.slug}`} className={`app-nav-link${active ? ' active' : ''}`}>
+            <Link key={board.slug} href={`/forum/${board.slug}`} prefetch={false} className={`app-nav-link${active ? ' active' : ''}`}>
               {board.name}
             </Link>
           );
         })}
-        <Link href="/forum" className={`app-nav-link${pathname === '/forum' ? ' active' : ''}`}>
+        <Link href="/forum" prefetch={false} className={`app-nav-link${pathname === '/forum' ? ' active' : ''}`}>
           全部版块
         </Link>
       </aside>

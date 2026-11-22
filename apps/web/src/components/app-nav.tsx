@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { lazy, Suspense } from 'react';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { SettingsNav } from '@extrastu/nuphy-ui';
 import { UserRound, FileText, Eye, LockKeyhole, Paintbrush, House, LayoutDashboard, UsersRound, PanelsTopLeft, Download, Award, ShieldCheck, History, Settings2, KeyRound, Mail } from 'lucide-react';
 import { getSession } from '../lib/session';
 import { useUiStyle } from '../lib/use-ui-style';
@@ -37,6 +37,8 @@ const ADMIN_LINKS = [
 
 /** 仅站长可见的入口（API 密钥）。 */
 const OWNER_LINKS = [{ href: '/admin/api-keys', label: 'API 密钥' }] as const;
+
+const SettingsNav = lazy(() => import('@extrastu/nuphy-ui').then((module) => ({ default: module.SettingsNav })));
 
 export function AppNav() {
   const style = useUiStyle();
@@ -85,13 +87,17 @@ export function AppNav() {
       <div className="apple-nav-identity"><UserRound aria-hidden="true" /><span>{username ? `@${username}` : '控制台'}<small>{isOwner ? '站长' : staff ? '管理员' : '个人账号'}</small></span></div>
       <section className="app-nav-group" aria-labelledby="apple-personal-heading">
         <p className="app-nav-title" id="apple-personal-heading">个人</p>
-        <SettingsNav aria-label="个人导航" items={personal} value={value}
-          onValueChange={(id) => { const link = personal.find((entry) => entry.id === id); if (link) router.push(link.href); }} />
+        <Suspense fallback={null}>
+          <SettingsNav aria-label="个人导航" items={personal} value={value}
+            onValueChange={(id) => { const link = personal.find((entry) => entry.id === id); if (link) router.push(link.href); }} />
+        </Suspense>
       </section>
       {staff && <section className="app-nav-group" aria-labelledby="apple-management-heading">
         <p className="app-nav-title" id="apple-management-heading">管理</p>
-        <SettingsNav aria-label="管理导航" items={management} value={value}
-          onValueChange={(id) => { const link = management.find((entry) => entry.id === id); if (link) router.push(link.href); }} />
+        <Suspense fallback={null}>
+          <SettingsNav aria-label="管理导航" items={management} value={value}
+            onValueChange={(id) => { const link = management.find((entry) => entry.id === id); if (link) router.push(link.href); }} />
+        </Suspense>
       </section>}
     </aside>;
   }
@@ -104,13 +110,14 @@ export function AppNav() {
           <Link
             key={link.section}
             href={link.href}
+            prefetch={false}
             className={`app-nav-link${onDashboard && section === link.section ? ' active' : ''}`}
           >
             {link.label}
           </Link>
         ))}
         {username && (
-          <Link href={`/users/${encodeURIComponent(username)}`} className="app-nav-link">
+          <Link href={`/users/${encodeURIComponent(username)}`} prefetch={false} className="app-nav-link">
             我的主页
           </Link>
         )}
@@ -123,7 +130,7 @@ export function AppNav() {
             // 管理后台首页只在 /admin 精确命中时高亮，其他子页各自高亮。
             const active = link.href === '/admin' ? pathname === '/admin' : pathname === link.href;
             return (
-              <Link key={link.href} href={link.href} className={`app-nav-link${active ? ' active' : ''}`}>
+              <Link key={link.href} href={link.href} prefetch={false} className={`app-nav-link${active ? ' active' : ''}`}>
                 {link.label}
               </Link>
             );
@@ -133,6 +140,7 @@ export function AppNav() {
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch={false}
                 className={`app-nav-link${pathname === link.href ? ' active' : ''}`}
               >
                 {link.label}

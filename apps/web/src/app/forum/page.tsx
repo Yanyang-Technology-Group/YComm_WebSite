@@ -24,7 +24,7 @@ export default async function ForumPage() {
       {!result.ok && <p className="muted">无法加载版块列表</p>}
       {boards.length === 0 && <p className="muted">还没有版块，等管理员创建。</p>}
       {boards.map((board) => (
-        <Link key={board.slug} href={`/forum/${board.slug}`} className="card topic-link">
+        <Link key={board.slug} href={`/forum/${board.slug}`} prefetch={false} className="card topic-link">
           <strong>{board.name}</strong>
           <span className="muted" style={{ marginLeft: '0.6rem' }}>
             {board.topic_count} 主题 · {board.post_count} 帖子

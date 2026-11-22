@@ -498,7 +498,7 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
               <h2 className="section-title">我的主题（{topics.length}）</h2>
               {topics.length === 0 && <p className="muted">暂无主题。</p>}
               {topics.map((t) => (
-                <Link key={t.id} href={`/forum/${t.board_slug}/${t.id}`} className="card topic-link">
+                <Link key={t.id} href={`/forum/${t.board_slug}/${t.id}`} prefetch={false} className="card topic-link">
                   <strong>{t.title}</strong>
                   <span className="muted" style={{ marginLeft: '0.5rem' }}>
                     {formatDateTime(t.created_at)} 发表 · {t.reply_count} 回复 · {t.view_count} 浏览
@@ -511,7 +511,7 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
               <h2 className="section-title">我的回帖（{posts.length}）</h2>
               {posts.length === 0 && <p className="muted">暂无回帖。</p>}
               {posts.map((p) => (
-                <Link key={p.id} href={`/forum/${p.board_slug}/${p.topic_id}`} className="card topic-link">
+                <Link key={p.id} href={`/forum/${p.board_slug}/${p.topic_id}`} prefetch={false} className="card topic-link">
                   <div className="muted">
                     {formatDateTime(p.created_at)} 回帖于「{p.topic_title}」
                   </div>
@@ -526,7 +526,7 @@ export function DashboardPanel({ captcha }: { captcha: CaptchaConfig | null }) {
               <h2 className="section-title">我的资源（{resources.length}）</h2>
               {resources.length === 0 && <p className="muted">暂无资源。</p>}
               {resources.map((r) => (
-                <Link key={r.id} href={`/downloads/${r.id}`} className="card topic-link">
+                <Link key={r.id} href={`/downloads/${r.id}`} prefetch={false} className="card topic-link">
                   <strong>{r.title}</strong>
                   <span className="muted" style={{ marginLeft: '0.5rem' }}>
                     [{r.status} · {r.source_type === 'external' ? '外链' : '本站文件'} · 下载 {r.download_count}]
