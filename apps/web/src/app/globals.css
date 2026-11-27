@@ -2095,6 +2095,19 @@ html[data-theme-mode='dark'] .card-vis-staff {
 }
 
 /* 后台卡片编辑器（固定网格单位，便于拖拽换算尺寸） */
+.simple-card-editor {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(300px, 1.1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .simple-card-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .card-editor-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, 150px);

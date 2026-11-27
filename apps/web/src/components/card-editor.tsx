@@ -57,8 +57,194 @@ const HANDLES = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'] as const;
 const UNIT_W = 162; // 150px 列宽 + 12px 间距
 const UNIT_H = 122; // 110px 行高 + 12px 间距
 
-/** 下载区卡片门户后台编辑器：增删改 + 无限套娃（树形展示）+ 可视化拖拽缩放。 */
+/** 新版使用精简表单；右上角可随时切回完整树形旧版。 */
 export function CardsPanel() {
+  const [editor, setEditor] = useState<'simple' | 'legacy'>('simple');
+
+  return (
+    <section>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', margin: '0 0 0.75rem' }}>
+        <button type="button" className={editor === 'simple' ? 'primary' : undefined} aria-pressed={editor === 'simple'} onClick={() => setEditor('simple')}>
+          新版编辑器
+        </button>
+        <button type="button" className={editor === 'legacy' ? 'primary' : undefined} aria-pressed={editor === 'legacy'} onClick={() => setEditor('legacy')}>
+          旧版编辑器
+        </button>
+      </div>
+      {editor === 'simple' ? <SimpleCardsEditor /> : <LegacyCardsEditor />}
+    </section>
+  );
+}
+
+function SimpleCardsEditor() {
+  const router = useRouter();
+  const [cards, setCards] = useState<AdminCard[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [redirectEnabled, setRedirectEnabled] = useState(true);
+  const [message, setMessage] = useState<string | null>(null);
+  const selected = cards.find((card) => card.id === selectedId) ?? null;
+  const containers = cards.filter((card) => card.kind === 'container');
+
+  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { setRedirectEnabled(selected ? selected.kind === 'redirect' : true); }, [selectedId, selected?.kind]);
+
+  async function refresh() {
+    try {
+      const data = await apiFetch<{ cards: AdminCard[] }>('/api/admin/cards');
+      setCards(data.cards);
+      setSelectedId((current) => current && data.cards.some((card) => card.id === current) ? current : null);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '卡片加载失败');
+    }
+  }
+
+  function descendants(cardId: string): Set<string> {
+    const result = new Set<string>();
+    const visit = (parentId: string) => {
+      for (const child of cards) {
+        if (child.parentId === parentId && !result.has(child.id)) {
+          result.add(child.id);
+          visit(child.id);
+        }
+      }
+    };
+    visit(cardId);
+    return result;
+  }
+
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const redirect = data.get('redirect') === 'on';
+    const redirectUrl = String(data.get('redirectUrl') ?? '').trim();
+    if (redirect && !redirectUrl) {
+      setMessage('请填写跳转链接');
+      return;
+    }
+    const kind = redirect ? 'redirect' : selected?.kind === 'resources' ? 'resources' : 'container';
+    const payload = {
+      title: String(data.get('title') ?? '').trim(),
+      subtitle: String(data.get('subtitle') ?? '').trim(),
+      kind,
+      redirectUrl: redirect ? redirectUrl : null,
+      redirectProxy: data.get('redirectProxy') === 'on',
+      oneTimeLinkEnabled: data.get('oneTimeLinkEnabled') === 'on',
+      visibility: String(data.get('visibility') ?? 'public'),
+      parentId: data.get('parentId') ? String(data.get('parentId')) : null,
+      ...(!selected ? { w: 1, h: 1 } : {}),
+    };
+
+    setMessage(null);
+    try {
+      if (selected) {
+        await apiFetch(`/api/admin/cards/${selected.id}`, {
+          method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        showToast('卡片保存成功');
+      } else {
+        const result = await apiFetch<{ card: AdminCard }>('/api/admin/cards', {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        setSelectedId(null);
+        setMessage(result.card.status === 'pending' ? '卡片已创建，等待站长审核' : '卡片已创建');
+        showToast('卡片创建成功');
+      }
+      await refresh();
+      router.refresh();
+      if (!selected) form.reset();
+      if (!selected) setRedirectEnabled(true);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '保存失败');
+    }
+  }
+
+  async function remove(card: AdminCard) {
+    if (!window.confirm(`删除「${card.title}」及其子卡片？`)) return;
+    try {
+      await apiFetch(`/api/admin/cards/${card.id}`, { method: 'DELETE' });
+      if (selectedId === card.id) setSelectedId(null);
+      await refresh();
+      router.refresh();
+      showToast('卡片已删除');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '删除失败');
+    }
+  }
+
+  return (
+    <div className="simple-card-editor">
+      <section className="card" style={{ padding: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+          <h2 style={{ margin: 0, fontSize: '1.05rem' }}>卡片列表 <span className="muted">{cards.length}</span></h2>
+          <button type="button" onClick={() => { setSelectedId(null); setRedirectEnabled(true); }}>＋ 新建</button>
+        </div>
+        <div style={{ display: 'grid', gap: '0.4rem' }}>
+          {cards.map((card) => {
+            const status = STATUS_META[card.status];
+            return (
+              <div key={card.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--border-color)', borderRadius: 9, padding: '0.55rem 0.65rem', background: selectedId === card.id ? 'var(--accent-soft)' : 'transparent' }}>
+                <button type="button" onClick={() => setSelectedId(card.id)} aria-pressed={selectedId === card.id} style={{ flex: 1, minWidth: 0, textAlign: 'left', border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer' }}>
+                  <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.title || '未命名卡片'}</strong>
+                  <span className="muted" style={{ fontSize: '0.8rem' }}>{card.kind === 'redirect' ? '跳转链接' : card.kind === 'resources' ? '资源列表' : '容器'} · {VISIBILITY_LABELS[card.visibility] ?? card.visibility} · {status?.label ?? card.status}</span>
+                </button>
+                <button type="button" aria-label={`删除${card.title}`} title="删除" onClick={() => void remove(card)}>删除</button>
+              </div>
+            );
+          })}
+          {cards.length === 0 && <p className="muted">还没有卡片，点击「新建」开始添加。</p>}
+        </div>
+      </section>
+
+      <form key={selected?.id ?? 'new'} onSubmit={save} className="card" style={{ display: 'grid', gap: '0.75rem', padding: '1rem' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.05rem' }}>{selected ? '编辑卡片' : '新建卡片'}</h2>
+          <p className="muted" style={{ margin: '0.25rem 0 0', fontSize: '0.85rem' }}>填写标题和卡片内容，其余设置可使用默认值。</p>
+        </div>
+        <label style={{ display: 'grid', gap: '0.3rem' }}>标题
+          <input name="title" required maxLength={80} defaultValue={selected?.title ?? ''} placeholder="例如：常用工具" />
+        </label>
+        <label style={{ display: 'grid', gap: '0.3rem' }}>简介
+          <textarea name="subtitle" maxLength={200} rows={3} defaultValue={selected?.subtitle ?? ''} placeholder="可选，简单介绍这个卡片" />
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <input type="checkbox" name="redirect" checked={redirectEnabled} onChange={(event) => setRedirectEnabled(event.target.checked)} />
+          是否重定向链接
+        </label>
+        {redirectEnabled && (
+          <label style={{ display: 'grid', gap: '0.3rem' }}>跳转地址
+            <input name="redirectUrl" type="url" required defaultValue={selected?.redirectUrl ?? ''} placeholder="https://example.com/file.zip" />
+          </label>
+        )}
+        <label style={{ display: 'grid', gap: '0.3rem' }}>可见范围
+          <select name="visibility" defaultValue={selected?.visibility ?? 'public'}>
+            {VISIBILITY_OPTIONS.map((value) => <option key={value} value={value}>{VISIBILITY_LABELS[value]}</option>)}
+          </select>
+        </label>
+        <label style={{ display: 'grid', gap: '0.3rem' }}>放入卡片
+          <select name="parentId" defaultValue={selected?.parentId ?? ''}>
+            <option value="">根层（下载区首页）</option>
+            {containers.filter((card) => card.id !== selected?.id && !descendants(selected?.id ?? '').has(card.id)).map((card) => <option key={card.id} value={card.id}>在「{card.title}」内</option>)}
+          </select>
+        </label>
+        {redirectEnabled && (
+          <div style={{ display: 'grid', gap: '0.45rem', padding: '0.65rem', borderRadius: 9, background: 'var(--bg)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><input type="checkbox" name="redirectProxy" defaultChecked={selected?.redirectProxy ?? true} />代理下载，隐藏原始地址</label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><input type="checkbox" name="oneTimeLinkEnabled" defaultChecked={selected?.oneTimeLinkEnabled ?? false} />显示一次性下载链接按钮</label>
+          </div>
+        )}
+        {message && <p role="status" className="muted" style={{ margin: 0 }}>{message}</p>}
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button type="submit" className="primary">{selected ? '保存更改' : '创建卡片'}</button>
+          {selected && <button type="button" onClick={() => setSelectedId(null)}>取消</button>}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/** 下载区卡片门户后台编辑器：增删改 + 无限套娃（树形展示）+ 可视化拖拽缩放。 */
+function LegacyCardsEditor() {
   const router = useRouter();
   const [cards, setCards] = useState<AdminCard[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
